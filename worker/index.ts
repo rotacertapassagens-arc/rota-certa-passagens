@@ -88,8 +88,8 @@ async function digest(value: string, env: Env) {
 async function passwordHash(password: string) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 210000 }, key, 256);
-  return `pbkdf2$210000$${hex(salt)}$${hex(bits)}`;
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100000 }, key, 256);
+  return `pbkdf2$100000$${hex(salt)}$${hex(bits)}`;
 }
 async function verifyPassword(password: string, stored: string) {
   const [kind, iterations, saltHex, expected] = stored.split('$');
