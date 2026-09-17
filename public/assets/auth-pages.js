@@ -18,6 +18,7 @@ document.getElementById('masterForm')?.addEventListener('submit', async (event) 
   const code = document.getElementById('masterCode').value.trim();
   const password = document.getElementById('masterPassword').value;
   if (password !== document.getElementById('masterPasswordConfirm').value) { status.textContent='As senhas não coincidem.'; return; }
+  if (password.length < 12 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) { status.textContent='A senha precisa ter pelo menos 12 caracteres, com letra maiúscula, letra minúscula e número.'; return; }
   try { await send('/api/admin/master-invites/accept', { email, code, password }); status.textContent='Acesso master ativado. Entre na Área do cliente e abra o painel administrativo.'; event.target.reset(); }
-  catch { status.textContent='O e-mail ou código é inválido, já foi usado ou expirou.'; }
+  catch (error) { status.textContent=error.message==='invalid_password_requirements'?'A senha precisa ter pelo menos 12 caracteres, com letra maiúscula, letra minúscula e número.':'O e-mail ou código é inválido, já foi usado ou expirou.'; }
 });

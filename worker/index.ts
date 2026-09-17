@@ -265,7 +265,9 @@ async function bootstrapMaster(req: Request, env: Env) {
 }
 async function inviteMaster(req: Request, env: Env) {const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);return createMasterInvite(req,env,auth.userId);}
 async function acceptMaster(req: Request, env: Env) {
-  const b=await body(req);const email=emailOf(b?.email);const code=typeof b?.code==='string'&&/^\d{6}$/.test(b.code)?b.code:null;const password=b?.password;if(!email||!code||!validPassword(password))return reply({error:'invalid_or_expired_invite'},400);
+  const b=await body(req);const email=emailOf(b?.email);const code=typeof b?.code==='string'&&/^\d{6}$/.test(b.code)?b.code:null;const password=b?.password;
+  if(!validPassword(password))return reply({error:'invalid_password_requirements'},400);
+  if(!email||!code)return reply({error:'invalid_or_expired_invite'},400);
   if(!(await rateLimit(req,env,'master-accept',email,8,900)))return reply({error:'too_many_attempts'},429);
   const row=await env.DB.prepare("SELECT t.id,t.user_id FROM account_tokens t JOIN users u ON u.id=t.user_id WHERE u.email=? AND t.token_hash=? AND t.purpose='master_invite' AND t.used_at IS NULL AND t.expires_at>CURRENT_TIMESTAMP AND t.failed_attempts<5 LIMIT 1").bind(email,await digest(code,env)).first<Row>();
   if(!row){await env.DB.prepare("UPDATE account_tokens SET failed_attempts=failed_attempts+1 WHERE id=(SELECT t.id FROM account_tokens t JOIN users u ON u.id=t.user_id WHERE u.email=? AND t.purpose='master_invite' AND t.used_at IS NULL ORDER BY t.created_at DESC LIMIT 1)").bind(email).run();return reply({error:'invalid_or_expired_invite'},400);}
