@@ -135,6 +135,9 @@ describe('Rota Certa public site API', () => {
     };
     const subscriptions = await db.query<{ count: number }>('SELECT count(*)::int AS count FROM subscriptions WHERE user_id=(SELECT id FROM users WHERE email=$1)', ['master@example.com']);
     expect(subscriptions.rows[0]?.count).toBe(0);
+    const starterPlanner = await app.inject({ method: 'GET', url: '/api/planner', headers: { cookie: masterSession.cookie } });
+    expect(starterPlanner.statusCode, starterPlanner.body).toBe(200);
+    expect(starterPlanner.json().trip.name).toBe('Minha viagem');
     const unlimitedPlanner = await app.inject({ method: 'POST', url: '/api/planner/trips', headers: mutationHeaders(masterSession), payload: { name: 'Viagem master', travelers: 1 } });
     expect(unlimitedPlanner.statusCode, unlimitedPlanner.body).toBe(201);
     const reused = await app.inject({ method: 'POST', url: '/api/admin/master-invites/accept', payload: { email: 'master@example.com', code, password: 'MasterSegura123' } });

@@ -48,10 +48,13 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database, config: 
       return reply.code(400).send({ error: 'invalid_or_expired_invite' });
     }
     const passwordHash = await hashPassword(parsed.data.password);
+    const tripId = randomUUID();
     await db.transaction(async (tx) => {
       await tx.query("UPDATE users SET password_hash=$1,status='active',email_verified_at=now(),updated_at=now() WHERE id=$2", [passwordHash, token.user_id]);
       await tx.query("INSERT INTO user_roles (user_id,role) VALUES ($1,'master') ON CONFLICT DO NOTHING", [token.user_id]);
       await tx.query('UPDATE account_tokens SET used_at=now() WHERE id=$1', [token.id]);
+      await tx.query("INSERT INTO trips (id,owner_user_id,name) SELECT $1,$2,'Minha viagem' WHERE NOT EXISTS(SELECT 1 FROM trips WHERE owner_user_id=$2)", [tripId, token.user_id]);
+      await tx.query("INSERT INTO budgets (trip_id,owner_user_id,amount_cents,currency) SELECT id,owner_user_id,0,'EUR' FROM trips WHERE id=$1 ON CONFLICT DO NOTHING", [tripId]);
     });
     await audit(db, config, request, 'admin.master_invite_accepted', token.user_id, 'user', token.user_id);
     return reply.send({ ok: true });
