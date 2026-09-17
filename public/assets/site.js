@@ -321,6 +321,7 @@ function showClient() {
   document.getElementById('clientName').textContent = session.user.name || 'Cliente Rota Certa';
   document.querySelector('.client-grid').classList.add('hidden');
   document.getElementById('clientDashboard').classList.remove('hidden');
+  document.getElementById('masterPanelLink')?.classList.toggle('hidden', !session.user.roles?.includes('master'));
 }
 async function clientInit() {
   bindClientForms();
