@@ -14,8 +14,10 @@ document.getElementById('resetForm')?.addEventListener('submit', async (event) =
 });
 document.getElementById('masterForm')?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  const email = document.getElementById('masterEmail').value;
+  const code = document.getElementById('masterCode').value.trim();
   const password = document.getElementById('masterPassword').value;
   if (password !== document.getElementById('masterPasswordConfirm').value) { status.textContent='As senhas não coincidem.'; return; }
-  try { await send('/api/admin/master-invites/accept', { token, password }); status.textContent='Acesso master ativado. Entre na Área do cliente e abra o painel administrativo.'; event.target.reset(); }
-  catch { status.textContent='O convite é inválido, já foi usado ou expirou.'; }
+  try { await send('/api/admin/master-invites/accept', { email, code, password }); status.textContent='Acesso master ativado. Entre na Área do cliente e abra o painel administrativo.'; event.target.reset(); }
+  catch { status.textContent='O e-mail ou código é inválido, já foi usado ou expirou.'; }
 });

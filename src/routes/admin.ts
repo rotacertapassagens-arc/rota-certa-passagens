@@ -4,11 +4,11 @@ import { z } from 'zod';
 import type { AppConfig } from '../config.js';
 import type { Database } from '../db.js';
 import type { EmailSender } from '../email.js';
-import { audit, requireAuth, requireMutationAuth } from '../auth.js';
-import { hashPassword, normalizeEmail, randomToken, safeEqualText, tokenDigest } from '../security.js';
+import { audit, enforceRateLimit, requireAuth, requireMutationAuth } from '../auth.js';
+import { hashPassword, normalizeEmail, randomEmailCode, safeEqualText, tokenDigest } from '../security.js';
 
 const inviteSchema = z.object({ email: z.string().email().max(254), name: z.string().trim().min(2).max(120) });
-const acceptSchema = z.object({ token: z.string().min(32).max(200), password: z.string().min(12).max(128).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/) });
+const acceptSchema = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/), password: z.string().min(12).max(128).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/) });
 
 export function registerAdminRoutes(app: FastifyInstance, db: Database, config: AppConfig, emailSender: EmailSender) {
   app.post('/api/admin/bootstrap/master-invites', async (request, reply) => {
@@ -28,13 +28,25 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database, config: 
   app.post('/api/admin/master-invites/accept', async (request, reply) => {
     const parsed = acceptSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_or_expired_invite' });
+    const email = normalizeEmail(parsed.data.email);
+    if (!(await enforceRateLimit(db, config, request, 'master_invite_accept', email, 8, 15 * 60))) return reply.code(429).send({ error: 'too_many_attempts' });
     const tokens = await db.query<{ id: string; user_id: string }>(
-      `SELECT id,user_id FROM account_tokens WHERE token_hash=$1 AND purpose='master_invite'
-        AND used_at IS NULL AND expires_at > now() LIMIT 1`,
-      [tokenDigest(parsed.data.token, config.TOKEN_PEPPER)],
+      `SELECT t.id,t.user_id FROM account_tokens t JOIN users u ON u.id=t.user_id
+        WHERE u.email=$1 AND t.token_hash=$2 AND t.purpose='master_invite'
+          AND t.used_at IS NULL AND t.expires_at > now() AND t.failed_attempts < 5 LIMIT 1`,
+      [email, tokenDigest(parsed.data.code, config.TOKEN_PEPPER)],
     );
     const token = tokens.rows[0];
-    if (!token) return reply.code(400).send({ error: 'invalid_or_expired_invite' });
+    if (!token) {
+      await db.query(
+        `UPDATE account_tokens SET failed_attempts=failed_attempts+1 WHERE id=(
+          SELECT t.id FROM account_tokens t JOIN users u ON u.id=t.user_id
+           WHERE u.email=$1 AND t.purpose='master_invite' AND t.used_at IS NULL AND t.expires_at>now()
+           ORDER BY t.created_at DESC LIMIT 1)`,
+        [email],
+      );
+      return reply.code(400).send({ error: 'invalid_or_expired_invite' });
+    }
     const passwordHash = await hashPassword(parsed.data.password);
     await db.transaction(async (tx) => {
       await tx.query("UPDATE users SET password_hash=$1,status='active',email_verified_at=now(),updated_at=now() WHERE id=$2", [passwordHash, token.user_id]);
@@ -105,7 +117,7 @@ async function createMasterInvite(db: Database, config: AppConfig, emailSender: 
   const parsed = inviteSchema.safeParse(request.body);
   if (!parsed.success) return reply.code(400).send({ error: 'invalid_invite' });
   const email = normalizeEmail(parsed.data.email);
-  const rawToken = randomToken();
+  const code = randomEmailCode();
   let userId: string;
   await db.transaction(async (tx) => {
     const users = await tx.query<{ id: string }>('SELECT id FROM users WHERE email=$1', [email]);
@@ -117,12 +129,11 @@ async function createMasterInvite(db: Database, config: AppConfig, emailSender: 
     await tx.query("UPDATE account_tokens SET used_at=now() WHERE user_id=$1 AND purpose='master_invite' AND used_at IS NULL", [userId]);
     await tx.query(
       `INSERT INTO account_tokens (id,user_id,purpose,token_hash,expires_at)
-       VALUES ($1,$2,'master_invite',$3,now()+interval '24 hours')`,
-      [randomUUID(), userId, tokenDigest(rawToken, config.TOKEN_PEPPER)],
+       VALUES ($1,$2,'master_invite',$3,now()+interval '15 minutes')`,
+      [randomUUID(), userId, tokenDigest(code, config.TOKEN_PEPPER)],
     );
   });
-  const link = `${config.APP_ORIGIN}/master-invite.html?token=${encodeURIComponent(rawToken)}`;
-  await emailSender.send({ userId: userId!, to: email, template: 'master_invite', subject: 'Convite master - Rota Certa Passagens', html: `<p><a href="${link}">Aceitar convite master</a></p><p>O link expira em 24 horas, é de uso único e confirma este e-mail.</p>` });
+  await emailSender.send({ userId: userId!, to: email, template: 'master_invite', subject: 'Código de ativação master - Rota Certa Passagens', html: `<p>Seu código de ativação master é:</p><p><strong>${code}</strong></p><p>Digite-o em ${config.APP_ORIGIN}/master-invite.html. O código expira em 15 minutos, aceita no máximo cinco tentativas e só pode ser usado uma vez.</p>` });
   await audit(db, config, request, 'admin.master_invite_created', actorUserId, 'user', userId!);
   return reply.code(201).send({ ok: true });
 }

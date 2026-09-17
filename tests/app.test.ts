@@ -123,10 +123,11 @@ describe('Rota Certa public site API', () => {
     });
     expect(invite.statusCode).toBe(201);
     const message = email.messages.findLast((item) => item.template === 'master_invite');
-    const token = /token=([^"&]+)/.exec(message?.html ?? '')?.[1];
-    const accepted = await app.inject({ method: 'POST', url: '/api/admin/master-invites/accept', payload: { token: decodeURIComponent(token!), password: 'MasterSegura123' } });
+    const code = /<strong>(\d{6})<\/strong>/.exec(message?.html ?? '')?.[1];
+    expect(code).toBeTruthy();
+    const accepted = await app.inject({ method: 'POST', url: '/api/admin/master-invites/accept', payload: { email: 'master@example.com', code, password: 'MasterSegura123' } });
     expect(accepted.statusCode).toBe(200);
-    const reused = await app.inject({ method: 'POST', url: '/api/admin/master-invites/accept', payload: { token: decodeURIComponent(token!), password: 'MasterSegura123' } });
+    const reused = await app.inject({ method: 'POST', url: '/api/admin/master-invites/accept', payload: { email: 'master@example.com', code, password: 'MasterSegura123' } });
     expect(reused.statusCode).toBe(400);
     const secondBootstrap = await app.inject({ method: 'POST', url: '/api/admin/bootstrap/master-invites', headers: { authorization: `Bearer ${config.MASTER_BOOTSTRAP_TOKEN}` }, payload: { email: 'other@example.com', name: 'Outra Pessoa' } });
     expect(secondBootstrap.statusCode).toBe(409);
