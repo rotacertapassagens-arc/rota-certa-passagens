@@ -1,0 +1,206 @@
+openapi: 3.1.0
+info:
+  title: Rota Certa Passagens - API do site público
+  version: 0.1.0
+  description: Contrato da implementação local. Não representa uma API publicada.
+servers:
+  - url: http://localhost:3000
+tags:
+  - name: Public
+  - name: Auth
+  - name: Planner
+  - name: Admin
+  - name: Payments
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: rc_session
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    Signup:
+      type: object
+      required: [name, email, password, termsAccepted]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 12, maxLength: 128 }
+        termsAccepted: { type: boolean, const: true }
+    Trip:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        destination: { type: [string, "null"] }
+paths:
+  /api/health:
+    get:
+      tags: [Public]
+      summary: Verifica o processo HTTP
+      responses:
+        "200": { description: Disponível }
+  /api/geo:
+    get:
+      tags: [Public]
+      summary: Retorna país inferido dos cabeçalhos do proxy
+      responses:
+        "200": { description: País ou valor desconhecido }
+  /api/lead:
+    post:
+      tags: [Public]
+      summary: Registra pedido de cotação ou planejamento no banco local
+      responses:
+        "201": { description: Pedido registrado }
+        "429": { description: Limite excedido }
+  /api/auth/signup:
+    post:
+      tags: [Auth]
+      summary: Cria conta pendente e código de confirmação
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Signup" }
+      responses:
+        "202": { description: Pedido aceito }
+        "400": { description: Dados inválidos }
+        "429": { description: Limite excedido }
+  /api/auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Confirma e-mail, cria trial e sessão
+      responses:
+        "200": { description: E-mail confirmado; cookies emitidos }
+        "400": { description: Código inválido ou expirado }
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Autentica por e-mail e senha
+      responses:
+        "200": { description: Sessão criada }
+        "401": { description: Credenciais inválidas }
+  /api/auth/session:
+    get:
+      tags: [Auth]
+      security: [{ sessionCookie: [] }]
+      summary: Retorna a sessão e o direito de acesso
+      responses:
+        "200": { description: Sessão válida }
+        "401": { description: Sem sessão válida }
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Revoga a sessão atual
+      responses:
+        "200": { description: Sessão revogada }
+  /api/auth/password-reset/request:
+    post:
+      tags: [Auth]
+      summary: Solicita recuperação com resposta não enumerável
+      responses:
+        "202": { description: Resposta genérica }
+  /api/auth/password-reset/confirm:
+    post:
+      tags: [Auth]
+      summary: Consome token e revoga sessões existentes
+      responses:
+        "200": { description: Senha alterada }
+        "400": { description: Token inválido ou expirado }
+  /api/auth/change-password:
+    post:
+      tags: [Auth]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Altera senha autenticada e revoga outras sessões
+      responses:
+        "200": { description: Senha alterada }
+  /api/planner:
+    get:
+      tags: [Planner]
+      security: [{ sessionCookie: [] }]
+      summary: Lê uma viagem pertencente ao cliente
+      responses:
+        "200": { description: Planner persistido }
+        "402": { description: Acesso expirado }
+        "404": { description: Viagem não encontrada }
+  /api/planner/trips:
+    post:
+      tags: [Planner]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria viagem do cliente
+      responses:
+        "201": { description: Viagem criada }
+  /api/planner/import-local:
+    post:
+      tags: [Planner]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Importa dados legados para uma viagem separada
+      responses:
+        "201": { description: Importação criada }
+  /api/planner/{tripId}/{collection}:
+    post:
+      tags: [Planner]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria item de itinerary, places, expenses ou checklist
+      parameters:
+        - { name: tripId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: collection, in: path, required: true, schema: { type: string, enum: [itinerary, places, expenses, checklist] } }
+      responses:
+        "201": { description: Item criado }
+        "404": { description: Viagem não pertence à sessão }
+  /api/planner/{tripId}/budget:
+    put:
+      tags: [Planner]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza orçamento da viagem do cliente
+      parameters:
+        - { name: tripId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Orçamento atualizado }
+  /api/admin/bootstrap/master-invites:
+    post:
+      tags: [Admin]
+      summary: Cria convite do primeiro master com segredo de bootstrap
+      responses:
+        "201": { description: Convite criado }
+        "404": { description: Bootstrap indisponível }
+        "409": { description: Master já existe }
+  /api/admin/master-invites/accept:
+    post:
+      tags: [Admin]
+      summary: Consome convite master de uso único
+      responses:
+        "200": { description: Master ativado }
+  /api/admin/overview:
+    get:
+      tags: [Admin]
+      security: [{ sessionCookie: [] }]
+      summary: Retorna métricas agregadas sem conteúdo privado do Planner
+      responses:
+        "200": { description: Resumo administrativo }
+        "403": { description: Papel master necessário }
+  /api/payments/checkout:
+    post:
+      tags: [Payments]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria checkout somente no Stripe sandbox
+      responses:
+        "200": { description: URL do checkout sandbox }
+        "503": { description: Sandbox não configurado }
+  /api/payments/stripe-webhook:
+    post:
+      tags: [Payments]
+      summary: Processa webhook sandbox assinado e idempotente
+      responses:
+        "200": { description: Evento aceito ou já processado }
+        "400": { description: Assinatura inválida }

@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: rota_certa
+      POSTGRES_USER: rota_certa
+      POSTGRES_PASSWORD: local-only-change-me
+    volumes:
+      - rota_certa_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rota_certa -d rota_certa"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432"
+
+volumes:
+  rota_certa_db:

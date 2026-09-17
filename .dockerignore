@@ -1,0 +1,9 @@
+.git
+.env
+node_modules
+dist
+coverage
+reference
+backup-publicado-2026-09-16
+docs
+tests
