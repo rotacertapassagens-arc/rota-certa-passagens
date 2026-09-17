@@ -63,7 +63,9 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database, config: 
     const counts = await db.query<{ users: number; active_access: number; pending_payments: number; paid_payments: number }>(
       `SELECT
         (SELECT count(*)::int FROM users WHERE status<>'deleted') AS users,
-        (SELECT count(*)::int FROM subscriptions WHERE status IN ('trialing','active') AND ends_at>now()) AS active_access,
+        (SELECT count(*)::int FROM users u WHERE u.status='active' AND
+          (EXISTS(SELECT 1 FROM user_roles r WHERE r.user_id=u.id AND r.role='master') OR
+           EXISTS(SELECT 1 FROM subscriptions s WHERE s.user_id=u.id AND s.status IN ('trialing','active') AND s.ends_at>now()))) AS active_access,
         (SELECT count(*)::int FROM payments WHERE status IN ('pending','processing')) AS pending_payments,
         (SELECT count(*)::int FROM payments WHERE status='paid') AS paid_payments`,
     );

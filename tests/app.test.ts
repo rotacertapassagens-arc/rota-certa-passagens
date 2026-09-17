@@ -127,6 +127,16 @@ describe('Rota Certa public site API', () => {
     expect(code).toBeTruthy();
     const accepted = await app.inject({ method: 'POST', url: '/api/admin/master-invites/accept', payload: { email: 'master@example.com', code, password: 'MasterSegura123' } });
     expect(accepted.statusCode).toBe(200);
+    const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'master@example.com', password: 'MasterSegura123' } });
+    expect(login.statusCode, login.body).toBe(200);
+    const masterSession = {
+      cookie: login.cookies.map((item) => `${item.name}=${item.value}`).join('; '),
+      csrf: login.cookies.find((item) => item.name === 'rc_csrf')!.value,
+    };
+    const subscriptions = await db.query<{ count: number }>('SELECT count(*)::int AS count FROM subscriptions WHERE user_id=(SELECT id FROM users WHERE email=$1)', ['master@example.com']);
+    expect(subscriptions.rows[0]?.count).toBe(0);
+    const unlimitedPlanner = await app.inject({ method: 'POST', url: '/api/planner/trips', headers: mutationHeaders(masterSession), payload: { name: 'Viagem master', travelers: 1 } });
+    expect(unlimitedPlanner.statusCode, unlimitedPlanner.body).toBe(201);
     const reused = await app.inject({ method: 'POST', url: '/api/admin/master-invites/accept', payload: { email: 'master@example.com', code, password: 'MasterSegura123' } });
     expect(reused.statusCode).toBe(400);
     const secondBootstrap = await app.inject({ method: 'POST', url: '/api/admin/bootstrap/master-invites', headers: { authorization: `Bearer ${config.MASTER_BOOTSTRAP_TOKEN}` }, payload: { email: 'other@example.com', name: 'Outra Pessoa' } });

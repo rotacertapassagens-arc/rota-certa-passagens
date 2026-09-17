@@ -145,6 +145,7 @@ export function registerPlannerRoutes(app: FastifyInstance, db: Database, config
 }
 
 async function requireAccess(db: Database, auth: AuthContext, reply: FastifyReply) {
+  if (auth.roles.includes('master')) return true;
   const result = await db.query('SELECT 1 FROM subscriptions WHERE user_id=$1 AND status IN (\'trialing\',\'active\') AND ends_at > now() LIMIT 1', [auth.userId]);
   if (!result.rowCount) {
     await reply.code(402).send({ error: 'planner_access_expired' });
