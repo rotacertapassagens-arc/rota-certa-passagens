@@ -14,7 +14,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "tsx src/cli/migrate.ts",
-    "db:rollback": "tsx src/cli/rollback.ts"
+    "db:rollback": "tsx src/cli/rollback.ts",
+    "worker:typecheck": "tsc -p worker/tsconfig.json --noEmit",
+    "worker:types": "wrangler types worker/env.d.ts",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "d1:migrate:local": "wrangler d1 migrations apply DB --local",
+    "d1:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
@@ -24,11 +30,13 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260916.1",
     "@types/node": "^24.3.1",
     "@types/pg": "^8.15.5",
     "pg-mem": "^3.0.5",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "wrangler": "^4.132.0"
   }
 }

@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rota-certa-passagens",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 }
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "APP_ORIGIN": "https://rotacertapassagens.com",
+    "EMAIL_FROM": "Rota Certa Passagens <acesso@mail.rotacertapassagens.com>",
+    "PAYMENTS_MODE": "disabled"
+  },
+  "secrets": {
+    "required": ["TOKEN_PEPPER", "RATE_LIMIT_SECRET", "RESEND_API_KEY", "MASTER_BOOTSTRAP_TOKEN"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rota-certa-site",
+      "database_id": "33f60120-e231-43e1-ba56-6f61c364b332",
+      "migrations_dir": "d1/migrations"
+    }
+  ]
+}

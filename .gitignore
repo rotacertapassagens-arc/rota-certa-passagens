@@ -5,6 +5,10 @@ dist/
 !.env.example
 coverage/
 .local/
+.wrangler/
+.wrangler-dry-run/
+.dev.vars
+.dev.vars.*
 *.log
 .DS_Store
 Thumbs.db
