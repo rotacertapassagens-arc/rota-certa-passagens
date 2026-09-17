@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Rota Certa Passagens - API do site público
   version: 0.1.0
-  description: Contrato da implementação local. Não representa uma API publicada.
+  description: Contrato da API do site público e do painel administrativo.
 servers:
   - url: http://localhost:3000
 tags:
@@ -42,6 +42,28 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         destination: { type: [string, "null"] }
+    FlightQuote:
+      type: object
+      required: [type, name, email, phone, origem, destino, ida, adults, children, infants, tipo, cabinClass, baggage, flexibility, paymentPreference, contactConsent]
+      properties:
+        type: { type: string, const: quote }
+        name: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email }
+        phone: { type: string }
+        origem: { type: string }
+        destino: { type: string }
+        ida: { type: string, format: date }
+        volta: { type: string, format: date }
+        adults: { type: integer, minimum: 1, maximum: 20 }
+        children: { type: integer, minimum: 0, maximum: 20 }
+        infants: { type: integer, minimum: 0, maximum: 20 }
+        tipo: { type: string, enum: [Ida e volta, Somente ida] }
+        cabinClass: { type: string }
+        baggage: { type: string }
+        flexibility: { type: string }
+        paymentPreference: { type: string }
+        observacoes: { type: string, maxLength: 3000 }
+        contactConsent: { type: boolean, const: true }
 paths:
   /api/health:
     get:
@@ -58,9 +80,15 @@ paths:
   /api/lead:
     post:
       tags: [Public]
-      summary: Registra pedido de cotação ou planejamento no banco local
+      summary: Salva uma proposta de voo e envia confirmação ao cliente e aos masters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FlightQuote" }
       responses:
-        "201": { description: Pedido registrado }
+        "201": { description: Pedido registrado com protocolo e prazo de 48 horas }
+        "400": { description: Dados inválidos }
         "429": { description: Limite excedido }
   /api/auth/signup:
     post:
@@ -210,6 +238,27 @@ paths:
       responses:
         "200": { description: Resumo administrativo }
         "403": { description: Papel master necessário }
+  /api/admin/leads:
+    get:
+      tags: [Admin]
+      security: [{ sessionCookie: [] }]
+      summary: Lista propostas de voo para usuários master
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [new, reviewing, awaiting_customer, ready, sent, converted, lost, canceled, closed] } }
+      responses:
+        "200": { description: Propostas e dados necessários para atendimento }
+        "403": { description: Papel master necessário }
+  /api/admin/leads/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza status, notas internas e responsável por uma proposta
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Proposta atualizada }
+        "403": { description: Papel master necessário }
+        "404": { description: Proposta não encontrada }
   /api/payments/checkout:
     post:
       tags: [Payments]

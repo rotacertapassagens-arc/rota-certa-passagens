@@ -9,6 +9,8 @@ import { hashPassword, normalizeEmail, randomEmailCode, safeEqualText, tokenDige
 
 const inviteSchema = z.object({ email: z.string().email().max(254), name: z.string().trim().min(2).max(120) });
 const acceptSchema = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/), password: z.string().min(12).max(128).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/) });
+const leadStatusSchema = z.enum(['new', 'reviewing', 'awaiting_customer', 'ready', 'sent', 'converted', 'lost', 'canceled', 'closed']);
+const leadUpdateSchema = z.object({ status: leadStatusSchema, internalNotes: z.string().trim().max(3000).optional(), assignToMe: z.boolean().optional() });
 
 export function registerAdminRoutes(app: FastifyInstance, db: Database, config: AppConfig, emailSender: EmailSender) {
   app.post('/api/admin/bootstrap/master-invites', async (request, reply) => {
@@ -63,12 +65,14 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database, config: 
   app.get('/api/admin/overview', async (request, reply) => {
     const auth = await requireMaster(db, config, request, reply);
     if (!auth) return;
-    const counts = await db.query<{ users: number; active_access: number; pending_payments: number; paid_payments: number }>(
+    const counts = await db.query<{ users: number; active_access: number; pending_payments: number; paid_payments: number; new_leads: number; overdue_leads: number }>(
       `SELECT
         (SELECT count(*)::int FROM users WHERE status<>'deleted') AS users,
         (SELECT count(*)::int FROM users u WHERE u.status='active') AS active_access,
         (SELECT count(*)::int FROM payments WHERE status IN ('pending','processing')) AS pending_payments,
-        (SELECT count(*)::int FROM payments WHERE status='paid') AS paid_payments`,
+        (SELECT count(*)::int FROM payments WHERE status='paid') AS paid_payments,
+        (SELECT count(*)::int FROM lead_requests WHERE kind='flight_quote' AND status='new') AS new_leads,
+        (SELECT count(*)::int FROM lead_requests WHERE kind='flight_quote' AND deadline_at<now() AND status NOT IN ('sent','converted','lost','canceled','closed')) AS overdue_leads`,
     );
     return reply.send(counts.rows[0]);
   });
@@ -103,6 +107,43 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database, config: 
         ORDER BY p.created_at DESC LIMIT 200`,
     );
     return reply.send({ payments: payments.rows });
+  });
+
+  app.get('/api/admin/leads', async (request, reply) => {
+    const auth = await requireMaster(db, config, request, reply);
+    if (!auth) return;
+    const query = z.object({ status: leadStatusSchema.optional() }).safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid_filter' });
+    const leads = await db.query(
+      `SELECT l.id,l.protocol,l.customer_name,l.customer_email,l.customer_phone,l.origin,l.destination,
+              l.outbound_on,l.return_on,l.adults,l.children,l.infants,l.trip_type,l.cabin_class,l.baggage,
+              l.date_flexibility,l.payment_preference,l.notes,l.internal_notes,l.status,l.deadline_at,
+              l.created_at,l.updated_at,l.assigned_to,p.display_name AS assigned_name
+         FROM lead_requests l LEFT JOIN profiles p ON p.user_id=l.assigned_to
+        WHERE l.kind='flight_quote' AND ($1::text IS NULL OR l.status=$1)
+        ORDER BY CASE WHEN l.status IN ('new','reviewing','awaiting_customer','ready') THEN 0 ELSE 1 END,
+                 l.deadline_at ASC NULLS LAST,l.created_at DESC LIMIT 200`,
+      [query.data.status ?? null],
+    );
+    return reply.send({ leads: leads.rows });
+  });
+
+  app.patch('/api/admin/leads/:id', async (request, reply) => {
+    const auth = await requireMutationAuth(db, config, request, reply);
+    if (!auth || !auth.roles.includes('master')) return auth ? reply.code(403).send({ error: 'forbidden' }) : undefined;
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params);
+    const parsed = leadUpdateSchema.safeParse(request.body);
+    if (!params.success || !parsed.success) return reply.code(400).send({ error: 'invalid_request' });
+    const updated = await db.query(
+      `UPDATE lead_requests SET status=$1,internal_notes=$2,
+              assigned_to=CASE WHEN $3 THEN $4 ELSE assigned_to END,updated_at=now()
+        WHERE id=$5 AND kind='flight_quote'
+      RETURNING id,protocol,status,internal_notes,assigned_to,updated_at`,
+      [parsed.data.status, parsed.data.internalNotes || null, parsed.data.assignToMe === true, auth.userId, params.data.id],
+    );
+    if (!updated.rowCount) return reply.code(404).send({ error: 'not_found' });
+    await audit(db, config, request, 'admin.lead_updated', auth.userId, 'lead_request', params.data.id);
+    return reply.send({ lead: updated.rows[0] });
   });
 }
 

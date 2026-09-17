@@ -6,9 +6,10 @@ import { tokenDigest } from './security.js';
 export interface EmailMessage {
   userId: string | null;
   to: string;
-  template: 'verify_email' | 'password_reset' | 'master_invite';
+  template: 'verify_email' | 'password_reset' | 'master_invite' | 'flight_quote_customer' | 'flight_quote_master';
   subject: string;
   html: string;
+  text?: string;
 }
 
 export interface EmailSender {
@@ -43,7 +44,7 @@ export class RuntimeEmailSender implements EmailSender {
         authorization: `Bearer ${this.config.RESEND_API_KEY}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ from: this.config.EMAIL_FROM, to: [message.to], subject: message.subject, html: message.html }),
+      body: JSON.stringify({ from: this.config.EMAIL_FROM, to: [message.to], subject: message.subject, html: message.html, text: message.text }),
     });
     const body = (await response.json().catch(() => ({}))) as { id?: string };
     await this.db.query(

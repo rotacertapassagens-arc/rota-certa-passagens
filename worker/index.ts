@@ -31,7 +31,7 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
   if (req.method === 'GET' && p === '/api/health') return reply({ ok: true, runtime: 'cloudflare-workers' });
   if (req.method === 'GET' && p === '/api/geo') return reply({ country: req.headers.get('cf-ipcountry') || 'PT' });
-  if (req.method === 'POST' && p === '/api/lead') return lead(req, env);
+  if (req.method === 'POST' && p === '/api/lead') return flightQuoteLead(req, env);
   if (req.method === 'POST' && p === '/api/auth/signup') return signup(req, env);
   if (req.method === 'POST' && p === '/api/auth/verify-email') return verifyEmail(req, env);
   if (req.method === 'POST' && p === '/api/auth/login') return login(req, env);
@@ -47,6 +47,9 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   if (req.method === 'GET' && p === '/api/admin/users') return adminUsers(req, env);
   if (req.method === 'GET' && p === '/api/admin/plans') return adminPlans(req, env);
   if (req.method === 'GET' && p === '/api/admin/payments') return adminPayments(req, env);
+  if (req.method === 'GET' && p === '/api/admin/leads') return adminLeads(req, env, url);
+  const adminLead = p.match(/^\/api\/admin\/leads\/([0-9a-f-]+)$/i);
+  if (req.method === 'PATCH' && adminLead) return adminLeadUpdate(req, env, adminLead[1]);
   if (req.method === 'POST' && p === '/api/payments/checkout') return reply({ error: 'payments_disabled' }, 503);
   if (req.method === 'POST' && p === '/api/payments/stripe-webhook') return reply({ error: 'payments_disabled' }, 503);
   if (req.method === 'GET' && p === '/api/planner') return plannerGet(req, env, url);
@@ -76,6 +79,10 @@ function text(value: unknown, max: number, min = 0) {
   const v = typeof value === 'string' ? value.trim() : '';
   return v.length >= min && v.length <= max ? v : null;
 }
+function phoneOf(value: unknown) { const v=typeof value==='string'?value.trim():'';if(!/^\+?[0-9 ()-]{8,30}$/.test(v))return null;return `${v.startsWith('+')?'+':''}${v.replace(/\D/g,'')}`; }
+function dateOf(value: unknown) { const v=typeof value==='string'?value:'';return /^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(`${v}T00:00:00Z`))?v:null; }
+function intOf(value: unknown,min:number,max:number) { const n=Number(value);return Number.isInteger(n)&&n>=min&&n<=max?n:null; }
+function html(value:string) { return value.replace(/[&<>'"]/g,(character)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'})[character]!); }
 function isoAfter(seconds: number) { return new Date(Date.now() + seconds * 1000).toISOString(); }
 function randomToken(bytes = 32) {
   const a = crypto.getRandomValues(new Uint8Array(bytes));
@@ -170,9 +177,9 @@ async function canCreateActiveTrip(auth:Auth,env:Env,access?:Entitlement){const 
 }
 async function requirePlannerAccess(auth:Auth,env:Env){const access=await entitlement(auth,env);return access.accessActive?access:null;}
 
-async function sendEmail(env: Env, userId: string | null, to: string, template: string, subject: string, htmlBody: string) {
+async function sendEmail(env: Env, userId: string | null, to: string, template: string, subject: string, htmlBody: string, textBody?: string) {
   const recipientHash = await digest(to, env); const id = crypto.randomUUID();
-  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html: htmlBody }) });
+  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html: htmlBody, text: textBody }) });
   let reference: string | null = null; try { reference = String(((await response.json()) as Row).id || '') || null; } catch {}
   await env.DB.prepare('INSERT INTO email_events(id,user_id,template,recipient_hash,provider,provider_reference,status,error_code) VALUES(?,?,?,?,?,?,?,?)').bind(id,userId,template,recipientHash,'resend',reference,response.ok?'sent':'failed',response.ok?null:`http_${response.status}`).run();
   if (!response.ok) throw new Error('email_delivery_failed');
@@ -291,12 +298,44 @@ async function acceptMaster(req: Request, env: Env) {
   ]);await audit(env,String(row.user_id),'admin.master_invite_accepted','user',String(row.user_id));return reply({ok:true});
 }
 async function requireMaster(req:Request,env:Env){const a=await getAuth(req,env);return a?.roles.includes('master')?a:null;}
-async function adminOverview(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);const u=await env.DB.prepare("SELECT count(*) n FROM users WHERE status<>'deleted'").first<{n:number}>();const a=await env.DB.prepare("SELECT count(*) n FROM users WHERE status='active'").first<{n:number}>();const p=await env.DB.prepare("SELECT count(*) n FROM payments WHERE status IN ('pending','processing')").first<{n:number}>();const paid=await env.DB.prepare("SELECT count(*) n FROM payments WHERE status='paid'").first<{n:number}>();return reply({users:u?.n||0,active_access:a?.n||0,pending_payments:p?.n||0,paid_payments:paid?.n||0});}
+async function adminOverview(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);const u=await env.DB.prepare("SELECT count(*) n FROM users WHERE status<>'deleted'").first<{n:number}>();const a=await env.DB.prepare("SELECT count(*) n FROM users WHERE status='active'").first<{n:number}>();const p=await env.DB.prepare("SELECT count(*) n FROM payments WHERE status IN ('pending','processing')").first<{n:number}>();const paid=await env.DB.prepare("SELECT count(*) n FROM payments WHERE status='paid'").first<{n:number}>();const fresh=await env.DB.prepare("SELECT count(*) n FROM lead_requests WHERE kind='flight_quote' AND status='new'").first<{n:number}>();const overdue=await env.DB.prepare("SELECT count(*) n FROM lead_requests WHERE kind='flight_quote' AND deadline_at<CURRENT_TIMESTAMP AND status NOT IN ('sent','converted','lost','canceled','closed')").first<{n:number}>();return reply({users:u?.n||0,active_access:a?.n||0,pending_payments:p?.n||0,paid_payments:paid?.n||0,new_leads:fresh?.n||0,overdue_leads:overdue?.n||0});}
 async function adminUsers(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);const users=await env.DB.prepare('SELECT u.id,u.email,p.display_name,u.status,u.email_verified_at,u.created_at,u.last_login_at FROM users u JOIN profiles p ON p.user_id=u.id ORDER BY u.created_at DESC LIMIT 200').all<Row>();const roles=await env.DB.prepare('SELECT user_id,role FROM user_roles').all<Row>();return reply({users:users.results.map(u=>({...u,roles:roles.results.filter(r=>r.user_id===u.id).map(r=>r.role)}))});}
 async function adminPlans(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);return reply({plans:(await env.DB.prepare('SELECT * FROM plans ORDER BY price_cents').all()).results});}
 async function adminPayments(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);return reply({payments:(await env.DB.prepare('SELECT p.*,u.email,pl.code plan_code FROM payments p JOIN users u ON u.id=p.user_id LEFT JOIN plans pl ON pl.id=p.plan_id ORDER BY p.created_at DESC LIMIT 200').all()).results});}
 
-async function lead(req:Request,env:Env){const b=await body(req);const kind=b?.kind==='planning'?'planning':b?.kind==='flight_quote'?'flight_quote':null;if(!kind)return reply({error:'invalid_lead'},400);if(!(await rateLimit(req,env,'lead',kind,10,3600)))return reply({error:'try_again_later'},429);await env.DB.prepare('INSERT INTO lead_requests(id,kind,origin,destination,outbound_on,return_on,passengers,trip_type,notes,ip_hash) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),kind,text(b?.origin,180),text(b?.destination,180),text(b?.outboundOn,20),text(b?.returnOn,20),text(b?.passengers,50),text(b?.tripType,50),text(b?.notes,2000),await sha(clientKey(req))).run();return reply({ok:true},201);}
+const leadStatuses=['new','reviewing','awaiting_customer','ready','sent','converted','lost','canceled','closed'];
+async function adminLeads(req:Request,env:Env,url:URL){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);const status=url.searchParams.get('status');if(status&&!leadStatuses.includes(status))return reply({error:'invalid_filter'},400);const sql=`SELECT l.id,l.protocol,l.customer_name,l.customer_email,l.customer_phone,l.origin,l.destination,l.outbound_on,l.return_on,l.adults,l.children,l.infants,l.trip_type,l.cabin_class,l.baggage,l.date_flexibility,l.payment_preference,l.notes,l.internal_notes,l.status,l.deadline_at,l.created_at,l.updated_at,l.assigned_to,p.display_name assigned_name FROM lead_requests l LEFT JOIN profiles p ON p.user_id=l.assigned_to WHERE l.kind='flight_quote'${status?' AND l.status=?':''} ORDER BY CASE WHEN l.status IN ('new','reviewing','awaiting_customer','ready') THEN 0 ELSE 1 END,l.deadline_at ASC,l.created_at DESC LIMIT 200`;const query=env.DB.prepare(sql);return reply({leads:(status?await query.bind(status).all():await query.all()).results});}
+async function adminLeadUpdate(req:Request,env:Env,id:string){const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);const b=await body(req);const status=typeof b?.status==='string'&&leadStatuses.includes(b.status)?b.status:null;const notes=text(b?.internalNotes,3000),assign=b?.assignToMe===true;if(!status)return reply({error:'invalid_request'},400);const result=await env.DB.prepare('UPDATE lead_requests SET status=?,internal_notes=?,assigned_to=CASE WHEN ? THEN ? ELSE assigned_to END,updated_at=CURRENT_TIMESTAMP WHERE id=? AND kind=\'flight_quote\'').bind(status,notes,assign?1:0,auth.userId,id).run();if(!result.meta.changes)return reply({error:'not_found'},404);await audit(env,auth.userId,'admin.lead_updated','lead_request',id);return reply({lead:{id,status,internal_notes:notes,assigned_to:assign?auth.userId:null,updated_at:new Date().toISOString()}});}
+
+async function flightQuoteLead(req:Request,env:Env){
+  const b=await body(req);
+  const name=text(b?.name,120,2),email=emailOf(b?.email),phone=phoneOf(b?.phone),origin=text(b?.origem,160,2),destination=text(b?.destino,160,2);
+  const outbound=dateOf(b?.ida),returnOn=b?.volta?dateOf(b.volta):null,adults=intOf(b?.adults,1,20),children=intOf(b?.children,0,20),infants=intOf(b?.infants,0,20);
+  const tripType=b?.tipo==='Ida e volta'||b?.tipo==='Somente ida'?b.tipo:null;
+  const cabin=['Econômica','Premium Economy','Executiva','Primeira classe'].includes(String(b?.cabinClass))?String(b?.cabinClass):null;
+  const baggage=['Somente item pessoal','Bagagem de mão','Bagagem despachada','Ainda não sei'].includes(String(b?.baggage))?String(b?.baggage):null;
+  const flexibility=['Datas fixas','Até 3 dias','Até 7 dias','Datas flexíveis'].includes(String(b?.flexibility))?String(b?.flexibility):null;
+  const payment=['Dinheiro','Milhas','Dinheiro ou milhas'].includes(String(b?.paymentPreference))?String(b?.paymentPreference):null,notes=text(b?.observacoes,3000);
+  if(b?.type!=='quote'||!name||!email||!phone||!origin||!destination||!outbound||adults===null||children===null||infants===null||!tripType||!cabin||!baggage||!flexibility||!payment||b?.contactConsent!==true||(tripType==='Ida e volta'&&!returnOn)||(returnOn&&returnOn<outbound))return reply({error:'invalid_request'},400);
+  if(!(await rateLimit(req,env,'flight_quote',email,4,1800)))return reply({error:'try_again_later'},429);
+  const id=crypto.randomUUID(),protocol=`RC-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${id.replaceAll('-','').slice(0,6).toUpperCase()}`,deadline=isoAfter(48*3600);
+  await env.DB.prepare(`INSERT INTO lead_requests
+    (id,kind,protocol,customer_name,customer_email,customer_phone,origin,destination,outbound_on,return_on,
+     passengers,adults,children,infants,trip_type,cabin_class,baggage,date_flexibility,payment_preference,notes,
+     contact_consent,status,deadline_at,ip_hash,updated_at)
+    VALUES (?,'flight_quote',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,'new',?,?,CURRENT_TIMESTAMP)`)
+    .bind(id,protocol,name,email,phone,origin,destination,outbound,returnOn,`${adults} adulto(s), ${children} criança(s), ${infants} bebê(s)`,adults,children,infants,tripType,cabin,baggage,flexibility,payment,notes,deadline,await sha(clientKey(req))).run();
+  const masters=await env.DB.prepare("SELECT u.id,u.email FROM users u JOIN user_roles r ON r.user_id=u.id WHERE r.role='master' AND u.status='active' AND u.email_verified_at IS NOT NULL").all<Row>();
+  const route=`${origin} → ${destination}`,adminUrl=`${env.APP_ORIGIN.replace(/\/$/,'')}/admin.html`;
+  const customerHtml=`<p>Olá, ${html(name)}.</p><p>Recebemos sua solicitação de proposta para <strong>${html(route)}</strong>.</p><p>Protocolo: <strong>${protocol}</strong></p><p>Nossa equipe analisará as melhores opções e responderá por e-mail em até 48 horas.</p><p>Rota Certa Passagens</p>`;
+  const customerText=`Olá, ${name}. Recebemos sua solicitação para ${route}. Protocolo: ${protocol}. Nossa equipe responderá por e-mail em até 48 horas.`;
+  const masterHtml=`<p>Nova proposta de voo recebida.</p><p><strong>${protocol}</strong> — ${html(route)}</p><p>Cliente: ${html(name)} (${html(email)})</p><p>Prazo: ${html(deadline)}</p><p><a href="${html(adminUrl)}">Abrir Central de Propostas</a></p>`;
+  const masterText=`Nova proposta ${protocol}: ${route}. Cliente: ${name} (${email}). Prazo: ${deadline}. Painel: ${adminUrl}`;
+  const customer=await Promise.allSettled([sendEmail(env,null,email,'flight_quote_customer',`Recebemos sua solicitação ${protocol}`,customerHtml,customerText)]);
+  const masterResults=await Promise.allSettled(masters.results.map(m=>sendEmail(env,String(m.id),String(m.email),'flight_quote_master',`Nova proposta de voo ${protocol}`,masterHtml,masterText)));
+  return reply({ok:true,protocol,responseDeadlineHours:48,confirmationEmailSent:customer[0]?.status==='fulfilled',mastersNotified:masterResults.filter(x=>x.status==='fulfilled').length},201);
+}
+
 async function audit(env:Env,actor:string|null,action:string,targetType:string,targetId:string){await env.DB.prepare('INSERT INTO audit_events(id,actor_user_id,action,target_type,target_id) VALUES(?,?,?,?,?)').bind(crypto.randomUUID(),actor,action,targetType,targetId).run();}
 
 async function plannerGet(req:Request,env:Env,url:URL){const a=await getAuth(req,env);if(!a)return reply({error:'unauthorized'},401);const access=await requirePlannerAccess(a,env);if(!access)return reply({error:'free_trial_expired',upgrade_required:true},402);const id=url.searchParams.get('tripId');const trip=id?await env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,source,travelers,archived_at FROM trips WHERE id=? AND owner_user_id=?').bind(id,a.userId).first<Row>():await env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,source,travelers,archived_at FROM trips WHERE owner_user_id=? ORDER BY (archived_at IS NOT NULL),updated_at DESC LIMIT 1').bind(a.userId).first<Row>();if(!trip)return reply({error:'trip_not_found'},404);const tripId=String(trip.id);const [it,places,expenses,budget,checklist,trips]=await Promise.all([env.DB.prepare('SELECT id,day_number day,starts_at time,title,kind,notes FROM itinerary_items WHERE owner_user_id=? AND trip_id=? ORDER BY day_number,sort_order,starts_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,name,category,address,notes,latitude,longitude FROM places WHERE owner_user_id=? AND trip_id=? ORDER BY created_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,category,description,amount_cents,currency,spent_on FROM expenses WHERE owner_user_id=? AND trip_id=? ORDER BY created_at DESC').bind(a.userId,tripId).all(),env.DB.prepare('SELECT amount_cents,currency FROM budgets WHERE owner_user_id=? AND trip_id=?').bind(a.userId,tripId).first(),env.DB.prepare('SELECT id,text,completed,sort_order FROM checklist_items WHERE owner_user_id=? AND trip_id=? ORDER BY sort_order,created_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,travelers,archived_at,updated_at FROM trips WHERE owner_user_id=? ORDER BY (archived_at IS NOT NULL),updated_at DESC').bind(a.userId).all()]);return reply({trip,trips:trips.results,entitlement:access,itinerary:it.results,places:places.results,expenses:expenses.results,budget:budget||{amount_cents:0,currency:'EUR'},checklist:checklist.results.map((x:Row)=>({...x,completed:Boolean(x.completed)}))});}

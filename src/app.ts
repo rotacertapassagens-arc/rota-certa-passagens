@@ -49,7 +49,7 @@ export async function buildApp({ db, config, emailSender = new RuntimeEmailSende
     return payload;
   });
 
-  registerPublicRoutes(app, db, config);
+  registerPublicRoutes(app, db, config, emailSender);
   registerAuthRoutes(app, db, config, emailSender);
   registerPlannerRoutes(app, db, config);
   registerAdminRoutes(app, db, config, emailSender);

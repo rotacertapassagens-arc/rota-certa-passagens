@@ -196,6 +196,7 @@
   .trip-type input:checked + label{ background: var(--navy); border-color: var(--navy); color: var(--off-white); }
   .quote-panel .btn{ width:100%; justify-content:center; margin-top:8px; }
   .quote-note{ font-size:0.78rem; color:#7a8290; text-align:center; margin-top:14px; }
+  .consent-field{display:flex!important;flex-direction:row!important;align-items:flex-start;gap:10px!important}.consent-field input{width:18px!important;height:18px;margin-top:2px;flex:0 0 auto}.consent-field label{font-size:.82rem!important;text-transform:none!important;letter-spacing:0!important;line-height:1.45;color:#4f5d6b!important}.quote-status{min-height:24px;margin:14px 0 0;text-align:center;font-weight:600;color:var(--blue)}
 
   /* ---------- SERVICES ---------- */
   .services{ background: var(--off-white); padding:100px 0; }
@@ -483,11 +484,23 @@
     <div class="sec-head center">
       <p class="sec-eyebrow">Passagens</p>
       <h2>Peça uma proposta de voo</h2>
-      <p>Preencha os dados e receba uma proposta personalizada em até 24h.</p>
+      <p>Preencha os dados, receba a confirmação por e-mail e nossa resposta em até 48 horas.</p>
     </div>
     <div class="quote-panel">
       <form id="quoteForm">
         <div class="form-grid">
+          <div class="form-field">
+            <label for="quoteName">Nome completo</label>
+            <input type="text" id="quoteName" autocomplete="name" maxlength="120" required>
+          </div>
+          <div class="form-field">
+            <label for="quoteEmail">E-mail</label>
+            <input type="email" id="quoteEmail" autocomplete="email" maxlength="254" required>
+          </div>
+          <div class="form-field full">
+            <label for="quotePhone">Telefone com código do país</label>
+            <input type="tel" id="quotePhone" autocomplete="tel" placeholder="+351 912 345 678" maxlength="30" required>
+          </div>
           <div class="form-field">
             <label for="origem">Origem</label>
             <input type="text" id="origem" name="origem" placeholder="Cidade ou aeroporto de origem" required>
@@ -505,40 +518,39 @@
             <input type="date" id="volta" name="volta">
           </div>
           <div class="form-field">
-            <label for="passageiros">Passageiros</label>
-            <select id="passageiros" name="passageiros">
-              <option value="1 passageiro">1 passageiro</option>
-              <option value="2 passageiros">2 passageiros</option>
-              <option value="3 passageiros">3 passageiros</option>
-              <option value="4 passageiros">4 passageiros</option>
-              <option value="5 passageiros">5 passageiros</option>
-              <option value="6 passageiros">6 passageiros</option>
-            </select>
+            <label for="adults">Adultos</label>
+            <input type="number" id="adults" min="1" max="20" value="1" required>
           </div>
           <div class="form-field">
-            <label for="observacoes">Observações</label>
-            <input type="text" id="observacoesShort" placeholder="Preferências, escalas, etc. (opcional)">
+            <label for="children">Crianças (2 a 11 anos)</label>
+            <input type="number" id="children" min="0" max="20" value="0" required>
           </div>
-          <div class="form-field full">
-            <label>Tipo de viagem</label>
+          <div class="form-field">
+            <label for="infants">Bebês (até 1 ano)</label>
+            <input type="number" id="infants" min="0" max="20" value="0" required>
+          </div>
+          <div class="form-field">
+            <label>Trecho</label>
             <div class="trip-type">
-              <input type="radio" id="tipo-individual" name="tipo" value="Individual" checked>
-              <label for="tipo-individual">Individual</label>
-              <input type="radio" id="tipo-familia" name="tipo" value="Família">
-              <label for="tipo-familia">Família</label>
-              <input type="radio" id="tipo-trabalho" name="tipo" value="Trabalho">
-              <label for="tipo-trabalho">Trabalho</label>
-              <input type="radio" id="tipo-grupo" name="tipo" value="Grupo">
-              <label for="tipo-grupo">Grupo</label>
+              <input type="radio" id="tipo-ida-volta" name="tipo" value="Ida e volta" checked>
+              <label for="tipo-ida-volta">Ida e volta</label>
+              <input type="radio" id="tipo-so-ida" name="tipo" value="Somente ida">
+              <label for="tipo-so-ida">Somente ida</label>
             </div>
           </div>
+          <div class="form-field"><label for="cabinClass">Classe</label><select id="cabinClass"><option>Econômica</option><option>Premium Economy</option><option>Executiva</option><option>Primeira classe</option></select></div>
+          <div class="form-field"><label for="baggage">Bagagem</label><select id="baggage"><option>Somente item pessoal</option><option>Bagagem de mão</option><option>Bagagem despachada</option><option>Ainda não sei</option></select></div>
+          <div class="form-field"><label for="flexibility">Flexibilidade nas datas</label><select id="flexibility"><option>Datas fixas</option><option>Até 3 dias</option><option>Até 7 dias</option><option>Datas flexíveis</option></select></div>
+          <div class="form-field"><label for="paymentPreference">Preferência de pagamento</label><select id="paymentPreference"><option>Dinheiro</option><option>Milhas</option><option>Dinheiro ou milhas</option></select></div>
           <div class="form-field full">
             <label for="observacoes">Detalhes adicionais</label>
             <textarea id="observacoes" name="observacoes" placeholder="Conte um pouco mais sobre a viagem que você tem em mente"></textarea>
           </div>
+          <div class="form-field full consent-field"><input type="checkbox" id="contactConsent" required><label for="contactConsent">Autorizo a Rota Certa Passagens a usar estes dados para preparar a proposta e entrar em contato por e-mail ou telefone.</label></div>
         </div>
         <button type="submit" class="btn btn-gold">Pedir proposta de voo</button>
-        <p class="quote-note">Ao enviar, vamos abrir o WhatsApp com os seus dados prontos para envio.</p>
+        <p class="quote-note">Seu pedido será salvo com um protocolo. Enquanto o WhatsApp é configurado, o atendimento seguirá por e-mail.</p>
+        <p class="quote-status" id="quoteStatus" aria-live="polite"></p>
       </form>
     </div>
   </div>
@@ -692,7 +704,7 @@
         <a href="#/planner/lugares"><span>📍</span><strong>Lugares</strong><small>Mapa e pontos guardados</small></a>
         <a href="#/planner/orcamento"><span>€</span><strong>Orçamento</strong><small>Controle os gastos</small></a>
         <a href="#/planner/checklist"><span>✓</span><strong>Checklist</strong><small>Prepare a viagem</small></a>
-        <a class="hidden" id="masterPanelLink" href="/admin"><span>🛡️</span><strong>Painel master</strong><small>Administre usuários e acessos</small></a>
+        <a class="hidden" id="masterPanelLink" href="/admin.html"><span>🛡️</span><strong>Painel master</strong><small>Administre propostas, usuários e acessos</small></a>
       </div>
     </div>
   </div>
