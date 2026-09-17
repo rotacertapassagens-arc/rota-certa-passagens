@@ -30,6 +30,8 @@ export function registerPlannerRoutes(app: FastifyInstance, db: Database, config
   app.get('/api/planner', async (request, reply) => {
     const auth = await requireAuth(db, config, request, reply);
     if (!auth) return;
+    const access = await requirePlannerAccess(db, auth, reply);
+    if (!access) return;
     const query = z.object({ tripId: z.string().uuid().optional() }).safeParse(request.query);
     if (!query.success) return reply.code(400).send({ error: 'invalid_trip' });
     const trip = await ownedTrip(db, auth.userId, query.data.tripId);
@@ -41,7 +43,7 @@ export function registerPlannerRoutes(app: FastifyInstance, db: Database, config
       db.query('SELECT amount_cents,currency FROM budgets WHERE owner_user_id=$1 AND trip_id=$2', [auth.userId, trip.id]),
       db.query('SELECT id,text,completed,sort_order FROM checklist_items WHERE owner_user_id=$1 AND trip_id=$2 ORDER BY sort_order,created_at', [auth.userId, trip.id]),
       listTrips(db, auth.userId),
-      plannerEntitlement(db, auth.userId, auth.roles),
+      Promise.resolve(access),
     ]);
     const normalizedItinerary = itinerary.rows.map((item) => ({ ...item, time: typeof item.time === 'string' ? item.time.slice(0, 5) : item.time }));
     return reply.send({ trip, trips: trips.rows, entitlement, itinerary: normalizedItinerary, places: places.rows, expenses: expenses.rows, budget: budget.rows[0] ?? { amount_cents: 0, currency: 'EUR' }, checklist: checklist.rows });
@@ -50,9 +52,10 @@ export function registerPlannerRoutes(app: FastifyInstance, db: Database, config
   app.post('/api/planner/trips', async (request, reply) => {
     const auth = await requireMutationAuth(db, config, request, reply);
     if (!auth) return;
+    const entitlement = await requirePlannerAccess(db, auth, reply);
+    if (!entitlement) return;
     const parsed = tripSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_trip' });
-    const entitlement = await plannerEntitlement(db, auth.userId, auth.roles);
     if (!(await canCreateActiveTrip(db, auth.userId, entitlement))) return reply.code(403).send({ error: 'free_active_trip_limit', upgrade_required: true });
     const id = randomUUID();
     await db.transaction(async (tx) => {
@@ -66,12 +69,13 @@ export function registerPlannerRoutes(app: FastifyInstance, db: Database, config
   app.post('/api/planner/trips/:tripId/archive', async (request, reply) => {
     const auth = await requireMutationAuth(db, config, request, reply);
     if (!auth) return;
+    const entitlement = await requirePlannerAccess(db, auth, reply);
+    if (!entitlement) return;
     const params = z.object({ tripId: idSchema }).safeParse(request.params);
     if (!params.success) return reply.code(400).send({ error: 'invalid_trip' });
     const trip = await ownedTrip(db, auth.userId, params.data.tripId);
     if (!trip) return reply.code(404).send({ error: 'trip_not_found' });
     if (trip.archived_at) return reply.send({ ok: true });
-    const entitlement = await plannerEntitlement(db, auth.userId, auth.roles);
     if (!entitlement.unlimited) {
       const archived = await db.query<{ count: number }>('SELECT count(*)::int AS count FROM trips WHERE owner_user_id=$1 AND archived_at IS NOT NULL', [auth.userId]);
       if ((archived.rows[0]?.count ?? 0) >= 2) return reply.code(403).send({ error: 'free_archived_trip_limit', upgrade_required: true });
@@ -84,12 +88,13 @@ export function registerPlannerRoutes(app: FastifyInstance, db: Database, config
   app.post('/api/planner/trips/:tripId/restore', async (request, reply) => {
     const auth = await requireMutationAuth(db, config, request, reply);
     if (!auth) return;
+    const entitlement = await requirePlannerAccess(db, auth, reply);
+    if (!entitlement) return;
     const params = z.object({ tripId: idSchema }).safeParse(request.params);
     if (!params.success) return reply.code(400).send({ error: 'invalid_trip' });
     const trip = await ownedTrip(db, auth.userId, params.data.tripId);
     if (!trip) return reply.code(404).send({ error: 'trip_not_found' });
     if (!trip.archived_at) return reply.send({ ok: true });
-    const entitlement = await plannerEntitlement(db, auth.userId, auth.roles);
     if (!(await canCreateActiveTrip(db, auth.userId, entitlement))) return reply.code(403).send({ error: 'free_active_trip_limit', upgrade_required: true });
     await db.query('UPDATE trips SET archived_at=NULL,updated_at=now() WHERE id=$1 AND owner_user_id=$2', [trip.id, auth.userId]);
     await audit(db, config, request, 'planner.trip_restored', auth.userId, 'trip', trip.id);
@@ -166,9 +171,10 @@ export function registerPlannerRoutes(app: FastifyInstance, db: Database, config
   app.post('/api/planner/import-local', async (request, reply) => {
     const auth = await requireMutationAuth(db, config, request, reply);
     if (!auth) return;
+    const entitlement = await requirePlannerAccess(db, auth, reply);
+    if (!entitlement) return;
     const parsed = importSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_import' });
-    const entitlement = await plannerEntitlement(db, auth.userId, auth.roles);
     if (!(await canCreateActiveTrip(db, auth.userId, entitlement))) return reply.code(403).send({ error: 'free_active_trip_limit', upgrade_required: true });
     const tripId = randomUUID();
     await db.transaction(async (tx) => {
@@ -182,6 +188,15 @@ export function registerPlannerRoutes(app: FastifyInstance, db: Database, config
     await audit(db, config, request, 'planner.local_import', auth.userId, 'trip', tripId, { records: parsed.data.itinerary.length + parsed.data.places.length + parsed.data.expenses.length + parsed.data.checklist.length });
     return reply.code(201).send({ id: tripId });
   });
+}
+
+async function requirePlannerAccess(db: Database, auth: { userId: string; roles: string[] }, reply: FastifyReply) {
+  const access = await plannerEntitlement(db, auth.userId, auth.roles);
+  if (!access.accessActive) {
+    await reply.code(402).send({ error: 'free_trial_expired', upgrade_required: true });
+    return null;
+  }
+  return access;
 }
 
 async function listTrips(db: Database, userId: string) {
@@ -210,6 +225,7 @@ async function ownedTrip(db: Database, userId: string, tripId?: string) {
 async function mutationTrip(db: Database, config: AppConfig, request: FastifyRequest, reply: FastifyReply) {
   const auth = await requireMutationAuth(db, config, request, reply);
   if (!auth) return null;
+  if (!(await requirePlannerAccess(db, auth, reply))) return null;
   const params = z.object({ tripId: idSchema }).safeParse(request.params);
   const trip = params.success ? await ownedTrip(db, auth.userId, params.data.tripId) : null;
   if (!params.success || !trip) {

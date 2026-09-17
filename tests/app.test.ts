@@ -101,12 +101,13 @@ describe('Rota Certa public site API', () => {
     expect(trips.rows[0]?.count).toBe(2);
   });
 
-  it('keeps Free access permanent with one active trip and at most two archived trips', async () => {
+  it('gives Free users ten days with one active trip and at most two archived trips', async () => {
     const auth = await createVerifiedUser(app, email, 'free@example.com', 'Pessoa Free');
     const session = await app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: auth.cookie } });
-    expect(session.json().access).toEqual(expect.objectContaining({ tier: 'free', activeTripLimit: 1, archivedTripLimit: 2, premiumFeatures: false }));
+    expect(session.json().access).toEqual(expect.objectContaining({ tier: 'free', accessActive: true, activeTripLimit: 1, archivedTripLimit: 2, premiumFeatures: false }));
+    expect(Date.parse(session.json().access.endsAt)).toBeGreaterThan(Date.now() + 9 * 86400000);
     const subscriptionCount = await db.query<{ count: number }>('SELECT count(*)::int AS count FROM subscriptions WHERE user_id=(SELECT id FROM users WHERE email=$1)', ['free@example.com']);
-    expect(subscriptionCount.rows[0]?.count).toBe(0);
+    expect(subscriptionCount.rows[0]?.count).toBe(1);
 
     const first = await app.inject({ method: 'GET', url: '/api/planner', headers: { cookie: auth.cookie } });
     const firstId = first.json().trip.id as string;
@@ -126,6 +127,18 @@ describe('Rota Certa public site API', () => {
     expect(blockedArchive.json()).toEqual(expect.objectContaining({ error: 'free_archived_trip_limit', upgrade_required: true }));
     const blockedRestore = await app.inject({ method: 'POST', url: `/api/planner/trips/${firstId}/restore`, headers: mutationHeaders(auth) });
     expect(blockedRestore.statusCode).toBe(403);
+  });
+
+  it('preserves Free data but requests Premium after the ten-day trial expires', async () => {
+    const auth = await createVerifiedUser(app, email, 'expired@example.com', 'Teste Expirado');
+    await db.query("UPDATE subscriptions SET starts_at=now()-interval '11 days',ends_at=now()-interval '1 day',status='expired' WHERE user_id=(SELECT id FROM users WHERE email=$1)", ['expired@example.com']);
+    const session = await app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: auth.cookie } });
+    expect(session.json().access).toEqual(expect.objectContaining({ tier: 'free', accessActive: false }));
+    const planner = await app.inject({ method: 'GET', url: '/api/planner', headers: { cookie: auth.cookie } });
+    expect(planner.statusCode).toBe(402);
+    expect(planner.json()).toEqual({ error: 'free_trial_expired', upgrade_required: true });
+    const saved = await db.query<{ count: number }>('SELECT count(*)::int AS count FROM trips WHERE owner_user_id=(SELECT id FROM users WHERE email=$1)', ['expired@example.com']);
+    expect(saved.rows[0]?.count).toBe(1);
   });
 
   it('keeps password reset enumeration-safe and revokes existing sessions', async () => {

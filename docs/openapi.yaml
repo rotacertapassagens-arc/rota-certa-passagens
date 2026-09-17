@@ -131,6 +131,7 @@ paths:
       summary: Lê uma viagem, a lista de viagens e os limites do plano
       responses:
         "200": { description: Planner persistido }
+        "402": { description: Teste gratuito encerrado; assinatura necessária }
         "404": { description: Viagem não encontrada }
   /api/planner/trips:
     post:

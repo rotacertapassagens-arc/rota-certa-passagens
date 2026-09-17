@@ -100,6 +100,14 @@ export function registerAuthRoutes(app: FastifyInstance, db: Database, config: A
     await db.transaction(async (tx) => {
       await tx.query('UPDATE account_tokens SET used_at=now() WHERE id=$1', [token.id]);
       await tx.query("UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()),status='active',updated_at=now() WHERE id=$1", [user.id]);
+      const access = await tx.query('SELECT 1 FROM subscriptions WHERE user_id=$1 LIMIT 1', [user.id]);
+      if (!access.rowCount) {
+        await tx.query(
+          `INSERT INTO subscriptions (id,user_id,plan_id,status,starts_at,ends_at,provider)
+           VALUES ($1,$2,'00000000-0000-4000-8000-000000000001','trialing',now(),now()+interval '10 days','internal')`,
+          [randomUUID(), user.id],
+        );
+      }
       const trip = await tx.query<{ id: string }>('SELECT id FROM trips WHERE owner_user_id=$1 LIMIT 1', [user.id]);
       if (!trip.rowCount) await createStarterTrip(tx, user.id);
     });

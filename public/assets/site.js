@@ -169,7 +169,9 @@ function addTripManager(element, key) {
   }
   const manager = document.createElement('div');
   manager.className = 'trip-manager planner-card';
-  manager.innerHTML = `<div class="trip-manager-main"><div><small class="trip-plan-badge">Plano ${esc((data.entitlement?.tier || 'free').toUpperCase())}</small><strong>${esc(data.trip.name)}</strong><span>${active.length} ativa${active.length === 1 ? '' : 's'} · ${archived.length} arquivada${archived.length === 1 ? '' : 's'}</span></div><label>Trocar viagem<select id="tripSelector">${active.length ? '<optgroup label="Ativas">' + active.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}${archived.length ? '<optgroup label="Arquivadas">' + archived.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}</select></label></div><div class="trip-manager-actions"><button class="btn btn-outline-dark btn-sm" id="newTrip">+ Nova viagem</button><button class="btn btn-outline-dark btn-sm" id="tripArchiveAction">${isArchived ? 'Restaurar viagem' : 'Arquivar viagem'}</button></div>`;
+  const daysLeft = data.entitlement?.tier === 'free' && data.entitlement?.endsAt ? Math.max(0, Math.ceil((new Date(data.entitlement.endsAt).getTime() - Date.now()) / 86400000)) : null;
+  const planText = data.entitlement?.tier === 'free' ? `TESTE FREE · ${daysLeft} DIA${daysLeft === 1 ? '' : 'S'}` : `PLANO ${(data.entitlement?.tier || 'free').toUpperCase()}`;
+  manager.innerHTML = `<div class="trip-manager-main"><div><small class="trip-plan-badge">${esc(planText)}</small><strong>${esc(data.trip.name)}</strong><span>${active.length} ativa${active.length === 1 ? '' : 's'} · ${archived.length} arquivada${archived.length === 1 ? '' : 's'}</span></div><label>Trocar viagem<select id="tripSelector">${active.length ? '<optgroup label="Ativas">' + active.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}${archived.length ? '<optgroup label="Arquivadas">' + archived.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}</select></label></div><div class="trip-manager-actions"><button class="btn btn-outline-dark btn-sm" id="newTrip">+ Nova viagem</button><button class="btn btn-outline-dark btn-sm" id="tripArchiveAction">${isArchived ? 'Restaurar viagem' : 'Arquivar viagem'}</button></div>`;
   element.prepend(manager);
   manager.querySelector('#tripSelector').onchange = async (event) => { selectedTripId = event.target.value; await loadPlanner(); await plannerView(key); };
   manager.querySelector('#newTrip').onclick = async () => {
@@ -275,7 +277,7 @@ function addLegacyImportOffer(element) {
 }
 
 function planLabel(plan) {
-  const eur = { gratis: 'Plano Free com uma viagem ativa', plus: 'Premium com viagens ilimitadas', personalizado: 'Planejamento personalizado a partir de 49,99 €' };
+  const eur = { gratis: 'Teste Free por 10 dias', plus: 'Premium com viagens ilimitadas', personalizado: 'Planejamento personalizado a partir de 49,99 €' };
   return eur[plan] || plan;
 }
 async function detectCurrency() {
@@ -407,7 +409,8 @@ async function router() {
   if (isPlanner) {
     try { await loadPlanner(); await plannerView(parts[1] === 'visao-geral' ? 'overview' : (parts[1] || 'overview')); }
     catch (error) {
-      notify('Não foi possível carregar o Planner agora.');
+      if (error.status === 402 && error.body?.error === 'free_trial_expired') document.getElementById('plannerContent').innerHTML = '<div class="planner-lock"><div><strong>Seu teste gratuito terminou</strong><p>Suas viagens continuam guardadas. Assine o Premium para voltar a acessar e editar tudo.</p></div><a class="btn btn-gold" href="#/cliente?plan=plus">Assinar o Premium</a></div>';
+      else notify('Não foi possível carregar o Planner agora.');
     }
   }
   if (isClient) await clientInit();
