@@ -4,7 +4,7 @@ Este é um procedimento preparado, não executado. Nenhum deploy, push, DNS, Clo
 
 ## Portões obrigatórios antes de publicar
 
-1. Aprovar visual e textos, incluindo preço, duração do trial e provas sociais.
+1. Aprovar visual e textos, incluindo preço do Premium e provas sociais.
 2. Definir hospedagem separada do Rota Certa OS e banco Postgres gerenciado.
 3. Criar segredos exclusivos; nunca reutilizar credenciais operacionais.
 4. Configurar remetente e DNS de e-mail somente após autorização e validar SPF, DKIM e DMARC.

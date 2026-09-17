@@ -46,7 +46,7 @@ O frontend continua em HTML/CSS/JavaScript para preservar a identidade visual. A
 
 ## Deliberações
 
-- O plano de 10 dias e o plano Planner de 30 dias por EUR 9,99 são sementes locais; exigem aprovação comercial antes de produção.
+- O Free não expira e permite uma viagem ativa e duas arquivadas. O Premium libera viagens ativas e histórico ilimitados; checkout e preço continuam desativados até aprovação comercial.
 - O serviço personalizado continua com confirmação humana, sem checkout automático.
 - Depoimentos e métricas públicas não comprovados foram ocultados na nova versão, mas preservados na referência original.
 - O painel master mostra contas, planos e pagamentos; não recebe acesso ao conteúdo privado dos Planners.

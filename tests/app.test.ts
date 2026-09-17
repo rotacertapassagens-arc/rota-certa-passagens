@@ -89,6 +89,8 @@ describe('Rota Certa public site API', () => {
     const auth = await createVerifiedUser(app, email, 'import@example.com', 'Importação Segura');
     const original = await app.inject({ method: 'GET', url: '/api/planner', headers: { cookie: auth.cookie } });
     const originalTrip = original.json().trip.id;
+    const archived = await app.inject({ method: 'POST', url: `/api/planner/trips/${originalTrip}/archive`, headers: mutationHeaders(auth) });
+    expect(archived.statusCode).toBe(200);
     const imported = await app.inject({
       method: 'POST', url: '/api/planner/import-local', headers: mutationHeaders(auth),
       payload: { budget: 2200, itinerary: [{ day: 1, time: '09:00', what: 'Passeio', type: 'Atividade', notes: '' }], places: [], expenses: [], checklist: [{ text: 'Passaporte', done: true }] },
@@ -97,6 +99,33 @@ describe('Rota Certa public site API', () => {
     expect(imported.json().id).not.toBe(originalTrip);
     const trips = await db.query<{ count: number }>('SELECT count(*)::int AS count FROM trips WHERE owner_user_id=(SELECT id FROM users WHERE email=$1)', ['import@example.com']);
     expect(trips.rows[0]?.count).toBe(2);
+  });
+
+  it('keeps Free access permanent with one active trip and at most two archived trips', async () => {
+    const auth = await createVerifiedUser(app, email, 'free@example.com', 'Pessoa Free');
+    const session = await app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: auth.cookie } });
+    expect(session.json().access).toEqual(expect.objectContaining({ tier: 'free', activeTripLimit: 1, archivedTripLimit: 2, premiumFeatures: false }));
+    const subscriptionCount = await db.query<{ count: number }>('SELECT count(*)::int AS count FROM subscriptions WHERE user_id=(SELECT id FROM users WHERE email=$1)', ['free@example.com']);
+    expect(subscriptionCount.rows[0]?.count).toBe(0);
+
+    const first = await app.inject({ method: 'GET', url: '/api/planner', headers: { cookie: auth.cookie } });
+    const firstId = first.json().trip.id as string;
+    const blockedSecond = await app.inject({ method: 'POST', url: '/api/planner/trips', headers: mutationHeaders(auth), payload: { name: 'Segunda ativa', travelers: 1 } });
+    expect(blockedSecond.statusCode).toBe(403);
+    expect(blockedSecond.json()).toEqual(expect.objectContaining({ error: 'free_active_trip_limit', upgrade_required: true }));
+
+    expect((await app.inject({ method: 'POST', url: `/api/planner/trips/${firstId}/archive`, headers: mutationHeaders(auth) })).statusCode).toBe(200);
+    const second = await app.inject({ method: 'POST', url: '/api/planner/trips', headers: mutationHeaders(auth), payload: { name: 'Segunda viagem', travelers: 1 } });
+    expect(second.statusCode).toBe(201);
+    expect((await app.inject({ method: 'POST', url: `/api/planner/trips/${second.json().id}/archive`, headers: mutationHeaders(auth) })).statusCode).toBe(200);
+    const third = await app.inject({ method: 'POST', url: '/api/planner/trips', headers: mutationHeaders(auth), payload: { name: 'Terceira viagem', travelers: 1 } });
+    expect(third.statusCode).toBe(201);
+
+    const blockedArchive = await app.inject({ method: 'POST', url: `/api/planner/trips/${third.json().id}/archive`, headers: mutationHeaders(auth) });
+    expect(blockedArchive.statusCode).toBe(403);
+    expect(blockedArchive.json()).toEqual(expect.objectContaining({ error: 'free_archived_trip_limit', upgrade_required: true }));
+    const blockedRestore = await app.inject({ method: 'POST', url: `/api/planner/trips/${firstId}/restore`, headers: mutationHeaders(auth) });
+    expect(blockedRestore.statusCode).toBe(403);
   });
 
   it('keeps password reset enumeration-safe and revokes existing sessions', async () => {

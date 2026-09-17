@@ -45,6 +45,7 @@ let session = null;
 let data = starterData;
 let plannerLocked = true;
 let userCurrency = 'EUR';
+let selectedTripId = null;
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
@@ -98,16 +99,19 @@ function setHomeMode(isHome) {
   client.classList.toggle('active', !isHome && route()[0] === 'cliente');
 }
 
-async function loadPlanner() {
+async function loadPlanner(tripId = selectedTripId) {
   if (!session) {
     const legacy = localStorage.getItem(legacyPlannerKey);
     try { data = legacy ? { ...starterData, ...JSON.parse(legacy), trip: starterData.trip } : structuredClone(starterData); }
     catch { data = structuredClone(starterData); }
     return;
   }
-  const payload = await api('/api/planner');
+  const payload = await api(`/api/planner${tripId ? `?tripId=${encodeURIComponent(tripId)}` : ''}`);
+  selectedTripId = payload.trip.id;
   data = {
     trip: payload.trip,
+    trips: payload.trips || [payload.trip],
+    entitlement: payload.entitlement || session.access,
     itinerary: payload.itinerary.map((item) => ({ id: item.id, day: item.day, time: item.time || '', what: item.title, type: item.kind, notes: item.notes || '' })),
     places: payload.places.map((item) => ({ id: item.id, name: item.name, type: item.category, address: item.address || '', notes: item.notes || '' })),
     expenses: payload.expenses.map((item) => ({ id: item.id, value: item.amount_cents / 100, type: item.category, desc: item.description })),
@@ -143,7 +147,47 @@ async function plannerView(key) {
   if (key === 'orcamento') renderBudget(content);
   if (key === 'checklist') renderChecklist(content);
   if (plannerLocked) content.insertAdjacentHTML('afterbegin', `<div class="planner-lock"><div><strong>🔒 Demonstração sem gravação</strong><p>Você pode conhecer todas as áreas. Para salvar informações com segurança, crie uma conta.</p></div><a class="btn btn-gold btn-sm" href="#/cliente?plan=gratis&redirect=${encodeURIComponent(currentPath())}">Criar conta</a></div>`);
-  else addLegacyImportOffer(content);
+  else {
+    addTripManager(content, key);
+    addLegacyImportOffer(content);
+  }
+}
+
+function upgradeMessage(error) {
+  if (error?.body?.error === 'free_archived_trip_limit') return 'O plano Free permite até duas viagens arquivadas. Assine o Premium para manter histórico ilimitado.';
+  return 'O plano Free permite uma viagem ativa. Arquive a viagem atual ou assine o Premium para manter várias viagens ativas.';
+}
+
+function addTripManager(element, key) {
+  const trips = data.trips || [];
+  const active = trips.filter((trip) => !trip.archived_at);
+  const archived = trips.filter((trip) => trip.archived_at);
+  const isArchived = Boolean(data.trip.archived_at);
+  if (isArchived) {
+    element.querySelectorAll('button,input,select,textarea').forEach((control) => { control.disabled = true; });
+    element.insertAdjacentHTML('afterbegin', '<div class="planner-lock"><div><strong>Viagem arquivada</strong><p>O histórico está preservado. Restaure esta viagem para voltar a editá-la.</p></div></div>');
+  }
+  const manager = document.createElement('div');
+  manager.className = 'trip-manager planner-card';
+  manager.innerHTML = `<div class="trip-manager-main"><div><small class="trip-plan-badge">Plano ${esc((data.entitlement?.tier || 'free').toUpperCase())}</small><strong>${esc(data.trip.name)}</strong><span>${active.length} ativa${active.length === 1 ? '' : 's'} · ${archived.length} arquivada${archived.length === 1 ? '' : 's'}</span></div><label>Trocar viagem<select id="tripSelector">${active.length ? '<optgroup label="Ativas">' + active.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}${archived.length ? '<optgroup label="Arquivadas">' + archived.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}</select></label></div><div class="trip-manager-actions"><button class="btn btn-outline-dark btn-sm" id="newTrip">+ Nova viagem</button><button class="btn btn-outline-dark btn-sm" id="tripArchiveAction">${isArchived ? 'Restaurar viagem' : 'Arquivar viagem'}</button></div>`;
+  element.prepend(manager);
+  manager.querySelector('#tripSelector').onchange = async (event) => { selectedTripId = event.target.value; await loadPlanner(); await plannerView(key); };
+  manager.querySelector('#newTrip').onclick = async () => {
+    const name = window.prompt('Qual será o nome da nova viagem?');
+    if (!name?.trim()) return;
+    try {
+      const result = await api('/api/planner/trips', { method: 'POST', body: JSON.stringify({ name: name.trim(), travelers: 1 }) });
+      selectedTripId = result.id;
+      await loadPlanner(); await plannerView(key);
+    } catch (error) { notify(error?.body?.upgrade_required ? upgradeMessage(error) : 'Não foi possível criar a viagem agora.'); }
+  };
+  manager.querySelector('#tripArchiveAction').onclick = async () => {
+    try {
+      await api(`/api/planner/trips/${data.trip.id}/${isArchived ? 'restore' : 'archive'}`, { method: 'POST' });
+      selectedTripId = null;
+      await loadPlanner(); await plannerView(key);
+    } catch (error) { notify(error?.body?.upgrade_required ? upgradeMessage(error) : 'Não foi possível atualizar esta viagem agora.'); }
+  };
 }
 
 function renderOverview(element) {
@@ -231,7 +275,7 @@ function addLegacyImportOffer(element) {
 }
 
 function planLabel(plan) {
-  const eur = { gratis: 'Planner grátis por 10 dias', plus: 'Planner 9,99 € por 30 dias', personalizado: 'Planejamento personalizado a partir de 49,99 €' };
+  const eur = { gratis: 'Plano Free com uma viagem ativa', plus: 'Premium com viagens ilimitadas', personalizado: 'Planejamento personalizado a partir de 49,99 €' };
   return eur[plan] || plan;
 }
 async function detectCurrency() {
@@ -363,8 +407,7 @@ async function router() {
   if (isPlanner) {
     try { await loadPlanner(); await plannerView(parts[1] === 'visao-geral' ? 'overview' : (parts[1] || 'overview')); }
     catch (error) {
-      if (error.status === 402) document.getElementById('plannerContent').innerHTML = '<div class="planner-lock"><div><strong>Seu acesso terminou</strong><p>Suas viagens continuam salvas. Ative mais 30 dias para continuar.</p></div><a class="btn btn-gold" href="#/cliente?plan=plus">Continuar por 9,99 €</a></div>';
-      else notify('Não foi possível carregar o Planner agora.');
+      notify('Não foi possível carregar o Planner agora.');
     }
   }
   if (isClient) await clientInit();

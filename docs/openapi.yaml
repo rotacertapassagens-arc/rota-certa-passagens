@@ -78,7 +78,7 @@ paths:
   /api/auth/verify-email:
     post:
       tags: [Auth]
-      summary: Confirma e-mail, cria trial e sessão
+      summary: Confirma e-mail, cria a viagem inicial Free e inicia a sessão
       responses:
         "200": { description: E-mail confirmado; cookies emitidos }
         "400": { description: Código inválido ou expirado }
@@ -128,10 +128,9 @@ paths:
     get:
       tags: [Planner]
       security: [{ sessionCookie: [] }]
-      summary: Lê uma viagem pertencente ao cliente
+      summary: Lê uma viagem, a lista de viagens e os limites do plano
       responses:
         "200": { description: Planner persistido }
-        "402": { description: Acesso expirado }
         "404": { description: Viagem não encontrada }
   /api/planner/trips:
     post:
@@ -140,6 +139,27 @@ paths:
       summary: Cria viagem do cliente
       responses:
         "201": { description: Viagem criada }
+        "403": { description: Limite de uma viagem ativa atingido no Free }
+  /api/planner/trips/{tripId}/archive:
+    post:
+      tags: [Planner]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Arquiva uma viagem, limitado a duas no Free
+      parameters:
+        - { name: tripId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Viagem arquivada }
+        "403": { description: Limite de duas viagens arquivadas atingido no Free }
+  /api/planner/trips/{tripId}/restore:
+    post:
+      tags: [Planner]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Restaura uma viagem arquivada quando houver vaga ativa
+      parameters:
+        - { name: tripId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Viagem restaurada }
+        "403": { description: Limite de uma viagem ativa atingido no Free }
   /api/planner/import-local:
     post:
       tags: [Planner]
