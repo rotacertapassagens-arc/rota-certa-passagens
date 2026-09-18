@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Solicite uma proposta personalizada de passagem aérea à Rota Certa Passagens.">
+  <title>Proposta de voo | Rota Certa Passagens</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/quote.css">
+  <link rel="icon" href="/assets/logo.png">
+</head>
+<body>
+  <header class="quote-header">
+    <a class="brand" href="/" aria-label="Voltar à página inicial"><img src="/assets/logo.png" alt=""><span>Rota Certa <strong>Passagens</strong></span></a>
+    <a class="back-link" href="/">← Voltar ao site</a>
+  </header>
+
+  <main>
+    <section class="intro">
+      <p class="eyebrow">Passagens</p>
+      <h1>Peça uma proposta de voo</h1>
+      <p>Preencha os dados abaixo. Você receberá a confirmação por e-mail e nossa equipe responderá em até 48 horas.</p>
+    </section>
+
+    <form class="quote-form" id="quoteForm">
+      <fieldset>
+        <legend>Seus dados</legend>
+        <div class="form-grid">
+          <label>Nome completo<input type="text" id="quoteName" autocomplete="name" maxlength="120" required></label>
+          <label>E-mail<input type="email" id="quoteEmail" autocomplete="email" maxlength="254" required></label>
+          <label class="full">Telefone com código do país<input type="tel" id="quotePhone" autocomplete="tel" placeholder="+351 912 345 678" maxlength="30" required></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Sua viagem</legend>
+        <div class="form-grid">
+          <label>Origem<input type="text" id="origem" placeholder="Cidade ou aeroporto de origem" maxlength="160" required></label>
+          <label>Destino<input type="text" id="destino" placeholder="Cidade ou aeroporto de destino" maxlength="160" required></label>
+          <label>Data de ida<input type="date" id="ida" required></label>
+          <label>Data de volta<input type="date" id="volta" required></label>
+          <div class="field-group full"><span>Trecho</span><div class="trip-type"><input type="radio" id="tipo-ida-volta" name="tipo" value="Ida e volta" checked><label for="tipo-ida-volta">Ida e volta</label><input type="radio" id="tipo-so-ida" name="tipo" value="Somente ida"><label for="tipo-so-ida">Somente ida</label></div></div>
+          <label>Adultos<input type="number" id="adults" min="1" max="20" value="1" required></label>
+          <label>Crianças (2 a 11 anos)<input type="number" id="children" min="0" max="20" value="0" required></label>
+          <label>Bebês (até 1 ano)<input type="number" id="infants" min="0" max="20" value="0" required></label>
+          <label>Classe<select id="cabinClass"><option>Econômica</option><option>Premium Economy</option><option>Executiva</option><option>Primeira classe</option></select></label>
+          <label>Bagagem<select id="baggage"><option>Somente item pessoal</option><option>Bagagem de mão</option><option>Bagagem despachada</option><option>Ainda não sei</option></select></label>
+          <label>Flexibilidade nas datas<select id="flexibility"><option>Datas fixas</option><option>Até 3 dias</option><option>Até 7 dias</option><option>Datas flexíveis</option></select></label>
+          <label>Preferência de pagamento<select id="paymentPreference"><option>Dinheiro</option><option>Milhas</option><option>Dinheiro ou milhas</option></select></label>
+          <label class="full">Detalhes adicionais<textarea id="observacoes" maxlength="3000" placeholder="Preferências de horários, escalas ou outras informações importantes"></textarea></label>
+        </div>
+      </fieldset>
+
+      <label class="consent"><input type="checkbox" id="contactConsent" required><span>Autorizo a Rota Certa Passagens a usar estes dados para preparar a proposta e entrar em contato por e-mail ou telefone.</span></label>
+      <button type="submit">Pedir proposta de voo</button>
+      <p class="form-note">Seu pedido será salvo com um protocolo. Enquanto o WhatsApp é configurado, o atendimento seguirá por e-mail.</p>
+      <p class="form-status" id="quoteStatus" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <footer>© 2026 Rota Certa Passagens</footer>
+  <script type="module" src="/assets/quote.js"></script>
+</body>
+</html>
