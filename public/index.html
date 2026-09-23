@@ -164,38 +164,11 @@
   .step-body h3{ font-size:1.15rem; margin-bottom:6px; }
   .step-body p{ color:#586170; font-size:0.95rem; max-width:520px; }
 
-  /* ---------- QUOTE FORM (PASSAGENS) ---------- */
+  /* ---------- PASSAGENS ---------- */
   .quote{ background: var(--white); padding:100px 0; }
-  .quote-panel{
-    max-width:920px; margin:0 auto; background: var(--off-white);
-    border:1px solid rgba(13,27,42,0.08); border-radius:6px; padding:44px 40px;
-    box-shadow: 0 20px 50px -30px rgba(13,27,42,0.35);
-  }
-  .quote-panel form{ margin-top:8px; }
-  .form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:22px 26px; }
-  .form-field{ display:flex; flex-direction:column; gap:7px; }
-  .form-field.full{ grid-column: 1 / -1; }
-  .form-field label{ font-size:0.76rem; letter-spacing:0.05em; text-transform:uppercase; font-weight:600; color: var(--blue); }
-  .form-field input, .form-field select, .form-field textarea{
-    font-family: var(--font-body); font-size:0.95rem; color: var(--navy);
-    background: var(--white); border:1px solid rgba(13,27,42,0.15); border-radius:3px;
-    padding:12px 14px; transition: border-color .2s ease;
-  }
-  .form-field input:focus, .form-field select:focus, .form-field textarea:focus{
-    outline:none; border-color: var(--gold);
-  }
-  .form-field textarea{ resize:vertical; min-height:90px; font-family:var(--font-body); }
-  .trip-type{ display:flex; gap:10px; flex-wrap:wrap; }
-  .trip-type input{ position:absolute; opacity:0; pointer-events:none; }
-  .trip-type label{
-    display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
-    padding:10px 18px; border:1px solid rgba(13,27,42,0.18); border-radius:30px;
-    font-size:0.85rem; font-weight:500; color: var(--navy); text-transform:none;
-    letter-spacing:0; background: var(--white); transition: all .2s ease;
-  }
-  .trip-type input:checked + label{ background: var(--navy); border-color: var(--navy); color: var(--off-white); }
-  .quote-panel .btn{ width:100%; justify-content:center; margin-top:8px; }
-  .quote-note{ font-size:0.78rem; color:#7a8290; text-align:center; margin-top:14px; }
+  .quote-home-card{max-width:940px;margin:0 auto;padding:48px 52px;background:var(--off-white);border:1px solid rgba(13,27,42,.08);border-radius:6px;box-shadow:0 20px 50px -34px rgba(13,27,42,.35);display:flex;align-items:center;justify-content:space-between;gap:48px}
+  .quote-home-card h2{font-size:clamp(1.8rem,3vw,2.6rem);margin:8px 0 12px}.quote-home-card p:not(.sec-eyebrow){color:#586170;max-width:610px}.quote-home-card .btn{white-space:nowrap;flex:0 0 auto}
+  @media(max-width:760px){.quote-home-card{padding:34px 26px;align-items:flex-start;flex-direction:column;gap:24px}.quote-home-card .btn{width:100%;justify-content:center}}
 
   /* ---------- SERVICES ---------- */
   .services{ background: var(--off-white); padding:100px 0; }
@@ -478,68 +451,15 @@
   </div>
 </section>
 
-<section class="quote" id="passagens">
+<section class="quote quote-home" id="passagens">
   <div class="wrap">
-    <div class="sec-head center">
-      <p class="sec-eyebrow">Passagens</p>
-      <h2>Peça uma proposta de voo</h2>
-      <p>Preencha os dados e receba uma proposta personalizada em até 24h.</p>
-    </div>
-    <div class="quote-panel">
-      <form id="quoteForm">
-        <div class="form-grid">
-          <div class="form-field">
-            <label for="origem">Origem</label>
-            <input type="text" id="origem" name="origem" placeholder="Cidade ou aeroporto de origem" required>
-          </div>
-          <div class="form-field">
-            <label for="destino">Destino</label>
-            <input type="text" id="destino" name="destino" placeholder="Cidade ou aeroporto de destino" required>
-          </div>
-          <div class="form-field">
-            <label for="ida">Data de ida</label>
-            <input type="date" id="ida" name="ida" required>
-          </div>
-          <div class="form-field">
-            <label for="volta">Data de volta</label>
-            <input type="date" id="volta" name="volta">
-          </div>
-          <div class="form-field">
-            <label for="passageiros">Passageiros</label>
-            <select id="passageiros" name="passageiros">
-              <option value="1 passageiro">1 passageiro</option>
-              <option value="2 passageiros">2 passageiros</option>
-              <option value="3 passageiros">3 passageiros</option>
-              <option value="4 passageiros">4 passageiros</option>
-              <option value="5 passageiros">5 passageiros</option>
-              <option value="6 passageiros">6 passageiros</option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label for="observacoes">Observações</label>
-            <input type="text" id="observacoesShort" placeholder="Preferências, escalas, etc. (opcional)">
-          </div>
-          <div class="form-field full">
-            <label>Tipo de viagem</label>
-            <div class="trip-type">
-              <input type="radio" id="tipo-individual" name="tipo" value="Individual" checked>
-              <label for="tipo-individual">Individual</label>
-              <input type="radio" id="tipo-familia" name="tipo" value="Família">
-              <label for="tipo-familia">Família</label>
-              <input type="radio" id="tipo-trabalho" name="tipo" value="Trabalho">
-              <label for="tipo-trabalho">Trabalho</label>
-              <input type="radio" id="tipo-grupo" name="tipo" value="Grupo">
-              <label for="tipo-grupo">Grupo</label>
-            </div>
-          </div>
-          <div class="form-field full">
-            <label for="observacoes">Detalhes adicionais</label>
-            <textarea id="observacoes" name="observacoes" placeholder="Conte um pouco mais sobre a viagem que você tem em mente"></textarea>
-          </div>
-        </div>
-        <button type="submit" class="btn btn-gold">Pedir proposta de voo</button>
-        <p class="quote-note">Ao enviar, vamos abrir o WhatsApp com os seus dados prontos para envio.</p>
-      </form>
+    <div class="quote-home-card">
+      <div>
+        <p class="sec-eyebrow">Passagens</p>
+        <h2>Peça uma proposta de voo</h2>
+        <p>Conte-nos de onde você parte e para onde quer ir. Preparamos uma proposta personalizada e respondemos por e-mail em até 48 horas.</p>
+      </div>
+      <a class="btn btn-gold" href="/proposta-voo.html">Preencher pedido de proposta</a>
     </div>
   </div>
 </section>
@@ -692,7 +612,7 @@
         <a href="#/planner/lugares"><span>📍</span><strong>Lugares</strong><small>Mapa e pontos guardados</small></a>
         <a href="#/planner/orcamento"><span>€</span><strong>Orçamento</strong><small>Controle os gastos</small></a>
         <a href="#/planner/checklist"><span>✓</span><strong>Checklist</strong><small>Prepare a viagem</small></a>
-        <a class="hidden" id="masterPanelLink" href="/admin"><span>🛡️</span><strong>Painel master</strong><small>Administre usuários e acessos</small></a>
+        <a class="hidden" id="masterPanelLink" href="/admin.html"><span>🛡️</span><strong>Painel master</strong><small>Administre propostas, usuários e acessos</small></a>
       </div>
     </div>
   </div>

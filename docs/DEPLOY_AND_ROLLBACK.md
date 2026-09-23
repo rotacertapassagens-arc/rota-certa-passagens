@@ -29,6 +29,14 @@ Este é um procedimento preparado, não executado. Nenhum deploy, push, DNS, Clo
 - Pagamentos: desativar checkout, preservar webhooks/eventos idempotentes e reconciliar qualquer evento de sandbox pendente.
 - DNS: não alterar durante um rollback de aplicação salvo se houver plano explícito e TTL conhecido.
 
+## Migração 0005 — programa de parceiros
+
+- `migrations/0005_partner_referrals.sql` / `.down.sql` (PostgreSQL) e `d1/migrations/0005_partner_referrals.sql` (D1) criam `partners`, `referral_clicks`, `partner_commissions`, `notification_outbox`, estendem `lead_requests` com colunas de atribuição/venda, e ampliam os `CHECK` de `user_roles.role` e `account_tokens.purpose` para incluir `partner`/`partner_invite`.
+- O rollback (`0005_partner_referrals.down.sql`) foi validado localmente (script ad-hoc contra a mesma engine SQL usada pelos testes automatizados): aplica, reverte e confirma que as tabelas e colunas novas desaparecem sem quebrar `lead_requests`. Ele usa `DROP TABLE ... CASCADE` para as tabelas `partners`/`referral_clicks`, então **execute-o apenas em uma janela controlada**, pois remove permanentemente todo o histórico de parceiros, cliques e comissões — não há como recuperar esses dados depois.
+- Rollback com dados reais: se já existirem linhas com `role='partner'`, `purpose='partner_invite'` ou `lead_requests.partner_id` preenchido, decida antes se elas devem ser limpas manualmente ou se o rollback deve ser adiado — o down-migration não apaga usuários/leads, só as tabelas e colunas específicas do programa de parceiros.
+- D1 (`wrangler d1 migrations apply DB --local`) foi aplicada e verificada localmente; D1/wrangler não tem mecanismo nativo de rollback automático (o projeto já não tinha `.down.sql` para D1 antes desta tarefa) — um rollback em D1 remoto exigiria uma migração reversa escrita à mão e aplicada com `--remote`, o que é um passo do portão de produção, não desta entrega.
+- `wrangler.jsonc`: `assets.run_worker_first` agora inclui `"/i/*"` além de `"/api/*"`, para que o Worker processe o redirecionamento do link de indicação antes de cair no fallback estático. Confirme esse campo ao publicar o Worker.
+
 ## Evidência a guardar em cada release
 
 - commit e hash da imagem;

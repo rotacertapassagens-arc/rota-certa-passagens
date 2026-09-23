@@ -134,7 +134,7 @@ CREATE TABLE lead_requests (
   passengers text,
   trip_type text,
   notes text,
-  status text NOT NULL DEFAULT 'new' CHECK (status IN ('new','reviewing','closed')),
+  status text NOT NULL DEFAULT 'new' CONSTRAINT lead_requests_status_check CHECK (status IN ('new','reviewing','closed')),
   ip_hash char(64),
   created_at timestamptz NOT NULL DEFAULT now()
 );

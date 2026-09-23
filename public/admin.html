@@ -1,1 +1,55 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Painel administrativo | Rota Certa Passagens</title><link rel="stylesheet" href="/assets/portal.css"><link rel="icon" href="/assets/logo.png"></head><body><main class="shell"><div class="top"><div><div class="brand">Rota Certa <span>Passagens</span></div><p class="muted">Painel administrativo do site público</p></div><a class="button" href="/">Voltar ao site</a></div><section class="panel" id="accessMessage"><h1>Acesso administrativo</h1><p>Entre primeiro pela Área do cliente com uma conta master.</p><a class="button" href="/#/cliente">Ir para a Área do cliente</a></section><div id="adminContent" class="hidden"><section class="grid" id="metrics"></section><section class="panel"><h2>Convidar outro usuário master</h2><form id="inviteForm"><label>Nome<input id="inviteName" required maxlength="120"></label><label>E-mail<input id="inviteEmail" type="email" required maxlength="254"></label><button type="submit">Enviar convite seguro</button><p class="status" id="inviteStatus" aria-live="polite"></p></form></section><section class="panel"><h2>Usuários</h2><table><thead><tr><th>Nome</th><th>E-mail</th><th>Status</th><th>Papéis</th><th>Criado</th></tr></thead><tbody id="users"></tbody></table></section><section class="panel"><h2>Planos</h2><table><thead><tr><th>Plano</th><th>Preço</th><th>Duração</th><th>Checkout</th></tr></thead><tbody id="plans"></tbody></table></section><section class="panel"><h2>Pagamentos sandbox</h2><table><thead><tr><th>Data</th><th>E-mail</th><th>Plano</th><th>Valor</th><th>Status</th></tr></thead><tbody id="payments"></tbody></table></section></div></main><script type="module" src="/assets/admin.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Painel administrativo | Rota Certa Passagens</title>
+  <link rel="stylesheet" href="/assets/portal.css"><link rel="icon" href="/assets/logo.png">
+</head>
+<body><main class="shell">
+  <div class="top"><div><div class="brand">Rota Certa <span>Passagens</span></div><p class="muted">Painel administrativo do site público</p></div><a class="button" href="/">Voltar ao site</a></div>
+  <section class="panel" id="accessMessage"><h1>Acesso administrativo</h1><p>Entre primeiro pela Área do cliente com uma conta master.</p><a class="button" href="/#/cliente">Ir para a Área do cliente</a></section>
+  <div id="adminContent" class="hidden">
+    <section class="grid" id="metrics"></section>
+    <section class="panel">
+      <div class="section-head">
+        <div><h2>Central de Propostas</h2><p class="muted">Pedidos de passagens recebidos pelo site. Somente usuários master podem acessar.</p></div>
+        <label>Filtrar por status<select id="leadFilter"><option value="">Todas</option><option value="new">Novas</option><option value="reviewing">Em análise</option><option value="awaiting_customer">Aguardando cliente</option><option value="ready">Proposta pronta</option><option value="sent">Enviadas</option><option value="converted">Convertidas</option><option value="lost">Não convertidas</option><option value="canceled">Canceladas</option><option value="closed">Encerradas</option></select></label>
+        <label>Filtrar por parceiro<select id="leadPartnerFilter"><option value="">Todos</option></select></label>
+      </div>
+      <div id="leads" class="lead-list"><p class="muted">Carregando propostas...</p></div>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Parceiros</h2><p class="muted">Programa de indicação: links rastreáveis, cliques, propostas, conversões e comissões.</p></div></div>
+      <table><thead><tr><th>Código</th><th>Nome</th><th>Comissão</th><th>Cliques</th><th>Propostas</th><th>Convertidas</th><th>Pendente</th><th>Aprovada</th><th>Paga</th><th>Ativo</th><th>Ações</th></tr></thead><tbody id="partners"></tbody></table>
+      <p class="status" id="partnersStatus" aria-live="polite"></p>
+    </section>
+    <section class="panel">
+      <h2>Criar parceiro</h2>
+      <form id="partnerForm">
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Código do link<input id="partnerCode" required maxlength="32" pattern="[a-z0-9-]{3,32}" placeholder="ex: maria10"></label>
+          <label>Nome público<input id="partnerDisplayName" required maxlength="120"></label>
+          <label>E-mail (acesso ao painel)<input id="partnerEmail" type="email" required maxlength="254"></label>
+        </div>
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Instagram<input id="partnerInstagram" maxlength="120"></label>
+          <label>WhatsApp<input id="partnerWhatsapp" maxlength="30"></label>
+          <label>Moeda<input id="partnerCurrency" value="EUR" maxlength="3"></label>
+        </div>
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Tipo de comissão<select id="partnerCommissionType"><option value="fixed">Valor fixo</option><option value="percentage">Percentual</option></select></label>
+          <label>Valor fixo (em unidades, ex: 50.00)<input id="partnerCommissionFixed" type="number" min="0" step="0.01"></label>
+          <label>Percentual (%, ex: 8)<input id="partnerCommissionPercentage" type="number" min="0" max="100" step="0.01"></label>
+          <label>Janela de atribuição (dias)<input id="partnerWindow" type="number" min="1" max="365" value="30"></label>
+        </div>
+        <button type="submit">Criar parceiro</button>
+        <p class="status" id="partnerFormStatus" aria-live="polite"></p>
+      </form>
+    </section>
+    <section class="panel"><h2>Convidar outro usuário master</h2><form id="inviteForm"><label>Nome<input id="inviteName" required maxlength="120"></label><label>E-mail<input id="inviteEmail" type="email" required maxlength="254"></label><button type="submit">Enviar convite seguro</button><p class="status" id="inviteStatus" aria-live="polite"></p></form></section>
+    <section class="panel"><h2>Usuários</h2><table><thead><tr><th>Nome</th><th>E-mail</th><th>Status</th><th>Papéis</th><th>Criado</th></tr></thead><tbody id="users"></tbody></table></section>
+    <section class="panel"><h2>Planos</h2><table><thead><tr><th>Plano</th><th>Preço</th><th>Duração</th><th>Checkout</th></tr></thead><tbody id="plans"></tbody></table></section>
+    <section class="panel"><h2>Pagamentos sandbox</h2><table><thead><tr><th>Data</th><th>E-mail</th><th>Plano</th><th>Valor</th><th>Status</th></tr></thead><tbody id="payments"></tbody></table></section>
+  </div>
+</main><script type="module" src="/assets/admin.js"></script></body>
+</html>

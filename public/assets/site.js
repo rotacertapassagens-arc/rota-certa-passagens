@@ -383,21 +383,50 @@ function quoteInit() {
   const form = document.getElementById('quoteForm');
   if (!form || form.dataset.bound) return;
   form.dataset.bound = '1';
+  const status = document.getElementById('quoteStatus');
+  const returnInput = document.getElementById('volta');
+  form.querySelectorAll('input[name=tipo]').forEach((radio) => radio.addEventListener('change', () => {
+    const roundTrip = form.querySelector('input[name=tipo]:checked')?.value === 'Ida e volta';
+    returnInput.required = roundTrip;
+    returnInput.disabled = !roundTrip;
+    if (!roundTrip) returnInput.value = '';
+  }));
+  returnInput.required = true;
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    const button = form.querySelector('button[type=submit]');
     const payload = {
+      name: document.getElementById('quoteName').value,
+      email: document.getElementById('quoteEmail').value,
+      phone: document.getElementById('quotePhone').value,
       type: 'quote', origem: document.getElementById('origem').value, destino: document.getElementById('destino').value,
       ida: document.getElementById('ida').value, volta: document.getElementById('volta').value,
-      passageiros: document.getElementById('passageiros').value,
-      tipo: form.querySelector('input[name=tipo]:checked')?.value || 'Individual',
+      adults: Number(document.getElementById('adults').value),
+      children: Number(document.getElementById('children').value),
+      infants: Number(document.getElementById('infants').value),
+      tipo: form.querySelector('input[name=tipo]:checked')?.value || 'Ida e volta',
+      cabinClass: document.getElementById('cabinClass').value,
+      baggage: document.getElementById('baggage').value,
+      flexibility: document.getElementById('flexibility').value,
+      paymentPreference: document.getElementById('paymentPreference').value,
       observacoes: document.getElementById('observacoes').value,
-      observacoesCurtas: document.getElementById('observacoesShort')?.value || '',
+      contactConsent: document.getElementById('contactConsent').checked,
     };
-    try { await api('/api/lead', { method: 'POST', body: JSON.stringify(payload) }); }
-    catch { return notify('Não foi possível registrar o pedido agora. Tente novamente mais tarde.'); }
-    const message = `Olá! Gostaria de uma proposta de voo:%0A${encodeURIComponent(payload.origem)} → ${encodeURIComponent(payload.destino)}%0AIda: ${payload.ida || '-'} | Volta: ${payload.volta || '-'}%0APassageiros: ${encodeURIComponent(payload.passageiros)}%0ATipo de viagem: ${encodeURIComponent(payload.tipo)}${payload.observacoes ? `%0AObservações: ${encodeURIComponent(payload.observacoes)}` : ''}`;
-    window.open(`https://wa.me/351925307391?text=${message}`, '_blank', 'noopener');
-    form.reset();
+    button.disabled = true;
+    status.textContent = 'Registrando sua solicitação com segurança...';
+    try {
+      const result = await api('/api/lead', { method: 'POST', body: JSON.stringify(payload) });
+      status.textContent = result.confirmationEmailSent
+        ? `Solicitação recebida. Protocolo ${result.protocol}. Enviamos a confirmação para seu e-mail e responderemos em até 48 horas.`
+        : `Solicitação recebida e salva. Anote o protocolo ${result.protocol}. O e-mail de confirmação não pôde ser enviado agora, mas nossa equipe responderá em até 48 horas.`;
+      form.reset();
+      returnInput.required = true;
+      returnInput.disabled = false;
+    } catch (error) {
+      status.textContent = error.status === 429 ? 'Muitas tentativas seguidas. Aguarde alguns minutos e tente novamente.' : 'Não foi possível registrar o pedido agora. Revise os dados e tente novamente.';
+    } finally {
+      button.disabled = false;
+    }
   });
 }
 

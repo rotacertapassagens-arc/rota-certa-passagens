@@ -22,6 +22,7 @@ const config: AppConfig = {
   PAYMENTS_MODE: 'disabled',
   STRIPE_WEBHOOK_SECRET: 'whsec_local_test_only',
   MASTER_BOOTSTRAP_TOKEN: 'bootstrap-token-long-enough-for-tests',
+  WHATSAPP_NOTIFICATIONS_ENABLED: false,
 };
 
 describe('Rota Certa public site API', () => {
@@ -35,7 +36,7 @@ describe('Rota Certa public site API', () => {
     memory.public.registerFunction({ name: 'char_length', args: [DataType.text], returns: DataType.integer, implementation: (value: string) => value.length });
     const adapter = memory.adapters.createPg();
     const pool = new adapter.Pool();
-    db = new PostgresDatabase(pool);
+    db = new PostgresDatabase(pool, { supportsSkipLocked: false });
     await migrate(db);
     email = new TestEmailSender();
     app = await buildApp({ db, config, emailSender: email });
@@ -186,6 +187,50 @@ describe('Rota Certa public site API', () => {
     expect(reused.statusCode).toBe(400);
     const secondBootstrap = await app.inject({ method: 'POST', url: '/api/admin/bootstrap/master-invites', headers: { authorization: `Bearer ${config.MASTER_BOOTSTRAP_TOKEN}` }, payload: { email: 'other@example.com', name: 'Outra Pessoa' } });
     expect(secondBootstrap.statusCode).toBe(409);
+  });
+
+  it('stores flight proposals before email delivery and exposes them only to masters', async () => {
+    const invite = await app.inject({
+      method: 'POST', url: '/api/admin/bootstrap/master-invites',
+      headers: { authorization: `Bearer ${config.MASTER_BOOTSTRAP_TOKEN}` },
+      payload: { email: 'quotes-master@example.com', name: 'Master Propostas' },
+    });
+    expect(invite.statusCode).toBe(201);
+    const inviteMessage = email.messages.findLast((item) => item.template === 'master_invite');
+    const inviteCode = /<strong>(\d{6})<\/strong>/.exec(inviteMessage?.html ?? '')?.[1];
+    expect((await app.inject({ method: 'POST', url: '/api/admin/master-invites/accept', payload: { email: 'quotes-master@example.com', code: inviteCode, password: 'MasterSegura123' } })).statusCode).toBe(200);
+    const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'quotes-master@example.com', password: 'MasterSegura123' } });
+    const master = { cookie: login.cookies.map((item) => `${item.name}=${item.value}`).join('; '), csrf: login.cookies.find((item) => item.name === 'rc_csrf')!.value };
+
+    const proposal = await app.inject({
+      method: 'POST', url: '/api/lead', payload: {
+        type: 'quote', name: 'Cliente Viagem', email: 'cliente@example.com', phone: '+351 912 345 678',
+        origem: 'Lisboa', destino: 'Recife', ida: '2026-11-10', volta: '2026-11-25', adults: 2,
+        children: 1, infants: 0, tipo: 'Ida e volta', cabinClass: 'Econômica', baggage: 'Bagagem despachada',
+        flexibility: 'Até 3 dias', paymentPreference: 'Dinheiro ou milhas', observacoes: 'Preferência por voo noturno', contactConsent: true,
+      },
+    });
+    expect(proposal.statusCode, proposal.body).toBe(201);
+    expect(proposal.json()).toEqual(expect.objectContaining({ ok: true, protocol: expect.stringMatching(/^RC-\d{8}-[A-F0-9]{6}$/), confirmationEmailSent: true, mastersNotified: 1 }));
+    const stored = await db.query<{ status: string; customer_email: string; deadline_at: Date }>('SELECT status,customer_email,deadline_at FROM lead_requests WHERE protocol=$1', [proposal.json().protocol]);
+    expect(stored.rows[0]).toEqual(expect.objectContaining({ status: 'new', customer_email: 'cliente@example.com' }));
+    expect(new Date(stored.rows[0]!.deadline_at).getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
+    expect(email.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({ to: 'cliente@example.com', template: 'flight_quote_customer' }),
+      expect.objectContaining({ to: 'quotes-master@example.com', template: 'flight_quote_master' }),
+    ]));
+
+    const ordinary = await createVerifiedUser(app, email, 'ordinary@example.com', 'Pessoa Comum');
+    expect((await app.inject({ method: 'GET', url: '/api/admin/leads', headers: { cookie: ordinary.cookie } })).statusCode).toBe(403);
+    const listed = await app.inject({ method: 'GET', url: '/api/admin/leads', headers: { cookie: master.cookie } });
+    expect(listed.statusCode, listed.body).toBe(200);
+    expect(listed.json().leads).toEqual(expect.arrayContaining([expect.objectContaining({ protocol: proposal.json().protocol, customer_name: 'Cliente Viagem' })]));
+    const leadId = listed.json().leads[0].id;
+    const updated = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'reviewing', internalNotes: 'Cotação iniciada', assignToMe: true } });
+    expect(updated.statusCode, updated.body).toBe(200);
+    const changed = await db.query<{ status: string; internal_notes: string; assigned_to: string }>('SELECT status,internal_notes,assigned_to FROM lead_requests WHERE id=$1', [leadId]);
+    expect(changed.rows[0]).toEqual(expect.objectContaining({ status: 'reviewing', internal_notes: 'Cotação iniciada' }));
+    expect(changed.rows[0]!.assigned_to).toBeTruthy();
   });
 
   it('does not create a checkout when sandbox credentials are absent', async () => {

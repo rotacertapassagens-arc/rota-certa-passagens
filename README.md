@@ -2,11 +2,12 @@
 
 Implementação local do site público `rotacertapassagens.com`. Este repositório é independente do Rota Certa OS e não deve ser conectado ao painel interno, VPS, n8n, ORC, Radar, Notion operacional, WhatsApp, Metricool ou FinanceHub.
 
-## Estado em 17/09/2026
+## Estado em 23/09/2026
 
 - Implementado localmente: visual público preservado, API Node/Fastify, Postgres, cadastro com confirmação, sessões revogáveis, recuperação de senha, master por convite, Planner persistente e cobrança Stripe somente sandbox.
-- Verificado: compilação, checagem de tipos e testes automatizados.
-- Não executado: push, deploy, alteração de DNS/Cloudflare, envio real de e-mail, cobrança real ou criação de contas externas.
+- Adicionado em 23/09/2026: programa de indicação de parceiros de ponta a ponta — link rastreável `/i/{codigo}`, atribuição automática/manual no formulário de proposta, gestão de parceiros e comissões no painel master, painel autenticado do próprio parceiro (`/painel-parceiro.html`) sem PII de clientes, página pública de termos (`/parceiros.html`) e outbox de notificações idempotente em modo capture. Paridade mantida entre Node/Fastify+Postgres e Cloudflare Worker+D1. Ver `docs/SECURITY.md` e `docs/openapi.yaml`.
+- Verificado: compilação, checagem de tipos (Node e Worker), testes automatizados (Node) e aplicação local da migração D1.
+- Não executado: push, deploy, alteração de DNS/Cloudflare, envio real de e-mail/WhatsApp, cobrança real, criação de contas externas ou ativação de segredos do WhatsApp.
 - Referência preservada: o ZIP recebido permanece intacto em `reference/site-original-2026-09-16.zip`.
 
 ## Uso local

@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Rota Certa Passagens - API do site público
   version: 0.1.0
-  description: Contrato da implementação local. Não representa uma API publicada.
+  description: Contrato da API do site público e do painel administrativo.
 servers:
   - url: http://localhost:3000
 tags:
@@ -11,6 +11,7 @@ tags:
   - name: Planner
   - name: Admin
   - name: Payments
+  - name: Partners
 components:
   securitySchemes:
     sessionCookie:
@@ -21,6 +22,10 @@ components:
       type: apiKey
       in: header
       name: X-CSRF-Token
+    cronToken:
+      type: http
+      scheme: bearer
+      description: NOTIFICATIONS_CRON_TOKEN, for unattended scheduler calls with no session cookie.
   schemas:
     Error:
       type: object
@@ -42,6 +47,87 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         destination: { type: [string, "null"] }
+    FlightQuote:
+      type: object
+      required: [type, name, email, phone, origem, destino, ida, adults, children, infants, tipo, cabinClass, baggage, flexibility, paymentPreference, contactConsent]
+      properties:
+        type: { type: string, const: quote }
+        name: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email }
+        phone: { type: string }
+        origem: { type: string }
+        destino: { type: string }
+        ida: { type: string, format: date }
+        volta: { type: string, format: date }
+        adults: { type: integer, minimum: 1, maximum: 20 }
+        children: { type: integer, minimum: 0, maximum: 20 }
+        infants: { type: integer, minimum: 0, maximum: 20 }
+        tipo: { type: string, enum: [Ida e volta, Somente ida] }
+        cabinClass: { type: string }
+        baggage: { type: string }
+        flexibility: { type: string }
+        paymentPreference: { type: string }
+        observacoes: { type: string, maxLength: 3000 }
+        contactConsent: { type: boolean, const: true }
+        howHeard: { type: string, enum: [Instagram, "Indicação de um amigo", "Indicação de um parceiro/influenciador", Google, Outro] }
+        referralCode: { type: string, maxLength: 64, description: "Código digitado manualmente; sempre revalidado no servidor e nunca prioritário sobre o link/cookie." }
+    Partner:
+      type: object
+      required: [id, code, displayName, email, commissionType, currency, attributionWindowDays, active]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, pattern: "^[a-z0-9-]{3,32}$", description: "Slug único usado em /i/{code}." }
+        displayName: { type: string }
+        instagram: { type: [string, "null"] }
+        whatsapp: { type: [string, "null"] }
+        email: { type: string, format: email }
+        commissionType: { type: string, enum: [fixed, percentage] }
+        commissionFixedCents: { type: [integer, "null"], description: "Centavos; exigido quando commissionType=fixed." }
+        commissionPercentageBps: { type: [integer, "null"], description: "Pontos base (1% = 100); exigido quando commissionType=percentage." }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        attributionWindowDays: { type: integer, minimum: 1, maximum: 365, default: 30 }
+        active: { type: boolean }
+        hasAccount: { type: boolean, description: "Se já existe um usuário com papel partner vinculado." }
+    PartnerCreate:
+      type: object
+      required: [code, displayName, email, commissionType, currency]
+      properties:
+        code: { type: string }
+        displayName: { type: string }
+        instagram: { type: string }
+        whatsapp: { type: string }
+        email: { type: string, format: email }
+        commissionType: { type: string, enum: [fixed, percentage] }
+        commissionFixedCents: { type: integer, minimum: 0 }
+        commissionPercentageBps: { type: integer, minimum: 1, maximum: 10000 }
+        currency: { type: string, default: EUR }
+        attributionWindowDays: { type: integer, default: 30 }
+    PartnerCommission:
+      type: object
+      required: [id, partnerId, amountCents, currency, status]
+      properties:
+        id: { type: string, format: uuid }
+        partnerId: { type: string, format: uuid }
+        amountCents: { type: integer, minimum: 0 }
+        currency: { type: string }
+        status: { type: string, enum: [pending, approved, paid, void] }
+        voidReason: { type: [string, "null"] }
+    PartnerLedgerEntry:
+      type: object
+      description: "Entrada do extrato do próprio parceiro. Nunca contém nome, e-mail, telefone ou qualquer PII do cliente."
+      properties:
+        protocolMasked: { type: string, example: "RC-20260910-A1••••" }
+        route: { type: [string, "null"] }
+        status: { type: string }
+        referralSource: { type: string, enum: [link, manual, none] }
+        requestedAt: { type: string, format: date-time }
+        convertedAt: { type: [string, "null"], format: date-time }
+        commission:
+          type: [object, "null"]
+          properties:
+            amountCents: { type: integer }
+            currency: { type: string }
+            status: { type: string, enum: [pending, approved, paid, void] }
 paths:
   /api/health:
     get:
@@ -58,10 +144,49 @@ paths:
   /api/lead:
     post:
       tags: [Public]
-      summary: Registra pedido de cotação ou planejamento no banco local
+      summary: Salva uma proposta de voo, resolve atribuição de parceiro e envia confirmação
+      description: >
+        Atribuição é resolvida inteiramente no servidor: o cookie de referência assinado (definido
+        por /i/{code}) tem prioridade; um código digitado manualmente em howHeard/referralCode só é
+        usado quando não há cookie válido. O cliente nunca pode enviar um partnerId diretamente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FlightQuote" }
       responses:
-        "201": { description: Pedido registrado }
+        "201": { description: Pedido registrado com protocolo e prazo de 48 horas }
+        "400": { description: Dados inválidos }
         "429": { description: Limite excedido }
+  /i/{code}:
+    get:
+      tags: [Partners]
+      summary: Link rastreável do parceiro; registra clique e redireciona ao formulário
+      description: >
+        Proteção anti-rajada: um clique repetido do mesmo par (IP, user-agent) anônimo para o
+        mesmo código dentro de 60s não é contado de novo em referral_clicks (deduplicação via a
+        mesma tabela rate_limit_buckets usada por todo o resto do app) — mas o cookie e o
+        redirecionamento sempre acontecem, mesmo quando o clique não é contado. Nenhum IP puro é
+        armazenado, apenas HMAC-SHA256 do IP/IP+user-agent. Retenção segue o ciclo de vida normal
+        de referral_clicks/rate_limit_buckets (sem tabela de retenção longa dedicada nesta
+        versão).
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      responses:
+        "302":
+          description: >
+            Código válido e ativo: redireciona para /proposta-voo.html?ref={code} e define o
+            cookie rc_ref (HttpOnly, assinado, validade = janela de atribuição do parceiro).
+            Código inexistente ou inativo: redireciona para "/" sem definir cookie nem registrar
+            atribuição (o clique nunca é criado, mas a experiência do visitante não quebra).
+  /api/partners/attribution:
+    get:
+      tags: [Partners]
+      summary: Retorna apenas o nome público do parceiro atribuído (se houver) para o banner do formulário
+      parameters:
+        - { name: ref, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: "{ active: boolean, code?, displayName? } — nunca expõe o partnerId interno" }
   /api/auth/signup:
     post:
       tags: [Auth]
@@ -210,6 +335,235 @@ paths:
       responses:
         "200": { description: Resumo administrativo }
         "403": { description: Papel master necessário }
+  /api/admin/leads:
+    get:
+      tags: [Admin]
+      security: [{ sessionCookie: [] }]
+      summary: Lista propostas de voo para usuários master, com origem/parceiro e comissão
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [new, reviewing, awaiting_customer, ready, sent, converted, lost, canceled, closed] } }
+        - { name: partnerId, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Propostas, dados de atendimento, parceiro de origem e comissão associada }
+        "403": { description: Papel master necessário }
+  /api/admin/leads/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza status, notas, responsável e conversão (com criação idempotente de comissão)
+      description: >
+        Ao mudar status para "converted" com proposta atribuída a um parceiro percentual, exige
+        saleAmountCents e saleCurrency (senão 422 sale_amount_required) e cria a comissão de forma
+        transacional e idempotente: no máximo uma comissão *ativa* (não anulada) por proposta a
+        qualquer momento, mas convert → void → reconvert cria uma nova comissão com novo snapshot,
+        preservando o histórico das anteriores (nunca duplica linhas nas listagens). Repetir a
+        chamada de conversão sem saleAmountCents/saleCurrency preserva o valor já gravado; tentar
+        alterá-lo depois que a comissão já existe devolve 409 sale_amount_locked. saleCurrency deve
+        ser igual à moeda configurada do parceiro (senão 409
+        sale_currency_must_match_partner_currency) e um código ISO suportado pelo produto (senão
+        422 invalid_currency). Mover uma proposta convertida para outro status enquanto existir
+        comissão pending/approved exige voidCommissionReason (senão 409
+        commission_void_reason_required); se a comissão já estiver paid, a transição é sempre
+        bloqueada com 409 commission_paid_immutable, mesmo com motivo informado.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [new, reviewing, awaiting_customer, ready, sent, converted, lost, canceled, closed] }
+                internalNotes: { type: string, maxLength: 3000 }
+                assignToMe: { type: boolean }
+                saleAmountCents: { type: integer, minimum: 0 }
+                saleCurrency: { type: string, minLength: 3, maxLength: 3 }
+                voidCommissionReason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "200": { description: "Proposta atualizada; commissionPreview presente quando uma comissão foi criada/já existia" }
+        "403": { description: Papel master necessário }
+        "404": { description: Proposta não encontrada }
+        "409": >
+          description: commission_void_reason_required (comissão pending/approved exige motivo explícito para sair de "converted"),
+          commission_paid_immutable (comissão já paga nunca pode sair de "converted"), sale_amount_locked
+          (repetição tentando alterar valor/moeda já usados) ou sale_currency_must_match_partner_currency
+        "422": { description: sale_amount_required (regra percentual sem valor de venda) ou invalid_currency (moeda fora do allowlist do produto) }
+  /api/admin/partners:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Lista parceiros com estatísticas de cliques, propostas, conversões e comissão
+      parameters:
+        - { name: active, in: query, required: false, schema: { type: string, enum: ["true", "false"] } }
+      responses:
+        "200": { description: "{ partners: Partner[] }" }
+        "403": { description: Papel master necessário }
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria um parceiro (código único, comissão fixa ou percentual)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PartnerCreate" }
+      responses:
+        "201": { description: Parceiro criado }
+        "400": { description: Dados inválidos (código malformado ou tipo/valor de comissão inconsistente) }
+        "409": { description: code_already_used ou email_already_used_by_partner (e-mail já vinculado a outro parceiro; normalizado e único) }
+        "422": { description: invalid_currency — código de moeda fora do allowlist do produto (EUR, USD, BRL, GBP) }
+  /api/admin/partners/{id}:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Detalhe do parceiro com extrato completo de comissões
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: "{ partner: Partner, commissions: PartnerCommission[] }" }
+        "404": { description: Parceiro não encontrado }
+    patch:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Edita dados do parceiro, regra de comissão ou ativa/desativa (sem apagar histórico)
+      description: >
+        Desativar o parceiro (active=false) bloqueia o acesso ao próprio painel
+        (/api/partner/summary, /api/partner/ledger) imediatamente, mesmo com a sessão ainda
+        tecnicamente válida; reativar restaura o acesso. Alterar a moeda (currency) é bloqueado
+        com 409 currency_locked_existing_commissions quando já existe qualquer comissão não
+        anulada para o parceiro, para nunca reinterpretar valores históricos.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Parceiro atualizado }
+        "404": { description: Parceiro não encontrado }
+        "409": { description: currency_locked_existing_commissions }
+        "422": { description: invalid_currency }
+  /api/admin/partners/{id}/invite:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Prepara/vincula a conta de acesso do parceiro e envia código de ativação de uso único
+      description: >
+        Vincula partners.user_id e prepara o token de convite, mas NUNCA concede o papel
+        "partner" nesta chamada — isso só acontece em /api/partner-invites/accept, depois do
+        código de uso único ser validado. Reenviar o convite invalida qualquer token anterior
+        ainda não usado.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "201": { description: Convite criado (ainda sem acesso concedido) }
+        "404": { description: Parceiro não encontrado }
+        "409": { description: partner_inactive ou email_linked_to_other_partner }
+  /api/partner-invites/accept:
+    post:
+      tags: [Partners]
+      summary: Ativa a conta do parceiro com e-mail + código de 6 dígitos + nova senha
+      description: >
+        Só aqui, transacionalmente e depois de validar o código de uso único, o papel "partner"
+        é concedido. Um convite expirado, com código errado, ou nunca aceito nunca concede
+        acesso — inclusive quando o e-mail já pertence a uma conta de cliente ativa.
+      responses:
+        "200": { description: Conta ativada; papel "partner" concedido nesta chamada }
+        "400": { description: invalid_or_expired_invite }
+        "409": { description: email_linked_to_other_partner }
+        "429": { description: too_many_attempts }
+  /api/partner/summary:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Painel do próprio parceiro autenticado — link, estatísticas e totais de comissão
+      description: >
+        Sempre filtrado pelo partners.user_id da sessão autenticada; nunca aceita um id de outro
+        parceiro. Um parceiro desativado (active=false) recebe 403 imediatamente, mesmo com a
+        sessão ainda válida para outros papéis da mesma conta.
+      responses:
+        "200": { description: Resumo do próprio parceiro }
+        "403": { description: Conta sem papel partner vinculado, ou parceiro desativado }
+  /api/partner/ledger:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Extrato cronológico das próprias indicações, sem qualquer PII do cliente
+      responses:
+        "200": { description: "{ entries: PartnerLedgerEntry[] }" }
+        "403": { description: Conta sem papel partner vinculado }
+  /api/admin/commissions/{id}/approve:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Aprova uma comissão pendente (auditado)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Comissão aprovada }
+        "409": { description: invalid_transition — só a partir de pending }
+  /api/admin/commissions/{id}/pay:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Marca uma comissão aprovada como paga (auditado; dispara notificação idempotente)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Comissão paga }
+        "409": { description: invalid_transition — só a partir de approved }
+  /api/admin/commissions/{id}/void:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Anula uma comissão pending/approved com motivo obrigatório (auditado; preserva histórico)
+      description: >
+        Só pending/approved podem ser anuladas. Uma comissão paid nunca pode ser voidada por
+        aqui — devolve 409 commission_paid_requires_adjustment; um fluxo de ajuste/estorno
+        financeiro dedicado não faz parte desta versão.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [reason], properties: { reason: { type: string, minLength: 3, maxLength: 500 } } }
+      responses:
+        "200": { description: Comissão anulada }
+        "404": { description: not_found }
+        "409": { description: commission_paid_requires_adjustment ou already_void }
+  /api/admin/notifications/process:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }, { cronToken: [] }]
+      summary: Processa a fila (outbox) de notificações pendentes de forma idempotente
+      description: >
+        Aceita uma sessão master autenticada (painel) OU o cabeçalho `Authorization: Bearer
+        <NOTIFICATIONS_CRON_TOKEN>` para um chamador automatizado sem cookie de sessão (ex.: um
+        Cloudflare Scheduled Event), no mesmo padrão já usado pelo bootstrap do primeiro master.
+        Em EMAIL_MODE=capture (padrão local/teste, em ambos os backends Node e Worker) apenas
+        registra o evento em email_events, sem envio real. WhatsApp só é tentado quando
+        WHATSAPP_NOTIFICATIONS_ENABLED=true; caso contrário o item é marcado "skipped". Nunca
+        reverte proposta nem duplica comissão em caso de falha do provedor.
+
+        Cada linha elegível é reclamada com uma lease curta (120s) antes de qualquer envio; a
+        lease é renovada logo antes da chamada externa (e-mail/WhatsApp) e toda escrita
+        condicionada ao lock_token confere quantas linhas foram de fato afetadas. Entrega é
+        **"pelo menos uma vez, com deduplicação a cargo do provedor"** (via a idempotency_key da
+        própria linha, propagada ao provedor de e-mail e ao webhook do WhatsApp) — nunca
+        "exatamente uma vez": se a lease expirar durante um envio lento, outra chamada pode
+        reclamar e reenviar a mesma linha antes que a primeira termine.
+      responses:
+        "200": { description: "{ processed, sent, skipped, failed, lockLost }. `lockLost` conta linhas cujo lock foi perdido para outro chamador antes desta chamada conseguir gravar o resultado final — nunca contadas em sent/skipped/failed por esta chamada." }
+        "401": { description: Sem sessão válida e sem token cron }
+        "403": { description: Sessão autenticada sem papel master }
+  /api/admin/notifications/weekly-summary:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }, { cronToken: [] }]
+      summary: Gera (idempotente, por parceiro e por semana Europe/Lisbon) o resumo semanal agregado
+      description: >
+        Mesma autenticação dupla (sessão master ou NOTIFICATIONS_CRON_TOKEN) do endpoint de
+        processamento acima. O payload gravado em notification_outbox segue o contrato
+        camelCase compartilhado entre os backends Node e Worker (ver shared/notificationPayloads.ts):
+        `{ weekStart, clicks, proposals, conversions, commissionCents, currency }`, sempre com a
+        moeda própria do parceiro (nunca um padrão fixo) — nunca `commission_cents` (snake_case) e
+        nunca uma moeda hardcoded.
+      responses:
+        "200": { description: "{ partnersConsidered, summariesCreated }" }
+        "401": { description: Sem sessão válida e sem token cron }
+        "403": { description: Sessão autenticada sem papel master }
   /api/payments/checkout:
     post:
       tags: [Payments]

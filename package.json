@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "db:migrate": "tsx src/cli/migrate.ts",
     "db:rollback": "tsx src/cli/rollback.ts",
     "worker:typecheck": "tsc -p worker/tsconfig.json --noEmit",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260916.1",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^24.3.1",
     "@types/pg": "^8.15.5",
     "pg-mem": "^3.0.5",
