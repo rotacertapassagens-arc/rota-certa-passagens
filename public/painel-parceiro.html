@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Painel do parceiro | Rota Certa Passagens</title>
+  <link rel="stylesheet" href="/assets/portal.css"><link rel="icon" href="/assets/logo.png">
+</head>
+<body><main class="shell">
+  <div class="top"><div><div class="brand">Rota Certa <span>Passagens</span></div><p class="muted">Painel do programa de parceiros</p></div><a class="button" href="/">Voltar ao site</a></div>
+  <section class="panel" id="accessMessage"><h1>Painel do parceiro</h1><p>Entre com a conta de parceiro ativada pelo convite recebido por e-mail.</p><a class="button" href="/#/cliente">Ir para o login</a></section>
+  <div id="partnerContent" class="hidden">
+    <section class="panel" id="linkPanel">
+      <h2>Seu link</h2>
+      <p class="muted">Divulgue este link — cada clique e proposta pelo seu código fica registrado automaticamente.</p>
+      <div class="grid" style="grid-template-columns:1fr auto;align-items:center;gap:10px">
+        <input id="partnerLink" readonly>
+        <button id="copyLink" type="button">Copiar link</button>
+      </div>
+      <p class="status" id="copyStatus" aria-live="polite"></p>
+    </section>
+    <section class="grid" id="metrics"></section>
+    <section class="panel">
+      <h2>Comissões</h2>
+      <div class="grid" id="commissionMetrics"></div>
+    </section>
+    <section class="panel">
+      <h2>Extrato de indicações</h2>
+      <p class="muted">Sem dados pessoais do cliente — apenas protocolo mascarado, rota resumida e estado da indicação.</p>
+      <table>
+        <thead><tr><th>Protocolo</th><th>Rota</th><th>Origem</th><th>Estado</th><th>Pedido em</th><th>Comissão</th></tr></thead>
+        <tbody id="ledger"></tbody>
+      </table>
+    </section>
+    <section class="panel"><h2>Termos do programa</h2><p><a href="/parceiros.html">Ver termos vigentes do programa de parceiros</a></p></section>
+  </div>
+</main><script type="module" src="/assets/partner.js"></script></body>
+</html>

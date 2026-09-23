@@ -12,13 +12,16 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/i/*"]
   },
   "vars": {
     "APP_ORIGIN": "https://rotacertapassagens.com",
     "EMAIL_FROM": "Rota Certa Passagens <acesso@mail.rotacertapassagens.com>",
-    "PAYMENTS_MODE": "disabled"
+    "PAYMENTS_MODE": "disabled",
+    "WHATSAPP_NOTIFICATIONS_ENABLED": "false"
   },
+  // WHATSAPP_WEBHOOK_URL / WHATSAPP_WEBHOOK_TOKEN are optional secrets, only needed when
+  // WHATSAPP_NOTIFICATIONS_ENABLED=true. Never set in this task; see docs/SECURITY.md.
   "secrets": {
     "required": ["TOKEN_PEPPER", "RATE_LIMIT_SECRET", "RESEND_API_KEY", "MASTER_BOOTSTRAP_TOKEN"]
   },

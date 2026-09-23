@@ -6,6 +6,7 @@ import type { Database } from '../db.js';
 import type { EmailSender } from '../email.js';
 import { enforceRateLimit } from '../auth.js';
 import { normalizeEmail, tokenDigest } from '../security.js';
+import { resolveAttribution } from './partners.js';
 
 const quoteSchema = z.object({
   type: z.literal('quote'),
@@ -26,6 +27,8 @@ const quoteSchema = z.object({
   paymentPreference: z.enum(['Dinheiro', 'Milhas', 'Dinheiro ou milhas']),
   observacoes: z.string().trim().max(3000).optional(),
   contactConsent: z.literal(true),
+  howHeard: z.enum(['Instagram', 'Indicação de um amigo', 'Indicação de um parceiro/influenciador', 'Google', 'Outro']).optional(),
+  referralCode: z.string().trim().max(64).optional(),
 }).superRefine((data, ctx) => {
   if (data.tipo === 'Ida e volta' && !data.volta) ctx.addIssue({ code: 'custom', path: ['volta'], message: 'return_required' });
   if (data.volta && data.volta < data.ida) ctx.addIssue({ code: 'custom', path: ['volta'], message: 'return_before_outbound' });
@@ -53,17 +56,35 @@ export function registerPublicRoutes(app: FastifyInstance, db: Database, config:
     const protocol = makeProtocol(id);
     const phone = normalizePhone(data.phone);
     const deadline = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+    // URL/cookie attribution always outranks a manually typed code (fraud resistance + trust
+    // in the partner's own tracked link). The client never gets to pick the internal partner id.
+    const manualCode = data.howHeard === 'Indicação de um parceiro/influenciador' ? data.referralCode : undefined;
+    const attribution = await resolveAttribution(db, config, request, manualCode);
+
     await db.query(
       `INSERT INTO lead_requests
         (id,kind,protocol,customer_name,customer_email,customer_phone,origin,destination,outbound_on,return_on,
          passengers,adults,children,infants,trip_type,cabin_class,baggage,date_flexibility,payment_preference,
-         notes,contact_consent,status,deadline_at,ip_hash,updated_at)
-       VALUES ($1,'flight_quote',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,true,'new',$20,$21,now())`,
+         notes,contact_consent,status,deadline_at,ip_hash,updated_at,
+         partner_id,referral_code_snapshot,referral_source,referral_captured_at,attribution_expires_at)
+       VALUES ($1,'flight_quote',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,true,'new',$20,$21,now(),
+               $22,$23,$24,$25,$26)`,
       [id, protocol, data.name, email, phone, data.origem, data.destino, data.ida, data.volta || null,
        `${data.adults} adulto(s), ${data.children} criança(s), ${data.infants} bebê(s)`, data.adults, data.children,
        data.infants, data.tipo, data.cabinClass, data.baggage, data.flexibility, data.paymentPreference,
-       data.observacoes || null, deadline, tokenDigest(request.ip, config.RATE_LIMIT_SECRET)],
+       data.observacoes || null, deadline, tokenDigest(request.ip, config.RATE_LIMIT_SECRET),
+       attribution?.partnerId ?? null, attribution?.code ?? null, attribution?.source ?? 'none',
+       attribution?.capturedAt ?? null, attribution?.expiresAt ?? null],
     );
+
+    if (attribution) {
+      await db.query(
+        `INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload)
+         VALUES ($1,$2,'referral_confirmed',$3,$4::jsonb) ON CONFLICT (idempotency_key) DO NOTHING`,
+        [randomUUID(), `referral_confirmed:${id}`, attribution.partnerId, JSON.stringify({ leadId: id, protocol, destination: data.destino })],
+      );
+    }
 
     const masterRows = await db.query<{ id: string; email: string }>(
       `SELECT u.id,u.email FROM users u JOIN user_roles r ON r.user_id=u.id

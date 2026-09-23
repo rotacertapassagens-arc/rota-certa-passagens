@@ -10,7 +10,14 @@ import { hashPassword, normalizeEmail, randomEmailCode, safeEqualText, tokenDige
 const inviteSchema = z.object({ email: z.string().email().max(254), name: z.string().trim().min(2).max(120) });
 const acceptSchema = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/), password: z.string().min(12).max(128).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/) });
 const leadStatusSchema = z.enum(['new', 'reviewing', 'awaiting_customer', 'ready', 'sent', 'converted', 'lost', 'canceled', 'closed']);
-const leadUpdateSchema = z.object({ status: leadStatusSchema, internalNotes: z.string().trim().max(3000).optional(), assignToMe: z.boolean().optional() });
+const leadUpdateSchema = z.object({
+  status: leadStatusSchema,
+  internalNotes: z.string().trim().max(3000).optional(),
+  assignToMe: z.boolean().optional(),
+  saleAmountCents: z.number().int().min(0).max(100_000_000).optional(),
+  saleCurrency: z.string().length(3).optional(),
+  voidCommissionReason: z.string().trim().min(3).max(500).optional(),
+});
 
 export function registerAdminRoutes(app: FastifyInstance, db: Database, config: AppConfig, emailSender: EmailSender) {
   app.post('/api/admin/bootstrap/master-invites', async (request, reply) => {
@@ -112,18 +119,24 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database, config: 
   app.get('/api/admin/leads', async (request, reply) => {
     const auth = await requireMaster(db, config, request, reply);
     if (!auth) return;
-    const query = z.object({ status: leadStatusSchema.optional() }).safeParse(request.query);
+    const query = z.object({ status: leadStatusSchema.optional(), partnerId: z.string().uuid().optional() }).safeParse(request.query);
     if (!query.success) return reply.code(400).send({ error: 'invalid_filter' });
     const leads = await db.query(
       `SELECT l.id,l.protocol,l.customer_name,l.customer_email,l.customer_phone,l.origin,l.destination,
               l.outbound_on,l.return_on,l.adults,l.children,l.infants,l.trip_type,l.cabin_class,l.baggage,
               l.date_flexibility,l.payment_preference,l.notes,l.internal_notes,l.status,l.deadline_at,
-              l.created_at,l.updated_at,l.assigned_to,p.display_name AS assigned_name
-         FROM lead_requests l LEFT JOIN profiles p ON p.user_id=l.assigned_to
-        WHERE l.kind='flight_quote' AND ($1::text IS NULL OR l.status=$1)
+              l.created_at,l.updated_at,l.assigned_to,p.display_name AS assigned_name,
+              l.partner_id,l.referral_code_snapshot,l.referral_source,l.sale_amount_cents,l.sale_currency,l.converted_at,
+              partner.code AS partner_code,partner.display_name AS partner_display_name,
+              pc.id AS commission_id,pc.status AS commission_status,pc.amount_cents AS commission_amount_cents,pc.currency AS commission_currency
+         FROM lead_requests l
+         LEFT JOIN profiles p ON p.user_id=l.assigned_to
+         LEFT JOIN partners partner ON partner.id=l.partner_id
+         LEFT JOIN partner_commissions pc ON pc.lead_request_id=l.id
+        WHERE l.kind='flight_quote' AND ($1::text IS NULL OR l.status=$1) AND ($2::uuid IS NULL OR l.partner_id=$2)
         ORDER BY CASE WHEN l.status IN ('new','reviewing','awaiting_customer','ready') THEN 0 ELSE 1 END,
                  l.deadline_at ASC NULLS LAST,l.created_at DESC LIMIT 200`,
-      [query.data.status ?? null],
+      [query.data.status ?? null, query.data.partnerId ?? null],
     );
     return reply.send({ leads: leads.rows });
   });
@@ -134,17 +147,120 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database, config: 
     const params = z.object({ id: z.string().uuid() }).safeParse(request.params);
     const parsed = leadUpdateSchema.safeParse(request.body);
     if (!params.success || !parsed.success) return reply.code(400).send({ error: 'invalid_request' });
-    const updated = await db.query(
-      `UPDATE lead_requests SET status=$1,internal_notes=$2,
-              assigned_to=CASE WHEN $3 THEN $4 ELSE assigned_to END,updated_at=now()
-        WHERE id=$5 AND kind='flight_quote'
-      RETURNING id,protocol,status,internal_notes,assigned_to,updated_at`,
-      [parsed.data.status, parsed.data.internalNotes || null, parsed.data.assignToMe === true, auth.userId, params.data.id],
+
+    const existing = await db.query<{ id: string; status: string; partner_id: string | null; protocol: string; destination: string | null }>(
+      "SELECT id,status,partner_id,protocol,destination FROM lead_requests WHERE id=$1 AND kind='flight_quote'",
+      [params.data.id],
     );
-    if (!updated.rowCount) return reply.code(404).send({ error: 'not_found' });
-    await audit(db, config, request, 'admin.lead_updated', auth.userId, 'lead_request', params.data.id);
-    return reply.send({ lead: updated.rows[0] });
+    const lead = existing.rows[0];
+    if (!lead) return reply.code(404).send({ error: 'not_found' });
+
+    // Moving a proposal away from "converted" never silently drops commission history: an
+    // active (pending/approved) commission requires an explicit, audited void reason first.
+    if (lead.status === 'converted' && parsed.data.status !== 'converted') {
+      const active = await db.query('SELECT id FROM partner_commissions WHERE lead_request_id=$1 AND status IN (\'pending\',\'approved\')', [lead.id]);
+      if (active.rowCount) {
+        if (!parsed.data.voidCommissionReason) return reply.code(409).send({ error: 'commission_void_reason_required' });
+        await db.query(
+          "UPDATE partner_commissions SET status='void',voided_at=now(),voided_by=$1,void_reason=$2,updated_at=now() WHERE lead_request_id=$3 AND status IN ('pending','approved')",
+          [auth.userId, parsed.data.voidCommissionReason, lead.id],
+        );
+        await audit(db, config, request, 'admin.commission_voided', auth.userId, 'lead_request', lead.id, { reason: parsed.data.voidCommissionReason });
+      }
+    }
+
+    let commissionPreview: { amountCents: number; currency: string } | null = null;
+    let updatedRow: Record<string, unknown> | undefined;
+    await db.transaction(async (tx) => {
+      if (parsed.data.status === 'converted' && lead.partner_id) {
+        commissionPreview = await createCommissionForLead(tx, config, request, auth.userId, lead.id, lead.partner_id, parsed.data.saleAmountCents, parsed.data.saleCurrency);
+      }
+      const updated = await tx.query(
+        `UPDATE lead_requests SET status=$1,internal_notes=$2,
+                assigned_to=CASE WHEN $3 THEN $4 ELSE assigned_to END,
+                sale_amount_cents=CASE WHEN $1='converted' THEN $6 ELSE sale_amount_cents END,
+                sale_currency=CASE WHEN $1='converted' THEN $7 ELSE sale_currency END,
+                converted_at=CASE WHEN $1='converted' THEN COALESCE(converted_at,now()) ELSE converted_at END,
+                updated_at=now()
+          WHERE id=$5 AND kind='flight_quote'
+        RETURNING id,protocol,status,internal_notes,assigned_to,updated_at`,
+        [parsed.data.status, parsed.data.internalNotes || null, parsed.data.assignToMe === true, auth.userId, params.data.id,
+         parsed.data.saleAmountCents ?? null, parsed.data.saleCurrency?.toUpperCase() ?? null],
+      );
+      updatedRow = updated.rows[0];
+    });
+    if (!updatedRow) return reply.code(404).send({ error: 'not_found' });
+    const updated = { rows: [updatedRow], rowCount: 1 };
+    await audit(db, config, request, 'admin.lead_updated', auth.userId, 'lead_request', params.data.id, { status: parsed.data.status });
+
+    if (parsed.data.status === 'converted' && lead.partner_id) {
+      await db.query(
+        `INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload)
+         VALUES ($1,$2,'proposal_converted',$3,$4::jsonb) ON CONFLICT (idempotency_key) DO NOTHING`,
+        [randomUUID(), `proposal_converted:${lead.id}`, lead.partner_id, JSON.stringify({ leadId: lead.id, protocol: lead.protocol })],
+      );
+    }
+    return reply.send({ lead: updated.rows[0], commissionPreview });
   });
+}
+
+/**
+ * Creates (or returns) the commission for a converted proposal. Idempotent via the unique
+ * constraint on lead_request_id: a repeated conversion request never creates a second
+ * commission row. Percentage commissions require a valid sale amount; fixed commissions are
+ * computed from the partner's rule snapshot at conversion time so later rule edits never
+ * change commissions that were already created.
+ */
+async function createCommissionForLead(
+  db: Database,
+  config: AppConfig,
+  request: FastifyRequest,
+  actorUserId: string,
+  leadId: string,
+  partnerId: string,
+  saleAmountCents: number | undefined,
+  saleCurrency: string | undefined,
+) {
+  const existing = await db.query<{ amount_cents: number; currency: string }>('SELECT amount_cents,currency FROM partner_commissions WHERE lead_request_id=$1', [leadId]);
+  if (existing.rows[0]) return { amountCents: existing.rows[0].amount_cents, currency: existing.rows[0].currency };
+
+  const partner = await db.query<{ commission_type: 'fixed' | 'percentage'; commission_fixed_cents: number | null; commission_percentage_bps: number | null; currency: string }>(
+    'SELECT commission_type,commission_fixed_cents,commission_percentage_bps,currency FROM partners WHERE id=$1',
+    [partnerId],
+  );
+  const rule = partner.rows[0];
+  if (!rule) return null;
+
+  let amountCents: number;
+  let currency: string;
+  let rateSnapshot: number;
+  if (rule.commission_type === 'percentage') {
+    if (saleAmountCents === undefined || !saleCurrency) throw Object.assign(new Error('sale_amount_required'), { statusCode: 422 });
+    amountCents = Math.round((saleAmountCents * (rule.commission_percentage_bps ?? 0)) / 10_000);
+    currency = saleCurrency.toUpperCase();
+    rateSnapshot = rule.commission_percentage_bps ?? 0;
+  } else {
+    amountCents = rule.commission_fixed_cents ?? 0;
+    currency = rule.currency;
+    rateSnapshot = rule.commission_fixed_cents ?? 0;
+  }
+
+  const id = randomUUID();
+  const inserted = await db.query<{ amount_cents: number; currency: string }>(
+    `INSERT INTO partner_commissions
+      (id,partner_id,lead_request_id,amount_cents,currency,status,commission_type_snapshot,commission_rate_snapshot,sale_amount_cents_snapshot,created_by)
+     VALUES ($1,$2,$3,$4,$5,'pending',$6,$7,$8,$9)
+     ON CONFLICT (lead_request_id) DO NOTHING
+     RETURNING amount_cents,currency`,
+    [id, partnerId, leadId, amountCents, currency, rule.commission_type, rateSnapshot, saleAmountCents ?? null, actorUserId],
+  );
+  if (!inserted.rows[0]) {
+    const raceExisting = await db.query<{ amount_cents: number; currency: string }>('SELECT amount_cents,currency FROM partner_commissions WHERE lead_request_id=$1', [leadId]);
+    const row = raceExisting.rows[0];
+    return row ? { amountCents: row.amount_cents, currency: row.currency } : null;
+  }
+  await audit(db, config, request, 'admin.commission_created', actorUserId, 'partner_commission', id, { amountCents, currency });
+  return { amountCents: inserted.rows[0].amount_cents, currency: inserted.rows[0].currency };
 }
 
 async function requireMaster(db: Database, config: AppConfig, request: FastifyRequest, reply: FastifyReply) {

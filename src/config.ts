@@ -18,6 +18,9 @@ const schema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   MASTER_BOOTSTRAP_TOKEN: z.string().min(24).optional(),
+  WHATSAPP_NOTIFICATIONS_ENABLED: booleanString.default(false),
+  WHATSAPP_WEBHOOK_URL: z.string().url().optional(),
+  WHATSAPP_WEBHOOK_TOKEN: z.string().min(16).optional(),
 });
 
 export type AppConfig = z.infer<typeof schema>;

@@ -11,6 +11,8 @@ import { registerPlannerRoutes } from './routes/planner.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerPaymentRoutes } from './routes/payments.js';
 import { registerPublicRoutes } from './routes/public.js';
+import { registerPartnerRoutes } from './routes/partners.js';
+import { registerNotificationRoutes } from './routes/notifications.js';
 
 export interface AppDependencies {
   db: Database;
@@ -54,6 +56,8 @@ export async function buildApp({ db, config, emailSender = new RuntimeEmailSende
   registerPlannerRoutes(app, db, config);
   registerAdminRoutes(app, db, config, emailSender);
   registerPaymentRoutes(app, db, config);
+  registerPartnerRoutes(app, db, config, emailSender);
+  registerNotificationRoutes(app, db, config);
 
   await app.register(fastifyStatic, { root: join(process.cwd(), 'public'), prefix: '/' });
   app.setNotFoundHandler(async (request, reply) => {

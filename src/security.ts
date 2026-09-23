@@ -60,6 +60,38 @@ export function sanitizeUserAgent(value: string | undefined) {
   return value.replace(/[\r\n]/g, '').slice(0, 300);
 }
 
+const PARTNER_CODE_PATTERN = /^[a-z0-9-]{3,32}$/;
+
+export function normalizePartnerCode(value: string) {
+  return value.trim().toLowerCase();
+}
+
+export function isValidPartnerCode(value: string) {
+  return PARTNER_CODE_PATTERN.test(value);
+}
+
+/**
+ * Signs a first-party referral attribution value (partner code + capture timestamp) so the
+ * client cannot forge or extend an attribution window by editing the cookie directly. The
+ * signature is verified server-side on every read; an invalid signature is treated as no
+ * attribution at all rather than trusting the raw value.
+ */
+export function signReferralToken(code: string, capturedAtMs: number, pepper: string) {
+  const payload = `${code}.${capturedAtMs}`;
+  return `${payload}.${tokenDigest(payload, pepper)}`;
+}
+
+export function verifyReferralToken(token: string, pepper: string): { code: string; capturedAtMs: number } | null {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [code, capturedAtText, signature] = parts;
+  const capturedAtMs = Number(capturedAtText);
+  if (!code || !signature || !Number.isFinite(capturedAtMs) || capturedAtMs <= 0) return null;
+  const expected = tokenDigest(`${code}.${capturedAtText}`, pepper);
+  if (!safeEqualText(signature, expected)) return null;
+  return { code, capturedAtMs };
+}
+
 function scryptAsync(password: string, salt: Buffer, keyLength: number, options: { N: number; r: number; p: number; maxmem: number }) {
   return new Promise<Buffer>((resolve, reject) => {
     scryptCallback(password, salt, keyLength, options, (error, derivedKey) => {

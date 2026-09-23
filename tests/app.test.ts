@@ -22,6 +22,7 @@ const config: AppConfig = {
   PAYMENTS_MODE: 'disabled',
   STRIPE_WEBHOOK_SECRET: 'whsec_local_test_only',
   MASTER_BOOTSTRAP_TOKEN: 'bootstrap-token-long-enough-for-tests',
+  WHATSAPP_NOTIFICATIONS_ENABLED: false,
 };
 
 describe('Rota Certa public site API', () => {

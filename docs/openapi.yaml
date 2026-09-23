@@ -11,6 +11,7 @@ tags:
   - name: Planner
   - name: Admin
   - name: Payments
+  - name: Partners
 components:
   securitySchemes:
     sessionCookie:
@@ -64,6 +65,65 @@ components:
         paymentPreference: { type: string }
         observacoes: { type: string, maxLength: 3000 }
         contactConsent: { type: boolean, const: true }
+        howHeard: { type: string, enum: [Instagram, "Indicação de um amigo", "Indicação de um parceiro/influenciador", Google, Outro] }
+        referralCode: { type: string, maxLength: 64, description: "Código digitado manualmente; sempre revalidado no servidor e nunca prioritário sobre o link/cookie." }
+    Partner:
+      type: object
+      required: [id, code, displayName, email, commissionType, currency, attributionWindowDays, active]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, pattern: "^[a-z0-9-]{3,32}$", description: "Slug único usado em /i/{code}." }
+        displayName: { type: string }
+        instagram: { type: [string, "null"] }
+        whatsapp: { type: [string, "null"] }
+        email: { type: string, format: email }
+        commissionType: { type: string, enum: [fixed, percentage] }
+        commissionFixedCents: { type: [integer, "null"], description: "Centavos; exigido quando commissionType=fixed." }
+        commissionPercentageBps: { type: [integer, "null"], description: "Pontos base (1% = 100); exigido quando commissionType=percentage." }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        attributionWindowDays: { type: integer, minimum: 1, maximum: 365, default: 30 }
+        active: { type: boolean }
+        hasAccount: { type: boolean, description: "Se já existe um usuário com papel partner vinculado." }
+    PartnerCreate:
+      type: object
+      required: [code, displayName, email, commissionType, currency]
+      properties:
+        code: { type: string }
+        displayName: { type: string }
+        instagram: { type: string }
+        whatsapp: { type: string }
+        email: { type: string, format: email }
+        commissionType: { type: string, enum: [fixed, percentage] }
+        commissionFixedCents: { type: integer, minimum: 0 }
+        commissionPercentageBps: { type: integer, minimum: 1, maximum: 10000 }
+        currency: { type: string, default: EUR }
+        attributionWindowDays: { type: integer, default: 30 }
+    PartnerCommission:
+      type: object
+      required: [id, partnerId, amountCents, currency, status]
+      properties:
+        id: { type: string, format: uuid }
+        partnerId: { type: string, format: uuid }
+        amountCents: { type: integer, minimum: 0 }
+        currency: { type: string }
+        status: { type: string, enum: [pending, approved, paid, void] }
+        voidReason: { type: [string, "null"] }
+    PartnerLedgerEntry:
+      type: object
+      description: "Entrada do extrato do próprio parceiro. Nunca contém nome, e-mail, telefone ou qualquer PII do cliente."
+      properties:
+        protocolMasked: { type: string, example: "RC-20260910-A1••••" }
+        route: { type: [string, "null"] }
+        status: { type: string }
+        referralSource: { type: string, enum: [link, manual, none] }
+        requestedAt: { type: string, format: date-time }
+        convertedAt: { type: [string, "null"], format: date-time }
+        commission:
+          type: [object, "null"]
+          properties:
+            amountCents: { type: integer }
+            currency: { type: string }
+            status: { type: string, enum: [pending, approved, paid, void] }
 paths:
   /api/health:
     get:
@@ -80,7 +140,11 @@ paths:
   /api/lead:
     post:
       tags: [Public]
-      summary: Salva uma proposta de voo e envia confirmação ao cliente e aos masters
+      summary: Salva uma proposta de voo, resolve atribuição de parceiro e envia confirmação
+      description: >
+        Atribuição é resolvida inteiramente no servidor: o cookie de referência assinado (definido
+        por /i/{code}) tem prioridade; um código digitado manualmente em howHeard/referralCode só é
+        usado quando não há cookie válido. O cliente nunca pode enviar um partnerId diretamente.
       requestBody:
         required: true
         content:
@@ -90,6 +154,27 @@ paths:
         "201": { description: Pedido registrado com protocolo e prazo de 48 horas }
         "400": { description: Dados inválidos }
         "429": { description: Limite excedido }
+  /i/{code}:
+    get:
+      tags: [Partners]
+      summary: Link rastreável do parceiro; registra clique e redireciona ao formulário
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      responses:
+        "302":
+          description: >
+            Código válido e ativo: redireciona para /proposta-voo.html?ref={code} e define o
+            cookie rc_ref (HttpOnly, assinado, validade = janela de atribuição do parceiro).
+            Código inexistente ou inativo: redireciona para "/" sem definir cookie nem registrar
+            atribuição (o clique nunca é criado, mas a experiência do visitante não quebra).
+  /api/partners/attribution:
+    get:
+      tags: [Partners]
+      summary: Retorna apenas o nome público do parceiro atribuído (se houver) para o banner do formulário
+      parameters:
+        - { name: ref, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: "{ active: boolean, code?, displayName? } — nunca expõe o partnerId interno" }
   /api/auth/signup:
     post:
       tags: [Auth]
@@ -242,23 +327,173 @@ paths:
     get:
       tags: [Admin]
       security: [{ sessionCookie: [] }]
-      summary: Lista propostas de voo para usuários master
+      summary: Lista propostas de voo para usuários master, com origem/parceiro e comissão
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [new, reviewing, awaiting_customer, ready, sent, converted, lost, canceled, closed] } }
+        - { name: partnerId, in: query, required: false, schema: { type: string, format: uuid } }
       responses:
-        "200": { description: Propostas e dados necessários para atendimento }
+        "200": { description: Propostas, dados de atendimento, parceiro de origem e comissão associada }
         "403": { description: Papel master necessário }
   /api/admin/leads/{id}:
     patch:
       tags: [Admin]
       security: [{ sessionCookie: [], csrfToken: [] }]
-      summary: Atualiza status, notas internas e responsável por uma proposta
+      summary: Atualiza status, notas, responsável e conversão (com criação idempotente de comissão)
+      description: >
+        Ao mudar status para "converted" com proposta atribuída a um parceiro percentual, exige
+        saleAmountCents e saleCurrency (senão 422 sale_amount_required) e cria a comissão de forma
+        transacional e idempotente (uma única comissão por proposta). Repetir a chamada não duplica
+        a comissão. Mover uma proposta convertida para outro status enquanto existir comissão
+        pending/approved exige voidCommissionReason (senão 409 commission_void_reason_required).
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [new, reviewing, awaiting_customer, ready, sent, converted, lost, canceled, closed] }
+                internalNotes: { type: string, maxLength: 3000 }
+                assignToMe: { type: boolean }
+                saleAmountCents: { type: integer, minimum: 0 }
+                saleCurrency: { type: string, minLength: 3, maxLength: 3 }
+                voidCommissionReason: { type: string, minLength: 3, maxLength: 500 }
       responses:
-        "200": { description: Proposta atualizada }
+        "200": { description: "Proposta atualizada; commissionPreview presente quando uma comissão foi criada/já existia" }
         "403": { description: Papel master necessário }
         "404": { description: Proposta não encontrada }
+        "409": { description: commission_void_reason_required — comissão ativa exige motivo explícito para sair de "converted" }
+        "422": { description: sale_amount_required — regra percentual sem valor de venda informado }
+  /api/admin/partners:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Lista parceiros com estatísticas de cliques, propostas, conversões e comissão
+      parameters:
+        - { name: active, in: query, required: false, schema: { type: string, enum: ["true", "false"] } }
+      responses:
+        "200": { description: "{ partners: Partner[] }" }
+        "403": { description: Papel master necessário }
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria um parceiro (código único, comissão fixa ou percentual)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PartnerCreate" }
+      responses:
+        "201": { description: Parceiro criado }
+        "400": { description: Dados inválidos (código malformado ou tipo/valor de comissão inconsistente) }
+        "409": { description: code_already_used }
+  /api/admin/partners/{id}:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Detalhe do parceiro com extrato completo de comissões
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: "{ partner: Partner, commissions: PartnerCommission[] }" }
+        "404": { description: Parceiro não encontrado }
+    patch:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Edita dados do parceiro, regra de comissão ou ativa/desativa (sem apagar histórico)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Parceiro atualizado }
+        "404": { description: Parceiro não encontrado }
+  /api/admin/partners/{id}/invite:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria/atualiza a conta de acesso do parceiro e envia código de ativação de uso único
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "201": { description: Convite criado }
+        "404": { description: Parceiro não encontrado }
+        "409": { description: partner_inactive }
+  /api/partner-invites/accept:
+    post:
+      tags: [Partners]
+      summary: Ativa a conta do parceiro com e-mail + código de 6 dígitos + nova senha
+      responses:
+        "200": { description: Conta ativada; papel "partner" vinculado ao parceiro }
+        "400": { description: invalid_or_expired_invite }
+        "429": { description: too_many_attempts }
+  /api/partner/summary:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Painel do próprio parceiro autenticado — link, estatísticas e totais de comissão
+      description: Sempre filtrado pelo partners.user_id da sessão autenticada; nunca aceita um id de outro parceiro.
+      responses:
+        "200": { description: Resumo do próprio parceiro }
+        "403": { description: Conta sem papel partner vinculado }
+  /api/partner/ledger:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Extrato cronológico das próprias indicações, sem qualquer PII do cliente
+      responses:
+        "200": { description: "{ entries: PartnerLedgerEntry[] }" }
+        "403": { description: Conta sem papel partner vinculado }
+  /api/admin/commissions/{id}/approve:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Aprova uma comissão pendente (auditado)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Comissão aprovada }
+        "409": { description: invalid_transition — só a partir de pending }
+  /api/admin/commissions/{id}/pay:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Marca uma comissão aprovada como paga (auditado; dispara notificação idempotente)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Comissão paga }
+        "409": { description: invalid_transition — só a partir de approved }
+  /api/admin/commissions/{id}/void:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Anula uma comissão com motivo obrigatório (auditado; preserva histórico)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [reason], properties: { reason: { type: string, minLength: 3, maxLength: 500 } } }
+      responses:
+        "200": { description: Comissão anulada }
+        "404": { description: not_found_or_already_void }
+  /api/admin/notifications/process:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Processa a fila (outbox) de notificações pendentes de forma idempotente
+      description: >
+        Em EMAIL_MODE=capture (padrão local/teste) apenas registra o evento em email_events, sem
+        envio real. WhatsApp só é tentado quando WHATSAPP_NOTIFICATIONS_ENABLED=true; caso
+        contrário o item é marcado "skipped". Nunca reverte proposta nem duplica comissão em caso
+        de falha do provedor.
+      responses:
+        "200": { description: "{ processed, sent, skipped, failed }" }
+        "403": { description: Papel master necessário }
+  /api/admin/notifications/weekly-summary:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Gera (idempotente, por parceiro e por semana Europe/Lisbon) o resumo semanal agregado
+      responses:
+        "200": { description: "{ partnersConsidered, summariesCreated }" }
+        "403": { description: Papel master necessário }
   /api/payments/checkout:
     post:
       tags: [Payments]

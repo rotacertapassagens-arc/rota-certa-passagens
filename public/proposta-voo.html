@@ -24,6 +24,8 @@
       <p>Preencha os dados abaixo. Você receberá a confirmação por e-mail e nossa equipe responderá em até 48 horas.</p>
     </section>
 
+    <p class="referral-banner hidden" id="referralBanner" role="status"></p>
+
     <form class="quote-form" id="quoteForm">
       <fieldset>
         <legend>Seus dados</legend>
@@ -31,6 +33,17 @@
           <label>Nome completo<input type="text" id="quoteName" autocomplete="name" maxlength="120" required></label>
           <label>E-mail<input type="email" id="quoteEmail" autocomplete="email" maxlength="254" required></label>
           <label class="full">Telefone com código do país<input type="tel" id="quotePhone" autocomplete="tel" placeholder="+351 912 345 678" maxlength="30" required></label>
+          <label class="full">Como você conheceu a Rota Certa?
+            <select id="howHeard">
+              <option value="">Prefiro não dizer</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Indicação de um amigo">Indicação de um amigo</option>
+              <option value="Indicação de um parceiro/influenciador">Indicação de um parceiro/influenciador</option>
+              <option value="Google">Google</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </label>
+          <label class="full hidden" id="referralCodeField">Qual o código ou @ dele(a)?<input type="text" id="referralCode" maxlength="64" placeholder="Ex: maria10"></label>
         </div>
       </fieldset>
 

@@ -11,6 +11,9 @@ interface __BaseEnv_Env {
 	RATE_LIMIT_SECRET: string;
 	RESEND_API_KEY: string;
 	MASTER_BOOTSTRAP_TOKEN: string;
+	WHATSAPP_NOTIFICATIONS_ENABLED: "false" | "true";
+	WHATSAPP_WEBHOOK_URL?: string;
+	WHATSAPP_WEBHOOK_TOKEN?: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {

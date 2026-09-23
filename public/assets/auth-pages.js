@@ -22,3 +22,13 @@ document.getElementById('masterForm')?.addEventListener('submit', async (event) 
   try { await send('/api/admin/master-invites/accept', { email, code, password }); status.textContent='Acesso master ativado. Entre na Área do cliente e abra o painel administrativo.'; event.target.reset(); }
   catch (error) { status.textContent=error.message==='invalid_password_requirements'?'A senha precisa ter pelo menos 12 caracteres, com letra maiúscula, letra minúscula e número.':'O e-mail ou código é inválido, já foi usado ou expirou.'; }
 });
+document.getElementById('partnerInviteForm')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const email = document.getElementById('partnerEmail').value;
+  const code = document.getElementById('partnerCode').value.trim();
+  const password = document.getElementById('partnerPassword').value;
+  if (password !== document.getElementById('partnerPasswordConfirm').value) { status.textContent='As senhas não coincidem.'; return; }
+  if (password.length < 12 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) { status.textContent='A senha precisa ter pelo menos 12 caracteres, com letra maiúscula, letra minúscula e número.'; return; }
+  try { await send('/api/partner-invites/accept', { email, code, password }); status.textContent='Painel de parceiro ativado. Entre pela Área do cliente e abra o painel do parceiro.'; event.target.reset(); }
+  catch (error) { status.textContent=error.message==='invalid_password_requirements'?'A senha precisa ter pelo menos 12 caracteres, com letra maiúscula, letra minúscula e número.':'O e-mail ou código é inválido, já foi usado ou expirou.'; }
+});

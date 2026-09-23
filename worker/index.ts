@@ -16,7 +16,7 @@ const jsonHeaders = {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
+    if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/i/')) return env.ASSETS.fetch(request);
     try {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
       return await route(request, env, url);
@@ -29,6 +29,23 @@ export default {
 
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
+  const referralRedirect = p.match(/^\/i\/([^/]+)$/);
+  if (req.method === 'GET' && referralRedirect) return referralClick(req, env, referralRedirect[1]!);
+  if (req.method === 'GET' && p === '/api/partners/attribution') return partnerAttribution(req, env, url);
+  if (req.method === 'GET' && p === '/api/admin/partners') return adminPartners(req, env, url);
+  if (req.method === 'POST' && p === '/api/admin/partners') return adminPartnerCreate(req, env);
+  const partnerId = p.match(/^\/api\/admin\/partners\/([0-9a-f-]+)$/i);
+  if (req.method === 'GET' && partnerId) return adminPartnerDetail(req, env, partnerId[1]!);
+  if (req.method === 'PATCH' && partnerId) return adminPartnerUpdate(req, env, partnerId[1]!);
+  const partnerInvite = p.match(/^\/api\/admin\/partners\/([0-9a-f-]+)\/invite$/i);
+  if (req.method === 'POST' && partnerInvite) return adminPartnerInvite(req, env, partnerInvite[1]!);
+  if (req.method === 'POST' && p === '/api/partner-invites/accept') return partnerInviteAccept(req, env);
+  if (req.method === 'GET' && p === '/api/partner/summary') return partnerSummary(req, env);
+  if (req.method === 'GET' && p === '/api/partner/ledger') return partnerLedger(req, env);
+  const commissionAction = p.match(/^\/api\/admin\/commissions\/([0-9a-f-]+)\/(approve|pay|void)$/i);
+  if (req.method === 'POST' && commissionAction) return commissionTransition(req, env, commissionAction[1]!, commissionAction[2]! as 'approve' | 'pay' | 'void');
+  if (req.method === 'POST' && p === '/api/admin/notifications/process') return notificationsProcess(req, env);
+  if (req.method === 'POST' && p === '/api/admin/notifications/weekly-summary') return notificationsWeeklySummary(req, env);
   if (req.method === 'GET' && p === '/api/health') return reply({ ok: true, runtime: 'cloudflare-workers' });
   if (req.method === 'GET' && p === '/api/geo') return reply({ country: req.headers.get('cf-ipcountry') || 'PT' });
   if (req.method === 'POST' && p === '/api/lead') return flightQuoteLead(req, env);
@@ -121,6 +138,56 @@ function cookies(req: Request) {
   return out;
 }
 function clientKey(req: Request) { return req.headers.get('cf-connecting-ip') || 'unknown'; }
+
+const REF_COOKIE = 'rc_ref';
+const PARTNER_CODE_RE = /^[a-z0-9-]{3,32}$/;
+function normalizeCode(value: string) { return value.trim().toLowerCase(); }
+function validCode(value: string) { return PARTNER_CODE_RE.test(value); }
+async function signRef(codeValue: string, capturedAtMs: number, env: Env) {
+  const payload = `${codeValue}.${capturedAtMs}`;
+  return `${payload}.${await digest(payload, env)}`;
+}
+async function verifyRef(token: string, env: Env): Promise<{ code: string; capturedAtMs: number } | null> {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [codeValue, capturedAtText, signature] = parts;
+  const capturedAtMs = Number(capturedAtText);
+  if (!codeValue || !Number.isFinite(capturedAtMs) || capturedAtMs <= 0) return null;
+  const expected = await digest(`${codeValue}.${capturedAtText}`, env);
+  return (await safeEqual(signature!, expected)) ? { code: codeValue, capturedAtMs } : null;
+}
+function maskProtocol(protocol: string) {
+  const parts = protocol.split('-'); const suffix = parts[2] ?? ''; const visible = suffix.slice(0, 2);
+  return `${parts[0]}-${parts[1]}-${visible}${'•'.repeat(Math.max(0, suffix.length - 2))}`;
+}
+
+interface Attribution { partnerId: string; code: string; source: 'link' | 'manual'; capturedAtIso: string; expiresAtIso: string }
+async function resolveAttribution(req: Request, env: Env, manualCode?: string | null): Promise<Attribution | null> {
+  const cookieToken = cookies(req)[REF_COOKIE];
+  if (cookieToken) {
+    const verified = await verifyRef(cookieToken, env);
+    if (verified) {
+      const partner = await env.DB.prepare('SELECT id,attribution_window_days FROM partners WHERE code=? AND active=1').bind(verified.code).first<{ id: string; attribution_window_days: number }>();
+      if (partner) {
+        const expiresAtMs = verified.capturedAtMs + partner.attribution_window_days * 86400000;
+        if (expiresAtMs > Date.now()) {
+          return { partnerId: String(partner.id), code: verified.code, source: 'link', capturedAtIso: new Date(verified.capturedAtMs).toISOString(), expiresAtIso: new Date(expiresAtMs).toISOString() };
+        }
+      }
+    }
+  }
+  if (manualCode) {
+    const codeValue = normalizeCode(manualCode);
+    if (validCode(codeValue)) {
+      const partner = await env.DB.prepare('SELECT id,attribution_window_days FROM partners WHERE code=? AND active=1').bind(codeValue).first<{ id: string; attribution_window_days: number }>();
+      if (partner) {
+        const now = Date.now();
+        return { partnerId: String(partner.id), code: codeValue, source: 'manual', capturedAtIso: new Date(now).toISOString(), expiresAtIso: new Date(now + partner.attribution_window_days * 86400000).toISOString() };
+      }
+    }
+  }
+  return null;
+}
 
 async function rateLimit(req: Request, env: Env, scope: string, target: string, max: number, windowSeconds: number) {
   const key = await sha(`${env.RATE_LIMIT_SECRET}|${scope}|${target}|${clientKey(req)}`);
@@ -304,8 +371,62 @@ async function adminPlans(req:Request,env:Env){if(!(await requireMaster(req,env)
 async function adminPayments(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);return reply({payments:(await env.DB.prepare('SELECT p.*,u.email,pl.code plan_code FROM payments p JOIN users u ON u.id=p.user_id LEFT JOIN plans pl ON pl.id=p.plan_id ORDER BY p.created_at DESC LIMIT 200').all()).results});}
 
 const leadStatuses=['new','reviewing','awaiting_customer','ready','sent','converted','lost','canceled','closed'];
-async function adminLeads(req:Request,env:Env,url:URL){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);const status=url.searchParams.get('status');if(status&&!leadStatuses.includes(status))return reply({error:'invalid_filter'},400);const sql=`SELECT l.id,l.protocol,l.customer_name,l.customer_email,l.customer_phone,l.origin,l.destination,l.outbound_on,l.return_on,l.adults,l.children,l.infants,l.trip_type,l.cabin_class,l.baggage,l.date_flexibility,l.payment_preference,l.notes,l.internal_notes,l.status,l.deadline_at,l.created_at,l.updated_at,l.assigned_to,p.display_name assigned_name FROM lead_requests l LEFT JOIN profiles p ON p.user_id=l.assigned_to WHERE l.kind='flight_quote'${status?' AND l.status=?':''} ORDER BY CASE WHEN l.status IN ('new','reviewing','awaiting_customer','ready') THEN 0 ELSE 1 END,l.deadline_at ASC,l.created_at DESC LIMIT 200`;const query=env.DB.prepare(sql);return reply({leads:(status?await query.bind(status).all():await query.all()).results});}
-async function adminLeadUpdate(req:Request,env:Env,id:string){const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);const b=await body(req);const status=typeof b?.status==='string'&&leadStatuses.includes(b.status)?b.status:null;const notes=text(b?.internalNotes,3000),assign=b?.assignToMe===true;if(!status)return reply({error:'invalid_request'},400);const result=await env.DB.prepare('UPDATE lead_requests SET status=?,internal_notes=?,assigned_to=CASE WHEN ? THEN ? ELSE assigned_to END,updated_at=CURRENT_TIMESTAMP WHERE id=? AND kind=\'flight_quote\'').bind(status,notes,assign?1:0,auth.userId,id).run();if(!result.meta.changes)return reply({error:'not_found'},404);await audit(env,auth.userId,'admin.lead_updated','lead_request',id);return reply({lead:{id,status,internal_notes:notes,assigned_to:assign?auth.userId:null,updated_at:new Date().toISOString()}});}
+async function adminLeads(req:Request,env:Env,url:URL){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);const status=url.searchParams.get('status');const partnerId=url.searchParams.get('partnerId');if(status&&!leadStatuses.includes(status))return reply({error:'invalid_filter'},400);const conds=["l.kind='flight_quote'"];const binds:unknown[]=[];if(status){conds.push('l.status=?');binds.push(status);}if(partnerId){conds.push('l.partner_id=?');binds.push(partnerId);}const sql=`SELECT l.id,l.protocol,l.customer_name,l.customer_email,l.customer_phone,l.origin,l.destination,l.outbound_on,l.return_on,l.adults,l.children,l.infants,l.trip_type,l.cabin_class,l.baggage,l.date_flexibility,l.payment_preference,l.notes,l.internal_notes,l.status,l.deadline_at,l.created_at,l.updated_at,l.assigned_to,p.display_name assigned_name,l.partner_id,l.referral_code_snapshot,l.referral_source,l.sale_amount_cents,l.sale_currency,l.converted_at,partner.code partner_code,partner.display_name partner_display_name,pc.id commission_id,pc.status commission_status,pc.amount_cents commission_amount_cents,pc.currency commission_currency FROM lead_requests l LEFT JOIN profiles p ON p.user_id=l.assigned_to LEFT JOIN partners partner ON partner.id=l.partner_id LEFT JOIN partner_commissions pc ON pc.lead_request_id=l.id WHERE ${conds.join(' AND ')} ORDER BY CASE WHEN l.status IN ('new','reviewing','awaiting_customer','ready') THEN 0 ELSE 1 END,l.deadline_at ASC,l.created_at DESC LIMIT 200`;return reply({leads:(await env.DB.prepare(sql).bind(...binds).all()).results});}
+
+async function createCommissionForLead(env:Env,actorUserId:string,leadId:string,partnerId:string,saleAmountCents:number|null,saleCurrency:string|null):Promise<{amountCents:number;currency:string}|{error:string}>{
+  const existing=await env.DB.prepare('SELECT amount_cents,currency FROM partner_commissions WHERE lead_request_id=?').bind(leadId).first<{amount_cents:number;currency:string}>();
+  if(existing)return{amountCents:existing.amount_cents,currency:existing.currency};
+  const rule=await env.DB.prepare('SELECT commission_type,commission_fixed_cents,commission_percentage_bps,currency FROM partners WHERE id=?').bind(partnerId).first<{commission_type:string;commission_fixed_cents:number|null;commission_percentage_bps:number|null;currency:string}>();
+  if(!rule)return{error:'partner_not_found'};
+  let amountCents:number,currency:string,rateSnapshot:number;
+  if(rule.commission_type==='percentage'){
+    if(saleAmountCents===null||!saleCurrency)return{error:'sale_amount_required'};
+    amountCents=Math.round((saleAmountCents*(rule.commission_percentage_bps||0))/10000);currency=saleCurrency.toUpperCase();rateSnapshot=rule.commission_percentage_bps||0;
+  }else{amountCents=rule.commission_fixed_cents||0;currency=rule.currency;rateSnapshot=rule.commission_fixed_cents||0;}
+  const id=crypto.randomUUID();
+  await env.DB.prepare(`INSERT INTO partner_commissions (id,partner_id,lead_request_id,amount_cents,currency,status,commission_type_snapshot,commission_rate_snapshot,sale_amount_cents_snapshot,created_by) VALUES (?,?,?,?,?,'pending',?,?,?,?) ON CONFLICT(lead_request_id) DO NOTHING`)
+    .bind(id,partnerId,leadId,amountCents,currency,rule.commission_type,rateSnapshot,saleAmountCents,actorUserId).run();
+  const finalRow=await env.DB.prepare('SELECT amount_cents,currency FROM partner_commissions WHERE lead_request_id=?').bind(leadId).first<{amount_cents:number;currency:string}>();
+  await audit(env,actorUserId,'admin.commission_created','partner_commission',id);
+  return finalRow?{amountCents:finalRow.amount_cents,currency:finalRow.currency}:{error:'commission_not_created'};
+}
+
+async function adminLeadUpdate(req:Request,env:Env,id:string){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const b=await body(req);const status=typeof b?.status==='string'&&leadStatuses.includes(b.status)?b?.status:null;const notes=text(b?.internalNotes,3000),assign=b?.assignToMe===true;
+  const saleAmountCents=Number.isInteger(b?.saleAmountCents)&&Number(b?.saleAmountCents)>=0?Number(b?.saleAmountCents):null;
+  const saleCurrency=typeof b?.saleCurrency==='string'&&b.saleCurrency.length===3?b?.saleCurrency:null;
+  const voidReason=text(b?.voidCommissionReason,500,3);
+  if(!status)return reply({error:'invalid_request'},400);
+  const existing=await env.DB.prepare("SELECT id,status,partner_id,protocol,destination FROM lead_requests WHERE id=? AND kind='flight_quote'").bind(id).first<Row>();
+  if(!existing)return reply({error:'not_found'},404);
+  if(existing.status==='converted'&&status!=='converted'){
+    const active=await env.DB.prepare("SELECT id FROM partner_commissions WHERE lead_request_id=? AND status IN ('pending','approved')").bind(id).first<Row>();
+    if(active){
+      if(!voidReason)return reply({error:'commission_void_reason_required'},409);
+      await env.DB.prepare("UPDATE partner_commissions SET status='void',voided_at=CURRENT_TIMESTAMP,voided_by=?,void_reason=?,updated_at=CURRENT_TIMESTAMP WHERE lead_request_id=? AND status IN ('pending','approved')").bind(auth.userId,voidReason,id).run();
+      await audit(env,auth.userId,'admin.commission_voided','lead_request',id);
+    }
+  }
+  let commissionPreview:{amountCents:number;currency:string}|{error:string}|null=null;
+  if(status==='converted'&&existing.partner_id){
+    commissionPreview=await createCommissionForLead(env,auth.userId,id,String(existing.partner_id),saleAmountCents,saleCurrency);
+    if('error'in commissionPreview)return reply({error:commissionPreview.error},422);
+  }
+  const result=await env.DB.prepare(`UPDATE lead_requests SET status=?,internal_notes=?,assigned_to=CASE WHEN ? THEN ? ELSE assigned_to END,
+    sale_amount_cents=CASE WHEN ?='converted' THEN ? ELSE sale_amount_cents END,
+    sale_currency=CASE WHEN ?='converted' THEN ? ELSE sale_currency END,
+    converted_at=CASE WHEN ?='converted' THEN COALESCE(converted_at,CURRENT_TIMESTAMP) ELSE converted_at END,
+    updated_at=CURRENT_TIMESTAMP WHERE id=? AND kind='flight_quote'`)
+    .bind(status,notes,assign?1:0,auth.userId,status,saleAmountCents,status,saleCurrency?.toUpperCase()||null,status,id).run();
+  if(!result.meta.changes)return reply({error:'not_found'},404);
+  await audit(env,auth.userId,'admin.lead_updated','lead_request',id);
+  if(status==='converted'&&existing.partner_id){
+    await env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'proposal_converted',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
+      .bind(crypto.randomUUID(),`proposal_converted:${id}`,existing.partner_id,JSON.stringify({leadId:id,protocol:existing.protocol})).run();
+  }
+  return reply({lead:{id,status,internal_notes:notes,assigned_to:assign?auth.userId:null,updated_at:new Date().toISOString()},commissionPreview});
+}
 
 async function flightQuoteLead(req:Request,env:Env){
   const b=await body(req);
@@ -319,12 +440,21 @@ async function flightQuoteLead(req:Request,env:Env){
   if(b?.type!=='quote'||!name||!email||!phone||!origin||!destination||!outbound||adults===null||children===null||infants===null||!tripType||!cabin||!baggage||!flexibility||!payment||b?.contactConsent!==true||(tripType==='Ida e volta'&&!returnOn)||(returnOn&&returnOn<outbound))return reply({error:'invalid_request'},400);
   if(!(await rateLimit(req,env,'flight_quote',email,4,1800)))return reply({error:'try_again_later'},429);
   const id=crypto.randomUUID(),protocol=`RC-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${id.replaceAll('-','').slice(0,6).toUpperCase()}`,deadline=isoAfter(48*3600);
+  const howHeard=typeof b?.howHeard==='string'?b.howHeard:null;
+  const manualCode=howHeard==='Indicação de um parceiro/influenciador'&&typeof b?.referralCode==='string'?b.referralCode:null;
+  const attribution=await resolveAttribution(req,env,manualCode);
   await env.DB.prepare(`INSERT INTO lead_requests
     (id,kind,protocol,customer_name,customer_email,customer_phone,origin,destination,outbound_on,return_on,
      passengers,adults,children,infants,trip_type,cabin_class,baggage,date_flexibility,payment_preference,notes,
-     contact_consent,status,deadline_at,ip_hash,updated_at)
-    VALUES (?,'flight_quote',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,'new',?,?,CURRENT_TIMESTAMP)`)
-    .bind(id,protocol,name,email,phone,origin,destination,outbound,returnOn,`${adults} adulto(s), ${children} criança(s), ${infants} bebê(s)`,adults,children,infants,tripType,cabin,baggage,flexibility,payment,notes,deadline,await sha(clientKey(req))).run();
+     contact_consent,status,deadline_at,ip_hash,updated_at,
+     partner_id,referral_code_snapshot,referral_source,referral_captured_at,attribution_expires_at)
+    VALUES (?,'flight_quote',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,'new',?,?,CURRENT_TIMESTAMP,?,?,?,?,?)`)
+    .bind(id,protocol,name,email,phone,origin,destination,outbound,returnOn,`${adults} adulto(s), ${children} criança(s), ${infants} bebê(s)`,adults,children,infants,tripType,cabin,baggage,flexibility,payment,notes,deadline,await sha(clientKey(req)),
+      attribution?.partnerId??null,attribution?.code??null,attribution?.source??'none',attribution?.capturedAtIso??null,attribution?.expiresAtIso??null).run();
+  if(attribution){
+    await env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'referral_confirmed',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
+      .bind(crypto.randomUUID(),`referral_confirmed:${id}`,attribution.partnerId,JSON.stringify({leadId:id,protocol,destination})).run();
+  }
   const masters=await env.DB.prepare("SELECT u.id,u.email FROM users u JOIN user_roles r ON r.user_id=u.id WHERE r.role='master' AND u.status='active' AND u.email_verified_at IS NOT NULL").all<Row>();
   const route=`${origin} → ${destination}`,adminUrl=`${env.APP_ORIGIN.replace(/\/$/,'')}/admin.html`;
   const customerHtml=`<p>Olá, ${html(name)}.</p><p>Recebemos sua solicitação de proposta para <strong>${html(route)}</strong>.</p><p>Protocolo: <strong>${protocol}</strong></p><p>Nossa equipe analisará as melhores opções e responderá por e-mail em até 48 horas.</p><p>Rota Certa Passagens</p>`;
@@ -353,3 +483,261 @@ async function plannerItem(req:Request,env:Env,tripId:string,kind:string,itemId?
   if(kind==='checklist'&&req.method==='POST'){const itemText=text(b?.text,300,1);if(!itemText)return reply({error:'invalid_checklist_item'},400);await env.DB.prepare('INSERT INTO checklist_items(id,trip_id,owner_user_id,text,sort_order) VALUES(?,?,?,?,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM checklist_items WHERE trip_id=? AND owner_user_id=?))').bind(id,tripId,a.userId,itemText,tripId,a.userId).run();return reply({id},201);}return reply({error:'not_found'},404);
 }
 async function plannerImport(req:Request,env:Env){const a=await mutationAuth(req,env);if(!a)return reply({error:'unauthorized'},401);const access=await requirePlannerAccess(a,env);if(!access)return reply({error:'free_trial_expired',upgrade_required:true},402);if(!(await canCreateActiveTrip(a,env,access)))return reply({error:'free_active_trip_limit',upgrade_required:true},403);const b=await body(req);if(!b||!Array.isArray(b.itinerary)||!Array.isArray(b.places)||!Array.isArray(b.expenses)||!Array.isArray(b.checklist))return reply({error:'invalid_import'},400);const id=crypto.randomUUID();await env.DB.batch([env.DB.prepare("INSERT INTO trips(id,owner_user_id,name,source) VALUES(?,?,'Viagem importada do navegador','local_import')").bind(id,a.userId),env.DB.prepare("INSERT INTO budgets(trip_id,owner_user_id,amount_cents,currency) VALUES(?,?,?,'EUR')").bind(id,a.userId,Math.round(Number(b.budget||0)*100))]);const stmts:D1PreparedStatement[]=[];for(const x of b.itinerary.slice(0,1000) as Row[]){const title=text(x.what,240,1);if(title)stmts.push(env.DB.prepare('INSERT INTO itinerary_items(id,trip_id,owner_user_id,day_number,starts_at,title,kind,notes) VALUES(?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),id,a.userId,Math.max(1,Number(x.day)||1),text(x.time,5),title,text(x.type,60)||'Atividade',text(x.notes,2000)));}for(const x of b.places.slice(0,1000) as Row[]){const name=text(x.name,240,1);if(name)stmts.push(env.DB.prepare('INSERT INTO places(id,trip_id,owner_user_id,name,category,address,notes) VALUES(?,?,?,?,?,?,?)').bind(crypto.randomUUID(),id,a.userId,name,text(x.type,60)||'Outro',text(x.address,500),text(x.notes,2000)));}for(const x of b.expenses.slice(0,1000) as Row[]){const amount=Number(x.value),description=text(x.desc,500,1);if(amount>0&&description)stmts.push(env.DB.prepare("INSERT INTO expenses(id,trip_id,owner_user_id,category,description,amount_cents,currency) VALUES(?,?,?,?,?,?,'EUR')").bind(crypto.randomUUID(),id,a.userId,text(x.type,60)||'Outros',description,Math.round(amount*100)));}for(const [i,x] of (b.checklist.slice(0,1000) as Row[]).entries()){const t=text(x.text,300,1);if(t)stmts.push(env.DB.prepare('INSERT INTO checklist_items(id,trip_id,owner_user_id,text,completed,sort_order) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),id,a.userId,t,x.done?1:0,i));}for(let i=0;i<stmts.length;i+=100)await env.DB.batch(stmts.slice(i,i+100));return reply({id},201);}
+
+// --- Partner referral program -------------------------------------------------------------
+
+async function referralClick(req:Request,env:Env,rawCode:string){
+  const fallback=()=>new Response(null,{status:302,headers:{location:'/',...{'cache-control':'no-store'}}});
+  const codeValue=normalizeCode(decodeURIComponent(rawCode));
+  if(!validCode(codeValue))return fallback();
+  const partner=await env.DB.prepare('SELECT id,attribution_window_days FROM partners WHERE code=? AND active=1').bind(codeValue).first<{id:string;attribution_window_days:number}>();
+  if(!partner)return fallback();
+  try{
+    await env.DB.prepare('INSERT INTO referral_clicks (id,partner_id,landing_path,visitor_hash,ip_hash,user_agent) VALUES (?,?,?,?,?,?)')
+      .bind(crypto.randomUUID(),partner.id,'/proposta-voo.html',await sha(`${clientKey(req)}|${req.headers.get('user-agent')||''}`),await sha(clientKey(req)),(req.headers.get('user-agent')||'').slice(0,300)).run();
+  }catch{/* telemetry must never block the redirect */}
+  const capturedAtMs=Date.now();
+  const token=await signRef(codeValue,capturedAtMs,env);
+  const headers=new Headers({location:`/proposta-voo.html?ref=${encodeURIComponent(codeValue)}`,'cache-control':'no-store'});
+  headers.append('set-cookie',`${REF_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${partner.attribution_window_days*86400}; HttpOnly; Secure; SameSite=Lax`);
+  return new Response(null,{status:302,headers});
+}
+
+async function partnerAttribution(req:Request,env:Env,url:URL){
+  const attribution=await resolveAttribution(req,env,url.searchParams.get('ref'));
+  if(!attribution)return reply({active:false},200,{'cache-control':'no-store'});
+  const partner=await env.DB.prepare('SELECT display_name FROM partners WHERE id=?').bind(attribution.partnerId).first<{display_name:string}>();
+  if(!partner)return reply({active:false},200,{'cache-control':'no-store'});
+  return reply({active:true,code:attribution.code,displayName:partner.display_name},200,{'cache-control':'no-store'});
+}
+
+function serializePartnerRow(row:Row){
+  return {id:row.id,code:row.code,displayName:row.display_name,instagram:row.instagram,whatsapp:row.whatsapp,email:row.email,
+    commissionType:row.commission_type,commissionFixedCents:row.commission_fixed_cents,commissionPercentageBps:row.commission_percentage_bps,
+    currency:row.currency,attributionWindowDays:row.attribution_window_days,active:Boolean(row.active),hasAccount:Boolean(row.user_id),createdAt:row.created_at,
+    clicks:row.clicks,proposals:row.proposals,conversions:row.conversions,commissionPendingCents:row.commission_pending_cents,commissionApprovedCents:row.commission_approved_cents,commissionPaidCents:row.commission_paid_cents};
+}
+
+async function adminPartners(req:Request,env:Env,url:URL){
+  if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);
+  const activeParam=url.searchParams.get('active');
+  const rows=await env.DB.prepare(`SELECT p.*,
+    (SELECT count(*) FROM referral_clicks c WHERE c.partner_id=p.id) clicks,
+    (SELECT count(*) FROM lead_requests l WHERE l.partner_id=p.id) proposals,
+    (SELECT count(*) FROM lead_requests l WHERE l.partner_id=p.id AND l.status='converted') conversions,
+    (SELECT COALESCE(sum(amount_cents),0) FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='pending') commission_pending_cents,
+    (SELECT COALESCE(sum(amount_cents),0) FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='approved') commission_approved_cents,
+    (SELECT COALESCE(sum(amount_cents),0) FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='paid') commission_paid_cents
+    FROM partners p ${activeParam!==null?'WHERE p.active=?':''} ORDER BY p.created_at DESC LIMIT 200`)
+    .bind(...(activeParam!==null?[activeParam==='true'?1:0]:[])).all<Row>();
+  return reply({partners:rows.results.map(serializePartnerRow)});
+}
+
+async function adminPartnerCreate(req:Request,env:Env){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const b=await body(req);
+  const codeValue=typeof b?.code==='string'?normalizeCode(b.code):'';
+  const displayName=text(b?.displayName,120,2);
+  const email=emailOf(b?.email);
+  const commissionType=b?.commissionType==='fixed'||b?.commissionType==='percentage'?b?.commissionType:null;
+  const commissionFixedCents=Number.isInteger(b?.commissionFixedCents)?Number(b?.commissionFixedCents):null;
+  const commissionPercentageBps=Number.isInteger(b?.commissionPercentageBps)?Number(b?.commissionPercentageBps):null;
+  const currency=typeof b?.currency==='string'&&b.currency.length===3?b?.currency.toUpperCase():'EUR';
+  const attributionWindowDays=Number.isInteger(b?.attributionWindowDays)&&Number(b?.attributionWindowDays)>0?Number(b?.attributionWindowDays):30;
+  if(!validCode(codeValue)||!displayName||!email||!commissionType)return reply({error:'invalid_partner'},400);
+  if(commissionType==='fixed'&&(commissionFixedCents===null||commissionPercentageBps!==null))return reply({error:'invalid_partner'},400);
+  if(commissionType==='percentage'&&(commissionPercentageBps===null||commissionFixedCents!==null))return reply({error:'invalid_partner'},400);
+  const existing=await env.DB.prepare('SELECT 1 FROM partners WHERE code=?').bind(codeValue).first();
+  if(existing)return reply({error:'code_already_used'},409);
+  const id=crypto.randomUUID();
+  await env.DB.prepare(`INSERT INTO partners (id,code,display_name,instagram,whatsapp,email,commission_type,commission_fixed_cents,commission_percentage_bps,currency,attribution_window_days,active) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)`)
+    .bind(id,codeValue,displayName,text(b?.instagram,120)||null,text(b?.whatsapp,30)||null,email,commissionType,commissionFixedCents,commissionPercentageBps,currency,attributionWindowDays).run();
+  await audit(env,auth.userId,'admin.partner_created','partner',id);
+  return reply({id,code:codeValue},201);
+}
+
+async function adminPartnerDetail(req:Request,env:Env,id:string){
+  if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);
+  const partner=await env.DB.prepare('SELECT * FROM partners WHERE id=?').bind(id).first<Row>();
+  if(!partner)return reply({error:'not_found'},404);
+  const commissions=await env.DB.prepare(`SELECT pc.id,pc.amount_cents,pc.currency,pc.status,pc.created_at,pc.approved_at,pc.paid_at,pc.voided_at,pc.void_reason,l.protocol,l.status lead_status,l.origin,l.destination FROM partner_commissions pc JOIN lead_requests l ON l.id=pc.lead_request_id WHERE pc.partner_id=? ORDER BY pc.created_at DESC LIMIT 200`).bind(id).all<Row>();
+  return reply({partner:serializePartnerRow(partner),commissions:commissions.results});
+}
+
+async function adminPartnerUpdate(req:Request,env:Env,id:string){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const partner=await env.DB.prepare('SELECT * FROM partners WHERE id=?').bind(id).first<Row>();
+  if(!partner)return reply({error:'not_found'},404);
+  const b=await body(req);
+  const commissionType=b?.commissionType==='fixed'||b?.commissionType==='percentage'?b?.commissionType:String(partner.commission_type);
+  const commissionFixedCents=commissionType==='fixed'?(Number.isInteger(b?.commissionFixedCents)?Number(b?.commissionFixedCents):partner.commission_fixed_cents):null;
+  const commissionPercentageBps=commissionType==='percentage'?(Number.isInteger(b?.commissionPercentageBps)?Number(b?.commissionPercentageBps):partner.commission_percentage_bps):null;
+  if(commissionType==='fixed'&&commissionFixedCents===null)return reply({error:'invalid_partner'},400);
+  if(commissionType==='percentage'&&commissionPercentageBps===null)return reply({error:'invalid_partner'},400);
+  const displayName=text(b?.displayName,120,2)||String(partner.display_name);
+  const instagram=b?.instagram!==undefined?(text(b?.instagram,120)||null):partner.instagram;
+  const whatsapp=b?.whatsapp!==undefined?(text(b?.whatsapp,30)||null):partner.whatsapp;
+  const currency=typeof b?.currency==='string'&&b.currency.length===3?b?.currency.toUpperCase():String(partner.currency);
+  const attributionWindowDays=Number.isInteger(b?.attributionWindowDays)&&Number(b?.attributionWindowDays)>0?Number(b?.attributionWindowDays):Number(partner.attribution_window_days);
+  const active=typeof b?.active==='boolean'?b?.active:Boolean(partner.active);
+  await env.DB.prepare(`UPDATE partners SET display_name=?,instagram=?,whatsapp=?,commission_type=?,commission_fixed_cents=?,commission_percentage_bps=?,currency=?,attribution_window_days=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+    .bind(displayName,instagram,whatsapp,commissionType,commissionFixedCents,commissionPercentageBps,currency,attributionWindowDays,active?1:0,id).run();
+  await audit(env,auth.userId,'admin.partner_updated','partner',id);
+  return reply({ok:true});
+}
+
+async function adminPartnerInvite(req:Request,env:Env,id:string){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const partner=await env.DB.prepare('SELECT * FROM partners WHERE id=?').bind(id).first<Row>();
+  if(!partner)return reply({error:'not_found'},404);
+  if(!partner.active)return reply({error:'partner_inactive'},409);
+  let user=await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(partner.email).first<Row>();
+  const userId=user?String(user.id):crypto.randomUUID();
+  if(!user){
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO users(id,email,status) VALUES(?,?,'pending')").bind(userId,partner.email),
+      env.DB.prepare('INSERT INTO profiles(user_id,display_name) VALUES(?,?)').bind(userId,partner.display_name),
+    ]);
+  }
+  const code=code6();
+  await env.DB.batch([
+    env.DB.prepare("INSERT OR IGNORE INTO user_roles(user_id,role) VALUES(?,'partner')").bind(userId),
+    env.DB.prepare('UPDATE partners SET user_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(userId,id),
+    env.DB.prepare("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND purpose='partner_invite' AND used_at IS NULL").bind(userId),
+    env.DB.prepare("INSERT INTO account_tokens(id,user_id,purpose,token_hash,expires_at) VALUES(?,?,'partner_invite',?,?)").bind(crypto.randomUUID(),userId,await digest(code,env),isoAfter(900)),
+  ]);
+  await sendEmail(env,userId,String(partner.email),'partner_invite','Convite para o painel de parceiros - Rota Certa Passagens',`<p>Seu código de ativação é: <strong>${code}</strong></p><p>Digite-o em ${env.APP_ORIGIN}/parceiro-convite.html junto com o e-mail ${html(String(partner.email))}. Expira em 15 minutos.</p>`);
+  await audit(env,auth.userId,'admin.partner_invite_created','partner',id);
+  return reply({ok:true},201);
+}
+
+async function partnerInviteAccept(req:Request,env:Env){
+  const b=await body(req);const email=emailOf(b?.email);const codeValue=typeof b?.code==='string'&&/^\d{6}$/.test(b.code)?b.code:null;const password=b?.password;
+  if(!validPassword(password)||!email||!codeValue)return reply({error:'invalid_or_expired_invite'},400);
+  if(!(await rateLimit(req,env,'partner-invite-accept',email,8,900)))return reply({error:'too_many_attempts'},429);
+  const row=await env.DB.prepare("SELECT t.id,t.user_id FROM account_tokens t JOIN users u ON u.id=t.user_id WHERE u.email=? AND t.token_hash=? AND t.purpose='partner_invite' AND t.used_at IS NULL AND t.expires_at>CURRENT_TIMESTAMP AND t.failed_attempts<5 LIMIT 1").bind(email,await digest(codeValue,env)).first<Row>();
+  if(!row){await env.DB.prepare("UPDATE account_tokens SET failed_attempts=failed_attempts+1 WHERE id=(SELECT t.id FROM account_tokens t JOIN users u ON u.id=t.user_id WHERE u.email=? AND t.purpose='partner_invite' AND t.used_at IS NULL ORDER BY t.created_at DESC LIMIT 1)").bind(email).run();return reply({error:'invalid_or_expired_invite'},400);}
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET password_hash=?,status='active',email_verified_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(await passwordHash(password),row.user_id),
+    env.DB.prepare('UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=?').bind(row.id),
+  ]);
+  await audit(env,String(row.user_id),'partner.invite_accepted','user',String(row.user_id));
+  return reply({ok:true});
+}
+
+async function requirePartnerSelf(req:Request,env:Env):Promise<Row|null>{
+  const auth=await getAuth(req,env);if(!auth||!auth.roles.includes('partner'))return null;
+  const partner=await env.DB.prepare('SELECT * FROM partners WHERE user_id=?').bind(auth.userId).first<Row>();
+  return partner||null;
+}
+
+async function partnerSummary(req:Request,env:Env){
+  const partner=await requirePartnerSelf(req,env);if(!partner)return reply({error:'forbidden'},403,{'cache-control':'no-store'});
+  const clicks=await env.DB.prepare('SELECT count(*) n FROM referral_clicks WHERE partner_id=?').bind(partner.id).first<{n:number}>();
+  const proposals=await env.DB.prepare('SELECT count(*) n FROM lead_requests WHERE partner_id=?').bind(partner.id).first<{n:number}>();
+  const conversions=await env.DB.prepare("SELECT count(*) n FROM lead_requests WHERE partner_id=? AND status='converted'").bind(partner.id).first<{n:number}>();
+  const commissionRows=await env.DB.prepare('SELECT status,COALESCE(sum(amount_cents),0) total FROM partner_commissions WHERE partner_id=? GROUP BY status').bind(partner.id).all<{status:string;total:number}>();
+  const totals:Record<string,number>={pending:0,approved:0,paid:0,void:0};
+  for(const row of commissionRows.results)totals[row.status]=row.total;
+  return reply({
+    partner:{code:partner.code,displayName:partner.display_name,active:Boolean(partner.active),commissionType:partner.commission_type,commissionFixedCents:partner.commission_fixed_cents,commissionPercentageBps:partner.commission_percentage_bps,currency:partner.currency,attributionWindowDays:partner.attribution_window_days,link:`${env.APP_ORIGIN.replace(/\/$/,'')}/i/${partner.code}`},
+    stats:{clicks:clicks?.n||0,proposals:proposals?.n||0,conversions:conversions?.n||0},
+    commissionTotalsCents:totals,
+  },200,{'cache-control':'no-store'});
+}
+
+async function partnerLedger(req:Request,env:Env){
+  const partner=await requirePartnerSelf(req,env);if(!partner)return reply({error:'forbidden'},403,{'cache-control':'no-store'});
+  const leads=await env.DB.prepare('SELECT id,protocol,status,origin,destination,created_at,converted_at,referral_source FROM lead_requests WHERE partner_id=? ORDER BY created_at DESC LIMIT 200').bind(partner.id).all<Row>();
+  const commissions=await env.DB.prepare('SELECT lead_request_id,amount_cents,currency,status FROM partner_commissions WHERE partner_id=?').bind(partner.id).all<Row>();
+  const byLead=new Map(commissions.results.map(c=>[String(c.lead_request_id),c]));
+  return reply({entries:leads.results.map(lead=>{
+    const commission=byLead.get(String(lead.id));
+    return {protocolMasked:maskProtocol(String(lead.protocol)),route:lead.origin&&lead.destination?`${lead.origin} → ${lead.destination}`:null,status:lead.status,referralSource:lead.referral_source,requestedAt:lead.created_at,convertedAt:lead.converted_at,
+      commission:commission?{amountCents:commission.amount_cents,currency:commission.currency,status:commission.status}:null};
+  })},200,{'cache-control':'no-store'});
+}
+
+async function commissionTransition(req:Request,env:Env,id:string,action:'approve'|'pay'|'void'){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  if(action==='void'){
+    const b=await body(req);const reasonValue=text(b?.reason,500,3);if(!reasonValue)return reply({error:'invalid_request'},400);
+    const result=await env.DB.prepare("UPDATE partner_commissions SET status='void',voided_at=CURRENT_TIMESTAMP,voided_by=?,void_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status<>'void'").bind(auth.userId,reasonValue,id).run();
+    if(!result.meta.changes)return reply({error:'not_found_or_already_void'},404);
+    await audit(env,auth.userId,'admin.commission_voided','partner_commission',id);
+    return reply({ok:true});
+  }
+  const target=action==='approve'?'approved':'paid';
+  const allowedFrom=action==='approve'?'pending':'approved';
+  const columns=action==='approve'?'approved_at=CURRENT_TIMESTAMP,approved_by=?':'paid_at=CURRENT_TIMESTAMP,paid_by=?';
+  const commission=await env.DB.prepare('SELECT partner_id FROM partner_commissions WHERE id=? AND status=?').bind(id,allowedFrom).first<Row>();
+  if(!commission)return reply({error:'invalid_transition'},409);
+  await env.DB.prepare(`UPDATE partner_commissions SET status=?,${columns},updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(target,auth.userId,id).run();
+  await audit(env,auth.userId,`admin.commission_${target}`,'partner_commission',id);
+  if(action==='pay'){
+    await env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'commission_paid',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
+      .bind(crypto.randomUUID(),`commission_paid:${id}`,commission.partner_id,JSON.stringify({commissionId:id})).run();
+  }
+  return reply({ok:true});
+}
+
+// --- Notifications: in-repo outbox processor (capture mode by default) -------------------
+
+async function notificationsProcess(req:Request,env:Env){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const b=await body(req);const limit=Number.isInteger(b?.limit)&&Number(b?.limit)>0&&Number(b?.limit)<=200?Number(b?.limit):50;
+  const pending=await env.DB.prepare("SELECT id,idempotency_key,event_type,partner_id,channel,payload,attempts FROM notification_outbox WHERE status='pending' AND next_attempt_at<=CURRENT_TIMESTAMP ORDER BY next_attempt_at ASC LIMIT ?").bind(limit).all<Row>();
+  let sent=0,skipped=0,failed=0;
+  for(const row of pending.results){
+    try{
+      if(row.channel==='whatsapp'&&env.WHATSAPP_NOTIFICATIONS_ENABLED!=='true'){
+        await env.DB.prepare("UPDATE notification_outbox SET status='skipped',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(row.id).run();skipped++;continue;
+      }
+      if(row.channel==='whatsapp'){
+        if(!env.WHATSAPP_WEBHOOK_URL||!env.WHATSAPP_WEBHOOK_TOKEN)throw new Error('whatsapp_webhook_not_configured');
+        const response=await fetch(env.WHATSAPP_WEBHOOK_URL,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${env.WHATSAPP_WEBHOOK_TOKEN}`},body:JSON.stringify({eventType:row.event_type,partnerId:row.partner_id,payload:row.payload})});
+        if(!response.ok)throw new Error(`whatsapp_webhook_http_${response.status}`);
+      }else{
+        const partner=await env.DB.prepare('SELECT email FROM partners WHERE id=?').bind(row.partner_id).first<{email:string}>();
+        if(!partner?.email)throw new Error('partner_email_missing');
+        await env.DB.prepare("INSERT INTO email_events (id,user_id,template,recipient_hash,provider,status) VALUES (?,NULL,?,?,'notification-outbox-capture','captured')")
+          .bind(crypto.randomUUID(),row.event_type,await digest(partner.email,env)).run();
+      }
+      await env.DB.prepare("UPDATE notification_outbox SET status='sent',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(row.id).run();sent++;
+    }catch(error){
+      const attempts=Number(row.attempts)+1;const message=(error instanceof Error?error.message:'unknown_error').slice(0,200);
+      if(attempts>=5)await env.DB.prepare("UPDATE notification_outbox SET status='failed',attempts=?,last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(attempts,message,row.id).run();
+      else await env.DB.prepare("UPDATE notification_outbox SET attempts=?,last_error=?,next_attempt_at=datetime(CURRENT_TIMESTAMP,'+'||?||' minutes'),updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(attempts,message,String(2**attempts),row.id).run();
+      failed++;
+    }
+  }
+  await audit(env,auth.userId,'admin.notifications_processed','notification_outbox','');
+  return reply({processed:pending.results.length,sent,skipped,failed});
+}
+
+function lisbonWeekStartIso(reference:Date){
+  const formatter=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
+  const parts=Object.fromEntries(formatter.formatToParts(reference).map(p=>[p.type,p.value]));
+  const localMidnight=new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00`);
+  const weekdayIndex=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(parts.weekday);
+  localMidnight.setDate(localMidnight.getDate()-weekdayIndex);
+  return localMidnight;
+}
+
+async function notificationsWeeklySummary(req:Request,env:Env){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const weekStart=lisbonWeekStartIso(new Date());const weekStartIso=weekStart.toISOString();
+  const partners=await env.DB.prepare('SELECT id,code,display_name FROM partners WHERE active=1').all<Row>();
+  let created=0;
+  for(const partner of partners.results){
+    const clicks=await env.DB.prepare('SELECT count(*) n FROM referral_clicks WHERE partner_id=? AND clicked_at>=?').bind(partner.id,weekStartIso).first<{n:number}>();
+    const proposals=await env.DB.prepare('SELECT count(*) n FROM lead_requests WHERE partner_id=? AND created_at>=?').bind(partner.id,weekStartIso).first<{n:number}>();
+    const conversions=await env.DB.prepare("SELECT count(*) n FROM lead_requests WHERE partner_id=? AND status='converted' AND converted_at>=?").bind(partner.id,weekStartIso).first<{n:number}>();
+    const commission=await env.DB.prepare("SELECT COALESCE(sum(amount_cents),0) n FROM partner_commissions WHERE partner_id=? AND status<>'void' AND created_at>=?").bind(partner.id,weekStartIso).first<{n:number}>();
+    const idempotencyKey=`weekly_summary:${partner.id}:${weekStartIso.slice(0,10)}`;
+    const result=await env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'weekly_summary',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
+      .bind(crypto.randomUUID(),idempotencyKey,partner.id,JSON.stringify({weekStart:weekStartIso,clicks:clicks?.n||0,proposals:proposals?.n||0,conversions:conversions?.n||0,commissionCents:commission?.n||0})).run();
+    if(result.meta.changes)created++;
+  }
+  return reply({partnersConsidered:partners.results.length,summariesCreated:created});
+}
