@@ -4,6 +4,11 @@ import { parseCommissionPaidPayload, parseWeeklySummaryPayload } from '../shared
 type Row = Record<string, unknown>;
 type Auth = { userId: string; sessionId: string; email: string; name: string; roles: string[] };
 type Entitlement = { tier: 'free'|'premium'|'master'; unlimited: boolean; accessActive:boolean; endsAt:string|null; activeTripLimit: number|null; archivedTripLimit: number|null; premiumFeatures: boolean };
+type OptionalNotificationSecrets = {
+  WHATSAPP_WEBHOOK_URL?: string;
+  WHATSAPP_WEBHOOK_TOKEN?: string;
+  NOTIFICATIONS_CRON_TOKEN?: string;
+};
 
 const enc = new TextEncoder();
 const sessionCookie = '__Host-rc_session';
@@ -259,7 +264,9 @@ async function requirePlannerAccess(auth:Auth,env:Env){const access=await entitl
 // fix, not just documentation.
 async function sendEmail(env: Env, userId: string | null, to: string, template: string, subject: string, htmlBody: string, textBody?: string, idempotencyKey?: string) {
   const recipientHash = await digest(to, env); const id = crypto.randomUUID();
-  const mode = env.EMAIL_MODE ?? 'capture';
+  // Wrangler generates the current literal value ("capture"). Keep the runtime validation wide
+  // enough for the same code to remain valid after an approved config change to "resend".
+  const mode = env.EMAIL_MODE as 'capture' | 'resend';
   if (mode === 'capture') {
     await env.DB.prepare("INSERT INTO email_events(id,user_id,template,recipient_hash,provider,status) VALUES(?,?,?,?,'local-capture','captured')").bind(id,userId,template,recipientHash).run();
     return;
@@ -393,7 +400,8 @@ async function requireMaster(req:Request,env:Env){const a=await getAuth(req,env)
 // secret instead, following the same bootstrap-token pattern already used for master.
 async function requireMasterOrCronUserId(req:Request,env:Env):Promise<string|null|undefined>{
   const provided=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
-  if(env.NOTIFICATIONS_CRON_TOKEN&&provided&&(await safeEqual(provided,env.NOTIFICATIONS_CRON_TOKEN)))return null;
+  const cronToken=(env as Env & OptionalNotificationSecrets).NOTIFICATIONS_CRON_TOKEN;
+  if(cronToken&&provided&&(await safeEqual(provided,cronToken)))return null;
   const auth=await mutationAuth(req,env);
   if(!auth||!auth.roles.includes('master'))return undefined;
   return auth.userId;
@@ -911,7 +919,7 @@ async function notificationsProcess(req:Request,env:Env){
     if(!row)continue;
     const payload=typeof row.payload==='string'?JSON.parse(row.payload):row.payload;
     try{
-      if(row.channel==='whatsapp'&&env.WHATSAPP_NOTIFICATIONS_ENABLED!=='true'){
+      if(row.channel==='whatsapp'&&(env.WHATSAPP_NOTIFICATIONS_ENABLED as 'false'|'true')!=='true'){
         const skip=await env.DB.prepare("UPDATE notification_outbox SET status='skipped',updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(row.id,lockToken).run();
         if(skip.meta.changes)skipped++;else lockLost++;
         continue;
@@ -922,8 +930,9 @@ async function notificationsProcess(req:Request,env:Env){
       const renew=await env.DB.prepare("UPDATE notification_outbox SET lease_expires_at=datetime(CURRENT_TIMESTAMP,'+'||?||' seconds'),updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(String(OUTBOX_LEASE_SECONDS),row.id,lockToken).run();
       if(!renew.meta.changes){lockLost++;continue;}
       if(row.channel==='whatsapp'){
-        if(!env.WHATSAPP_WEBHOOK_URL||!env.WHATSAPP_WEBHOOK_TOKEN)throw new Error('whatsapp_webhook_not_configured');
-        const response=await fetch(env.WHATSAPP_WEBHOOK_URL,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${env.WHATSAPP_WEBHOOK_TOKEN}`,'idempotency-key':String(row.idempotency_key)},body:JSON.stringify({eventType:row.event_type,partnerId:row.partner_id,payload,idempotencyKey:row.idempotency_key})});
+        const notificationSecrets=env as Env & OptionalNotificationSecrets;
+        if(!notificationSecrets.WHATSAPP_WEBHOOK_URL||!notificationSecrets.WHATSAPP_WEBHOOK_TOKEN)throw new Error('whatsapp_webhook_not_configured');
+        const response=await fetch(notificationSecrets.WHATSAPP_WEBHOOK_URL,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${notificationSecrets.WHATSAPP_WEBHOOK_TOKEN}`,'idempotency-key':String(row.idempotency_key)},body:JSON.stringify({eventType:row.event_type,partnerId:row.partner_id,payload,idempotencyKey:row.idempotency_key})});
         if(!response.ok)throw new Error(`whatsapp_webhook_http_${response.status}`);
       }else{
         const partner=await env.DB.prepare('SELECT email,display_name FROM partners WHERE id=?').bind(row.partner_id).first<{email:string;display_name:string}>();
