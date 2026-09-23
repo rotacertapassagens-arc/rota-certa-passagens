@@ -90,13 +90,12 @@ test.describe.serial('partner referral program — real browser smoke chain', ()
     await page.locator('#partnerCommissionType').selectOption('fixed');
     await page.locator('#partnerCommissionFixed').fill('50');
     await page.locator('#partnerForm button[type=submit]').click();
-    await expect(page.locator('#partnerFormStatus')).toContainText(/criado|sucesso/i, { timeout: 10_000 });
+    await expect(page.locator('#partnerFormStatus')).toContainText(/criado e convite enviado/i, { timeout: 10_000 });
     await expect(page.locator(`#partners:has-text("${PARTNER_CODE}")`)).toBeVisible();
 
-    // Invite the partner (button rendered by admin.js as [data-invite-partner]) and accept it
-    // through the real parceiro-convite.html page, reading the one-time code the same way.
-    await page.locator('[data-invite-partner]').first().click();
-    await expect(page.locator('#partners')).toContainText('Convidado', { timeout: 10_000 });
+    // Creating the partner automatically sends the invitation. The list keeps a resend action
+    // available until the partner accepts the one-time code.
+    await expect(page.locator('[data-invite-partner]')).toContainText('Reenviar convite');
     const partnerCode = await latestCode(request, 'partner_invite', PARTNER_EMAIL);
 
     await page.goto('/parceiro-convite.html');
@@ -106,6 +105,9 @@ test.describe.serial('partner referral program — real browser smoke chain', ()
     await page.locator('#partnerPasswordConfirm').fill(PARTNER_PASSWORD);
     await page.locator('#partnerInviteForm button[type=submit]').click();
     await expect(page.locator('#status')).toContainText(/sucesso|ativad|pronto/i, { timeout: 10_000 });
+
+    await page.goto('/admin.html');
+    await expect(page.locator(`#partners:has-text("${PARTNER_CODE}")`)).toContainText('Ativado', { timeout: 10_000 });
   });
 
   test('2-4. the partner link is opened, the banner appears, and a proposal is submitted', async ({ page, context }) => {

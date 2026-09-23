@@ -87,7 +87,7 @@ function renderPartnerRow(p){
     <td class="partner-actions">
       <button type="button" data-toggle-partner="${p.id}" data-next-active="${p.active?'false':'true'}">${p.active?'Desativar':'Ativar'}</button>
       <button type="button" data-copy-link="${escapeHtml(p.code)}">Copiar link</button>
-      ${p.hasAccount?'<span class="muted">Convidado</span>':`<button type="button" data-invite-partner="${p.id}">Convidar</button>`}
+      ${p.accountActivated?'<span class="muted">Ativado</span>':`<button type="button" data-invite-partner="${p.id}">${p.hasAccount?'Reenviar convite':'Convidar'}</button>`}
     </td>
   </tr>`;
 }
@@ -107,7 +107,7 @@ document.getElementById('partners')?.addEventListener('click',async(event)=>{
       statusEl.textContent='Link copiado.';
     } else if(invite){
       await api(`/api/admin/partners/${invite.dataset.invitePartner}/invite`,{method:'POST'});
-      statusEl.textContent='Convite enviado (registrado conforme o modo de e-mail configurado).';
+      statusEl.textContent='Convite enviado por e-mail.';
       await loadPartners();
     }
   }catch(error){statusEl.textContent=financialErrorMessage(error,'Não foi possível concluir a ação.');}
@@ -130,11 +130,16 @@ document.getElementById('partnerForm')?.addEventListener('submit',async(event)=>
   if(commissionType==='fixed') payload.commissionFixedCents=Math.round(Number(document.getElementById('partnerCommissionFixed').value||0)*100);
   else payload.commissionPercentageBps=Math.round(Number(document.getElementById('partnerCommissionPercentage').value||0)*100);
   try{
-    await api('/api/admin/partners',{method:'POST',body:JSON.stringify(payload)});
-    status.textContent='Parceiro criado.';
+    const created=await api('/api/admin/partners',{method:'POST',body:JSON.stringify(payload)});
     event.target.reset();
     document.getElementById('partnerCurrency').value='EUR';
     document.getElementById('partnerWindow').value='30';
+    try{
+      await api(`/api/admin/partners/${created.id}/invite`,{method:'POST'});
+      status.textContent='Parceiro criado e convite enviado por e-mail.';
+    }catch(inviteError){
+      status.textContent='Parceiro criado, mas o convite não foi enviado. Use “Reenviar convite” na lista.';
+    }
     await loadPartners();
   }catch(error){status.textContent=financialErrorMessage(error,'Não foi possível criar o parceiro. Confira os dados.');}
 });

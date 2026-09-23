@@ -177,7 +177,7 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
       // relations (clicks × leads × commissions). This form is correct and portable on both.
       `SELECT p.id,p.code,p.display_name,p.instagram,p.whatsapp,p.email,p.commission_type,
         p.commission_fixed_cents,p.commission_percentage_bps,p.currency,p.attribution_window_days,
-        p.active,p.user_id,p.created_at,p.updated_at,
+        p.active,p.user_id,(activated.user_id IS NOT NULL) AS account_activated,p.created_at,p.updated_at,
         COALESCE(clicks.n,0)::int AS clicks,
         COALESCE(leads.proposals,0)::int AS proposals,
         COALESCE(leads.conversions,0)::int AS conversions,
@@ -197,6 +197,7 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
            SUM(CASE WHEN status='paid' THEN amount_cents ELSE 0 END) AS paid
            FROM partner_commissions GROUP BY partner_id
        ) commissions ON commissions.partner_id=p.id
+       LEFT JOIN (SELECT DISTINCT user_id FROM user_roles WHERE role='partner') activated ON activated.user_id=p.user_id
        WHERE ($1::boolean IS NULL OR p.active=$1)
        ORDER BY p.created_at DESC LIMIT 200`,
       [query.data.active === undefined ? null : query.data.active === 'true'],
@@ -288,7 +289,13 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     if (!auth) return;
     const params = z.object({ id: z.string().uuid() }).safeParse(request.params);
     if (!params.success) return reply.code(400).send({ error: 'invalid_request' });
-    const partner = await db.query<PartnerRow>('SELECT * FROM partners WHERE id=$1', [params.data.id]);
+    const partner = await db.query<PartnerRow & Record<string, unknown>>(
+      `SELECT p.*,(activated.user_id IS NOT NULL) AS account_activated
+         FROM partners p
+         LEFT JOIN (SELECT DISTINCT user_id FROM user_roles WHERE role='partner') activated ON activated.user_id=p.user_id
+        WHERE p.id=$1`,
+      [params.data.id],
+    );
     if (!partner.rows[0]) return reply.code(404).send({ error: 'not_found' });
     const commissions = await db.query(
       `SELECT pc.id,pc.amount_cents,pc.currency,pc.status,pc.created_at,pc.approved_at,pc.paid_at,pc.voided_at,pc.void_reason,
@@ -346,7 +353,8 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     await emailSender.send({
       userId: userId!, to: row.email, template: 'partner_invite',
       subject: 'Convite para o painel de parceiros - Rota Certa Passagens',
-      html: `<p>Você foi convidado(a) para acompanhar suas indicações no painel de parceiros.</p><p>Seu código de ativação é: <strong>${code}</strong></p><p>Digite-o em ${config.APP_ORIGIN}/parceiro-convite.html junto com o e-mail ${row.email}. O código expira em 15 minutos e só pode ser usado uma vez.</p>`,
+      html: `<p>Você foi convidado(a) para acompanhar suas indicações no painel de parceiros da Rota Certa Passagens.</p><p>Seu código de ativação é: <strong>${code}</strong></p><p><a href="${config.APP_ORIGIN}/parceiro-convite.html">Finalizar cadastro do parceiro</a></p><p>Use o mesmo e-mail que recebeu este convite. O código expira em 15 minutos e só pode ser usado uma vez.</p>`,
+      text: `Você foi convidado(a) para o painel de parceiros da Rota Certa Passagens. Código de ativação: ${code}. Finalize em ${config.APP_ORIGIN}/parceiro-convite.html. O código expira em 15 minutos e só pode ser usado uma vez.`,
     });
     await audit(db, config, request, 'admin.partner_invite_created', auth.userId, 'partner', row.id);
     return reply.code(201).send({ ok: true });
@@ -580,6 +588,7 @@ function serializePartner(row: PartnerRow & Record<string, unknown>) {
     attributionWindowDays: row.attribution_window_days,
     active: row.active,
     hasAccount: Boolean(row.user_id),
+    accountActivated: Boolean(row.account_activated),
     createdAt: row.created_at,
     clicks: row.clicks ?? undefined,
     proposals: row.proposals ?? undefined,
