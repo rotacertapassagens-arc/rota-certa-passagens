@@ -40,6 +40,8 @@ const statusLabels={new:'Nova',reviewing:'Em análise',awaiting_customer:'Aguard
 const commissionLabels={pending:'Pendente',approved:'Aprovada',paid:'Paga',void:'Anulada'};
 let currentLeads=[];
 let currentPartners=[];
+let currentPartnerApplications=[];
+let selectedPartnerApplicationId=null;
 
 try {
   const session=await api('/api/auth/session');
@@ -52,6 +54,7 @@ try {
   document.getElementById('plans').innerHTML=plans.plans.map((p)=>`<tr><td>${escapeHtml(p.name)}</td><td>${fmtMoney(p.price_cents,p.currency)}</td><td>${p.duration_days?`${p.duration_days} dias`:'Proposta'}</td><td>${p.checkout_enabled?'Sandbox':'Manual'}</td></tr>`).join('');
   document.getElementById('payments').innerHTML=payments.payments.map((p)=>`<tr><td>${fmtDate(p.created_at)}</td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.plan_code||'-')}</td><td>${fmtMoney(p.amount_cents,p.currency)}</td><td>${escapeHtml(p.status)}</td></tr>`).join('')||'<tr><td colspan="5">Nenhum pagamento registrado.</td></tr>';
   await loadPartners();
+  await loadPartnerApplications();
   await loadLeads();
 } catch(error) {
   document.querySelector('#accessMessage p').textContent=error.status===403?'Sua conta não tem permissão master.':'Entre primeiro pela Área do cliente com uma conta master.';
@@ -69,6 +72,44 @@ async function loadPartners(){
   filterSelect.value=currentFilter;
   document.getElementById('partners').innerHTML=currentPartners.length?currentPartners.map(renderPartnerRow).join(''):'<tr><td colspan="11">Nenhum parceiro cadastrado.</td></tr>';
 }
+
+async function loadPartnerApplications(){
+  const result=await api('/api/admin/partner-applications');
+  currentPartnerApplications=result.applications;
+  const container=document.getElementById('partnerApplications');
+  container.innerHTML=currentPartnerApplications.length?currentPartnerApplications.map(renderPartnerApplication).join(''):'<p class="muted">Nenhuma solicitação recebida.</p>';
+}
+
+function renderPartnerApplication(application){
+  const statusLabel={pending:'Pendente',accepted:'Aceita',rejected:'Recusada'}[application.status]||application.status;
+  const actions=application.status==='pending'?`<div class="lead-actions"><button type="button" data-use-application="${application.id}">Usar no cadastro</button><button type="button" data-reject-application="${application.id}">Recusar</button></div>`:'';
+  return `<article class="lead-card"><div class="lead-title"><div><span class="protocol">${escapeHtml(statusLabel)}</span><h3>${escapeHtml(application.displayName)}</h3></div><span class="muted">${fmtDate(application.createdAt)}</span></div><div class="lead-details"><div><small>E-mail</small><strong>${escapeHtml(application.email)}</strong></div><div><small>Instagram</small><strong>${escapeHtml(application.instagram||'-')}</strong></div><div><small>WhatsApp</small><strong>${escapeHtml(application.whatsapp||'-')}</strong></div></div>${actions}</article>`;
+}
+
+document.getElementById('partnerApplications')?.addEventListener('click',async(event)=>{
+  const use=event.target.closest('[data-use-application]');
+  const reject=event.target.closest('[data-reject-application]');
+  const statusEl=document.getElementById('partnerApplicationsStatus');
+  if(use){
+    const application=currentPartnerApplications.find((item)=>item.id===use.dataset.useApplication);
+    if(!application)return;
+    selectedPartnerApplicationId=application.id;
+    document.getElementById('partnerDisplayName').value=application.displayName;
+    document.getElementById('partnerEmail').value=application.email;
+    document.getElementById('partnerInstagram').value=application.instagram||'';
+    document.getElementById('partnerWhatsapp').value=application.whatsapp||'';
+    const suggested=(application.instagram||application.displayName).replace(/^@/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,32);
+    if(suggested.length>=3)document.getElementById('partnerCode').value=suggested;
+    document.getElementById('partnerFormStatus').textContent='Dados recuperados da solicitação. Confira o código e defina a comissão antes de criar.';
+    document.getElementById('partnerForm').scrollIntoView({behavior:'smooth',block:'start'});
+  }else if(reject){
+    try{
+      await api(`/api/admin/partner-applications/${reject.dataset.rejectApplication}/reject`,{method:'POST'});
+      statusEl.textContent='Solicitação marcada como recusada.';
+      await loadPartnerApplications();
+    }catch(error){statusEl.textContent='Não foi possível recusar esta solicitação.';}
+  }
+});
 
 function commissionLabel(type,fixedCents,percentageBps,currency){
   return type==='fixed'?fmtMoney(fixedCents,currency):`${((percentageBps||0)/100).toFixed(2)}%`;
@@ -118,6 +159,7 @@ document.getElementById('partnerForm')?.addEventListener('submit',async(event)=>
   const status=document.getElementById('partnerFormStatus');
   const commissionType=document.getElementById('partnerCommissionType').value;
   const payload={
+    ...(selectedPartnerApplicationId?{applicationId:selectedPartnerApplicationId}:{}),
     code:document.getElementById('partnerCode').value,
     displayName:document.getElementById('partnerDisplayName').value,
     email:document.getElementById('partnerEmail').value,
@@ -140,7 +182,9 @@ document.getElementById('partnerForm')?.addEventListener('submit',async(event)=>
     }catch(inviteError){
       status.textContent='Parceiro criado, mas o convite não foi enviado. Use “Reenviar convite” na lista.';
     }
+    selectedPartnerApplicationId=null;
     await loadPartners();
+    await loadPartnerApplications();
   }catch(error){status.textContent=financialErrorMessage(error,'Não foi possível criar o parceiro. Confira os dados.');}
 });
 document.getElementById('leads')?.addEventListener('click',async(event)=>{

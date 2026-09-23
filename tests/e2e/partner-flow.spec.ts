@@ -58,6 +58,18 @@ async function loginViaUi(page: Page, email: string, password: string) {
 
 test.describe.serial('partner referral program — real browser smoke chain', () => {
   test('1. master activates account and creates a partner', async ({ page, request }) => {
+    // A future partner first submits the real public form. This stores a pending application;
+    // it does not create access or choose a commission without a master's approval.
+    await page.goto('/parceiros.html');
+    await page.locator('#partnerApplicationToggle').click();
+    await page.locator('#applicationDisplayName').fill(PARTNER_DISPLAY_NAME);
+    await page.locator('#applicationEmail').fill(PARTNER_EMAIL);
+    await page.locator('#applicationInstagram').fill('@parceiroe2e');
+    await page.locator('#applicationWhatsapp').fill('+351 912 345 678');
+    await page.locator('#applicationConsent').check();
+    await page.locator('#partnerApplicationForm button[type=submit]').click();
+    await expect(page.locator('#partnerApplicationStatus')).toContainText(/recebida/i, { timeout: 10_000 });
+
     // Bootstraps the very first master invite via the API (there is no UI for this — the whole
     // point of the bootstrap token is that no UI/session exists yet) and reads the one-time code
     // back from the test-only email introspection route, exactly like a human would read it from
@@ -83,15 +95,19 @@ test.describe.serial('partner referral program — real browser smoke chain', ()
     // 1. master cria parceiro (real admin.html form)
     await page.goto('/admin.html');
     await expect(page.locator('#adminContent')).toBeVisible({ timeout: 10_000 });
+    const application = page.locator('#partnerApplications .lead-card', { hasText: PARTNER_EMAIL });
+    await expect(application).toBeVisible({ timeout: 10_000 });
+    await application.locator('[data-use-application]').click();
     await page.locator('#partnerCode').fill(PARTNER_CODE);
-    await page.locator('#partnerDisplayName').fill(PARTNER_DISPLAY_NAME);
-    await page.locator('#partnerEmail').fill(PARTNER_EMAIL);
+    await expect(page.locator('#partnerDisplayName')).toHaveValue(PARTNER_DISPLAY_NAME);
+    await expect(page.locator('#partnerEmail')).toHaveValue(PARTNER_EMAIL);
     await page.locator('#partnerCurrency').fill('EUR');
     await page.locator('#partnerCommissionType').selectOption('fixed');
     await page.locator('#partnerCommissionFixed').fill('50');
     await page.locator('#partnerForm button[type=submit]').click();
     await expect(page.locator('#partnerFormStatus')).toContainText(/criado e convite enviado/i, { timeout: 10_000 });
     await expect(page.locator(`#partners:has-text("${PARTNER_CODE}")`)).toBeVisible();
+    await expect(page.locator('#partnerApplications .lead-card', { hasText: PARTNER_EMAIL })).toContainText('Aceita');
 
     // Creating the partner automatically sends the invitation. The list keeps a resend action
     // available until the partner accepts the one-time code.
