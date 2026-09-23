@@ -138,16 +138,31 @@ describe('Worker + D1 (local, isolated): full smoke chain', () => {
 
     const partnerCode = 'smoke-brl-partner';
     const partnerEmail = 'smoke-partner@example.com';
+    const application = await worker.fetch('/api/partner-applications', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        displayName: 'Parceiro Smoke BRL', email: partnerEmail, instagram: '@smokebrl',
+        whatsapp: '+55 11 91234-5678', privacyConsent: true,
+      }),
+    });
+    expect(application.status, await application.clone().text()).toBe(201);
+    const applications = await worker.fetch('/api/admin/partner-applications', { headers: { cookie: masterCookieJar.cookieHeader() } });
+    expect(applications.status, await applications.clone().text()).toBe(200);
+    const applicationId = ((await applications.json() as { applications: Array<{ id: string; email: string }> }).applications.find((row) => row.email === partnerEmail))?.id;
+    expect(applicationId).toBeTruthy();
     const createPartner = await worker.fetch('/api/admin/partners', {
       method: 'POST',
       headers: masterCookieJar.mutationHeaders(),
       body: JSON.stringify({
-        code: partnerCode, displayName: 'Parceiro Smoke BRL', email: partnerEmail,
+        applicationId, code: partnerCode, displayName: 'Parceiro Smoke BRL', email: partnerEmail,
         commissionType: 'fixed', commissionFixedCents: 4000, currency: 'BRL',
       }),
     });
     expect(createPartner.status, await createPartner.clone().text()).toBe(201);
     const partnerId = (await createPartner.json() as { id: string }).id;
+    const acceptedApplication = d1Query<{ status: string; partner_id: string }>(persistTo, `SELECT status,partner_id FROM partner_applications WHERE id='${applicationId}'`);
+    expect(acceptedApplication[0]).toEqual({ status: 'accepted', partner_id: partnerId });
 
     // --- 3. accept invite -------------------------------------------------------------------
     const invite = await worker.fetch(`/api/admin/partners/${partnerId}/invite`, { method: 'POST', headers: masterCookieJar.mutationHeaders() });

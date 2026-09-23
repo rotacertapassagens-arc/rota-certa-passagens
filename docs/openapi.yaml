@@ -93,6 +93,7 @@ components:
       type: object
       required: [code, displayName, email, commissionType, currency]
       properties:
+        applicationId: { type: string, format: uuid, description: "Solicitação pública pendente que será aceita e vinculada atomicamente ao novo parceiro." }
         code: { type: string }
         displayName: { type: string }
         instagram: { type: string }
@@ -103,6 +104,19 @@ components:
         commissionPercentageBps: { type: integer, minimum: 1, maximum: 10000 }
         currency: { type: string, default: EUR }
         attributionWindowDays: { type: integer, default: 30 }
+    PartnerApplication:
+      type: object
+      required: [id, displayName, email, instagram, whatsapp, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        email: { type: string, format: email }
+        instagram: { type: string }
+        whatsapp: { type: string }
+        status: { type: string, enum: [pending, accepted, rejected] }
+        partnerId: { type: [string, "null"], format: uuid }
+        createdAt: { type: string, format: date-time }
+        reviewedAt: { type: [string, "null"], format: date-time }
     PartnerCommission:
       type: object
       required: [id, partnerId, amountCents, currency, status]
@@ -188,6 +202,30 @@ paths:
         - { name: ref, in: query, required: false, schema: { type: string } }
       responses:
         "200": { description: "{ active: boolean, code?, displayName? } — nunca expõe o partnerId interno" }
+  /api/partner-applications:
+    post:
+      tags: [Partners]
+      summary: Recebe uma solicitação pública de parceria para análise humana
+      description: A solicitação fica pendente e não cria conta, parceiro, link nem comissão automaticamente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, email, instagram, whatsapp, privacyConsent]
+              properties:
+                displayName: { type: string, minLength: 2, maxLength: 120 }
+                email: { type: string, format: email, maxLength: 254 }
+                instagram: { type: string, minLength: 2, maxLength: 120 }
+                whatsapp: { type: string, minLength: 8, maxLength: 30 }
+                privacyConsent: { type: boolean, const: true }
+                website: { type: string, description: Campo honeypot; deve permanecer vazio. }
+      responses:
+        "201": { description: Solicitação registrada }
+        "202": { description: Honeypot aceito sem persistência }
+        "409": { description: Já existe solicitação pendente para o e-mail }
+        "429": { description: Limite excedido }
   /api/auth/signup:
     post:
       tags: [Auth]
@@ -412,8 +450,34 @@ paths:
       responses:
         "201": { description: Parceiro criado }
         "400": { description: Dados inválidos (código malformado ou tipo/valor de comissão inconsistente) }
-        "409": { description: code_already_used ou email_already_used_by_partner (e-mail já vinculado a outro parceiro; normalizado e único) }
+        "409": { description: code_already_used, email_already_used_by_partner ou partner_application_not_pending }
         "422": { description: invalid_currency — código de moeda fora do allowlist do produto (EUR, USD, BRL, GBP) }
+  /api/admin/partner-applications:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Lista solicitações públicas de parceria, com pendentes primeiro
+      responses:
+        "200":
+          description: Solicitações para revisão do master
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  applications:
+                    type: array
+                    items: { $ref: "#/components/schemas/PartnerApplication" }
+        "403": { description: Papel master necessário }
+  /api/admin/partner-applications/{id}/reject:
+    post:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Recusa uma solicitação pendente, preservando o histórico
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Solicitação recusada }
+        "409": { description: partner_application_not_pending }
   /api/admin/partners/{id}:
     get:
       tags: [Partners]

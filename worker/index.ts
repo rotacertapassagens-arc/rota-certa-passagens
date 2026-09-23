@@ -35,6 +35,10 @@ export default {
 
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
+  if (req.method === 'POST' && p === '/api/partner-applications') return partnerApplicationCreate(req, env);
+  if (req.method === 'GET' && p === '/api/admin/partner-applications') return adminPartnerApplications(req, env);
+  const applicationReject = p.match(/^\/api\/admin\/partner-applications\/([0-9a-f-]+)\/reject$/i);
+  if (req.method === 'POST' && applicationReject) return adminPartnerApplicationReject(req, env, applicationReject[1]!);
   const referralRedirect = p.match(/^\/i\/([^/]+)$/);
   if (req.method === 'GET' && referralRedirect) return referralClick(req, env, referralRedirect[1]!);
   if (req.method === 'GET' && p === '/api/partners/attribution') return partnerAttribution(req, env, url);
@@ -665,12 +669,46 @@ async function adminPartners(req:Request,env:Env,url:URL){
   return reply({partners:rows.results.map(serializePartnerRow)});
 }
 
+async function partnerApplicationCreate(req:Request,env:Env){
+  const b=await body(req);
+  const displayName=text(b?.displayName,120,2);
+  const email=emailOf(b?.email);
+  const instagram=text(b?.instagram,120,2);
+  const whatsapp=phoneOf(b?.whatsapp);
+  if(b?.website)return reply({ok:true},202);
+  if(!displayName||!email||!instagram||!whatsapp||b?.privacyConsent!==true)return reply({error:'invalid_partner_application'},400);
+  if(!(await rateLimit(req,env,'partner-application',email,3,3600)))return reply({error:'too_many_attempts'},429);
+  const pending=await env.DB.prepare("SELECT 1 FROM partner_applications WHERE lower(email)=lower(?) AND status='pending'").bind(email).first();
+  if(pending)return reply({error:'partner_application_already_pending'},409);
+  const id=crypto.randomUUID();
+  try{
+    await env.DB.prepare("INSERT INTO partner_applications(id,display_name,email,instagram,whatsapp,privacy_consent) VALUES(?,?,?,?,?,1)").bind(id,displayName,email,instagram,whatsapp).run();
+  }catch(error){return reply({error:'partner_application_already_pending'},409);}
+  await audit(env,null,'public.partner_application_created','partner_application',id);
+  return reply({ok:true},201);
+}
+
+async function adminPartnerApplications(req:Request,env:Env){
+  if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);
+  const rows=await env.DB.prepare("SELECT id,display_name,email,instagram,whatsapp,status,partner_id,created_at,reviewed_at FROM partner_applications ORDER BY CASE WHEN status='pending' THEN 0 ELSE 1 END,created_at DESC LIMIT 200").all<Row>();
+  return reply({applications:rows.results.map((row)=>({id:row.id,displayName:row.display_name,email:row.email,instagram:row.instagram,whatsapp:row.whatsapp,status:row.status,partnerId:row.partner_id,createdAt:row.created_at,reviewedAt:row.reviewed_at}))});
+}
+
+async function adminPartnerApplicationReject(req:Request,env:Env,id:string){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const updated=await env.DB.prepare("UPDATE partner_applications SET status='rejected',reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(auth.userId,id).run();
+  if(!updated.meta.changes)return reply({error:'partner_application_not_pending'},409);
+  await audit(env,auth.userId,'admin.partner_application_rejected','partner_application',id);
+  return reply({ok:true});
+}
+
 async function adminPartnerCreate(req:Request,env:Env){
   const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
   const b=await body(req);
   const codeValue=typeof b?.code==='string'?normalizeCode(b.code):'';
   const displayName=text(b?.displayName,120,2);
   const email=emailOf(b?.email);
+  const applicationId=typeof b?.applicationId==='string'&&/^[0-9a-f-]{36}$/i.test(b.applicationId)?b.applicationId:null;
   const commissionType=b?.commissionType==='fixed'||b?.commissionType==='percentage'?b?.commissionType:null;
   const commissionFixedCents=Number.isInteger(b?.commissionFixedCents)?Number(b?.commissionFixedCents):null;
   const commissionPercentageBps=Number.isInteger(b?.commissionPercentageBps)?Number(b?.commissionPercentageBps):null;
@@ -680,18 +718,27 @@ async function adminPartnerCreate(req:Request,env:Env){
   if(commissionType==='fixed'&&(commissionFixedCents===null||commissionPercentageBps!==null))return reply({error:'invalid_partner'},400);
   if(commissionType==='percentage'&&(commissionPercentageBps===null||commissionFixedCents!==null))return reply({error:'invalid_partner'},400);
   if(!validCurrency(currency))return reply({error:'invalid_currency'},422);
+  let application:Row|null=null;
+  if(applicationId){
+    application=await env.DB.prepare("SELECT id,email FROM partner_applications WHERE id=? AND status='pending'").bind(applicationId).first<Row>();
+    if(!application||emailOf(application.email)!==email)return reply({error:'partner_application_not_pending'},409);
+  }
   const existing=await env.DB.prepare('SELECT 1 FROM partners WHERE code=?').bind(codeValue).first();
   if(existing)return reply({error:'code_already_used'},409);
   const existingEmail=await env.DB.prepare('SELECT 1 FROM partners WHERE lower(email)=lower(?)').bind(email).first();
   if(existingEmail)return reply({error:'email_already_used_by_partner'},409);
   const id=crypto.randomUUID();
   try {
-    await env.DB.prepare(`INSERT INTO partners (id,code,display_name,instagram,whatsapp,email,commission_type,commission_fixed_cents,commission_percentage_bps,currency,attribution_window_days,active) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)`)
-      .bind(id,codeValue,displayName,text(b?.instagram,120)||null,text(b?.whatsapp,30)||null,email,commissionType,commissionFixedCents,commissionPercentageBps,currency,attributionWindowDays).run();
+    const statements=[env.DB.prepare(`INSERT INTO partners (id,code,display_name,instagram,whatsapp,email,commission_type,commission_fixed_cents,commission_percentage_bps,currency,attribution_window_days,active) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)`)
+      .bind(id,codeValue,displayName,text(b?.instagram,120)||null,text(b?.whatsapp,30)||null,email,commissionType,commissionFixedCents,commissionPercentageBps,currency,attributionWindowDays)];
+    if(application)statements.push(env.DB.prepare("UPDATE partner_applications SET status='accepted',reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,partner_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(auth.userId,id,application.id));
+    const results=await env.DB.batch(statements);
+    if(application&&!results[1]?.meta.changes){await env.DB.prepare('DELETE FROM partners WHERE id=?').bind(id).run();return reply({error:'partner_application_not_pending'},409);}
   } catch (error) {
     return reply({error:'code_or_email_already_used'},409);
   }
   await audit(env,auth.userId,'admin.partner_created','partner',id);
+  if(application)await audit(env,auth.userId,'admin.partner_application_accepted','partner_application',String(application.id));
   return reply({id,code:codeValue},201);
 }
 

@@ -17,6 +17,9 @@
     .panel p,.panel li{color:#37424f;line-height:1.7}
     .panel ul{padding-left:22px;margin:0}
     .cta{margin-top:8px}
+    .application-form{margin-top:20px}
+    .consent{display:flex;grid-template-columns:auto 1fr;align-items:flex-start;gap:10px;font-weight:500}
+    .consent input{width:18px;margin-top:3px}
   </style>
 </head>
 <body>
@@ -78,6 +81,23 @@
     <p>Interessado(a) em participar ou já é parceiro(a) e quer tirar uma dúvida? Fale com a nossa equipe pelos canais já disponíveis no site. Se você já tem uma conta ativa, acesse o <a href="/painel-parceiro.html">painel do parceiro</a> para ver seus números em tempo real.</p>
     <a class="button cta" href="/painel-parceiro.html">Ir para o painel do parceiro</a>
   </section>
+
+  <section class="panel" id="solicitar-cadastro">
+    <h2>Quer ser parceiro(a)?</h2>
+    <p>Envie seus dados para análise. A solicitação não cria acesso automaticamente: se a parceria for aprovada, nossa equipe cadastrará as condições combinadas e você receberá o convite de ativação por e-mail.</p>
+    <button type="button" id="partnerApplicationToggle">Solicitar cadastro de parceiro</button>
+    <form id="partnerApplicationForm" class="application-form hidden">
+      <label>Nome público<input id="applicationDisplayName" required maxlength="120" autocomplete="name"></label>
+      <label>E-mail de acesso<input id="applicationEmail" type="email" required maxlength="254" autocomplete="email"></label>
+      <label>Instagram<input id="applicationInstagram" required maxlength="120" placeholder="@seuinstagram" autocomplete="off"></label>
+      <label>WhatsApp<input id="applicationWhatsapp" type="tel" required maxlength="30" placeholder="+351 900 000 000" autocomplete="tel"></label>
+      <label class="hidden" aria-hidden="true">Site<input id="applicationWebsite" tabindex="-1" autocomplete="off"></label>
+      <label class="consent"><input id="applicationConsent" type="checkbox" required> <span>Autorizo a Rota Certa Passagens a usar estes dados exclusivamente para analisar e responder à minha solicitação de parceria.</span></label>
+      <button type="submit">Enviar solicitação</button>
+      <p class="status" id="partnerApplicationStatus" aria-live="polite"></p>
+    </form>
+  </section>
 </main>
+<script type="module" src="/assets/partner-application.js"></script>
 </body>
 </html>

@@ -48,6 +48,63 @@ describe('Partner referral program', () => {
     if (app) await app.close();
   });
 
+  it('stores a public partner application and lets the master approve it while creating the partner', async () => {
+    const application = await app.inject({
+      method: 'POST',
+      url: '/api/partner-applications',
+      payload: {
+        displayName: 'Criadora Teste',
+        email: 'criadora@example.com',
+        instagram: '@criadorateste',
+        whatsapp: '+351 912 345 678',
+        privacyConsent: true,
+      },
+    });
+    expect(application.statusCode, application.body).toBe(201);
+
+    const duplicate = await app.inject({
+      method: 'POST',
+      url: '/api/partner-applications',
+      payload: {
+        displayName: 'Criadora Teste',
+        email: 'CRIADORA@example.com',
+        instagram: '@criadorateste',
+        whatsapp: '+351 912 345 678',
+        privacyConsent: true,
+      },
+    });
+    expect(duplicate.statusCode).toBe(409);
+
+    const forbidden = await app.inject({ method: 'GET', url: '/api/admin/partner-applications' });
+    expect(forbidden.statusCode).toBe(401);
+
+    const master = await createMaster(app, email, 'application-master@example.com');
+    const list = await app.inject({ method: 'GET', url: '/api/admin/partner-applications', headers: { cookie: master.cookie } });
+    expect(list.statusCode, list.body).toBe(200);
+    const stored = list.json().applications[0];
+    expect(stored).toEqual(expect.objectContaining({ displayName: 'Criadora Teste', email: 'criadora@example.com', status: 'pending' }));
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/partners',
+      headers: mutationHeaders(master),
+      payload: {
+        applicationId: stored.id,
+        code: 'criadora-teste',
+        displayName: stored.displayName,
+        email: stored.email,
+        instagram: stored.instagram,
+        whatsapp: stored.whatsapp,
+        commissionType: 'fixed',
+        commissionFixedCents: 2500,
+        currency: 'EUR',
+      },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const linked = await db.query<{ status: string; partner_id: string }>('SELECT status,partner_id FROM partner_applications WHERE id=$1', [stored.id]);
+    expect(linked.rows[0]).toEqual(expect.objectContaining({ status: 'accepted', partner_id: created.json().id }));
+  });
+
   it('lets a master create fixed and percentage partners, rejecting invalid or duplicate codes', async () => {
     const master = await createMaster(app, email, 'master1@example.com');
     const fixed = await app.inject({ method: 'POST', url: '/api/admin/partners', headers: mutationHeaders(master), payload: { code: 'Maria10', displayName: 'Maria', email: 'maria@example.com', commissionType: 'fixed', commissionFixedCents: 5000 } });

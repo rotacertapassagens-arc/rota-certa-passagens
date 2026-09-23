@@ -49,6 +49,7 @@ export interface Attribution {
 }
 
 const partnerCreateSchema = z.object({
+  applicationId: z.string().uuid().optional(),
   code: z.string().trim().min(3).max(32),
   displayName: z.string().trim().min(2).max(120),
   instagram: z.string().trim().max(120).optional().or(z.literal('')),
@@ -66,6 +67,15 @@ const partnerCreateSchema = z.object({
   if (data.commissionType === 'percentage' && (data.commissionPercentageBps === undefined || data.commissionFixedCents !== undefined)) {
     ctx.addIssue({ code: 'custom', path: ['commissionPercentageBps'], message: 'percentage_commission_required' });
   }
+});
+
+const partnerApplicationSchema = z.object({
+  displayName: z.string().trim().min(2).max(120),
+  email: z.string().email().max(254),
+  instagram: z.string().trim().min(2).max(120),
+  whatsapp: z.string().trim().min(8).max(30).regex(/^\+?[0-9 ()-]+$/),
+  privacyConsent: z.literal(true),
+  website: z.string().max(200).optional().default(''),
 });
 
 const partnerUpdateSchema = z.object({
@@ -90,6 +100,59 @@ const partnerUpdateSchema = z.object({
 const acceptInviteSchema = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/), password: z.string().min(12).max(128).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/) });
 
 export function registerPartnerRoutes(app: FastifyInstance, db: Database, config: AppConfig, emailSender: EmailSender) {
+  // --- Public partner applications --------------------------------------------------------
+
+  app.post('/api/partner-applications', async (request, reply) => {
+    const parsed = partnerApplicationSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_partner_application' });
+    // Honeypot: bots commonly fill every field. Return the same success shape without storing.
+    if (parsed.data.website) return reply.code(202).send({ ok: true });
+    const email = normalizeEmail(parsed.data.email);
+    const allowed = await enforceRateLimit(db, config, request, 'partner_application', email, 3, 60 * 60);
+    if (!allowed) return reply.code(429).send({ error: 'too_many_attempts' });
+    const pending = await db.query('SELECT 1 FROM partner_applications WHERE lower(email)=lower($1) AND status=\'pending\'', [email]);
+    if (pending.rowCount) return reply.code(409).send({ error: 'partner_application_already_pending' });
+    const id = randomUUID();
+    try {
+      await db.query(
+        `INSERT INTO partner_applications (id,display_name,email,instagram,whatsapp,privacy_consent)
+         VALUES ($1,$2,$3,$4,$5,true)`,
+        [id, parsed.data.displayName, email, parsed.data.instagram, parsed.data.whatsapp],
+      );
+    } catch (error) {
+      // The partial unique index is the final authority if two identical submissions race.
+      if (isUniqueViolation(error)) return reply.code(409).send({ error: 'partner_application_already_pending' });
+      throw error;
+    }
+    await audit(db, config, request, 'public.partner_application_created', null, 'partner_application', id);
+    return reply.code(201).send({ ok: true });
+  });
+
+  app.get('/api/admin/partner-applications', async (request, reply) => {
+    const auth = await requireMaster(db, config, request, reply);
+    if (!auth) return;
+    const rows = await db.query(
+      `SELECT id,display_name,email,instagram,whatsapp,status,partner_id,created_at,reviewed_at
+         FROM partner_applications ORDER BY CASE WHEN status='pending' THEN 0 ELSE 1 END,created_at DESC LIMIT 200`,
+    );
+    return reply.send({ applications: rows.rows.map(serializePartnerApplication) });
+  });
+
+  app.post('/api/admin/partner-applications/:id/reject', async (request, reply) => {
+    const auth = await requireMutationMaster(db, config, request, reply);
+    if (!auth) return;
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: 'invalid_request' });
+    const updated = await db.query(
+      `UPDATE partner_applications SET status='rejected',reviewed_by=$1,reviewed_at=now(),updated_at=now()
+        WHERE id=$2 AND status='pending'`,
+      [auth.userId, params.data.id],
+    );
+    if (!updated.rowCount) return reply.code(409).send({ error: 'partner_application_not_pending' });
+    await audit(db, config, request, 'admin.partner_application_rejected', auth.userId, 'partner_application', params.data.id);
+    return reply.send({ ok: true });
+  });
+
   // --- Public attribution surface -------------------------------------------------------
 
   app.get('/i/:code', async (request, reply) => {
@@ -215,28 +278,49 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     const existing = await db.query('SELECT 1 FROM partners WHERE code=$1', [code]);
     if (existing.rowCount) return reply.code(409).send({ error: 'code_already_used' });
     const email = normalizeEmail(parsed.data.email);
+    let application: { id: string; email: string } | null = null;
+    if (parsed.data.applicationId) {
+      const result = await db.query<{ id: string; email: string }>(
+        "SELECT id,email FROM partner_applications WHERE id=$1 AND status='pending'",
+        [parsed.data.applicationId],
+      );
+      application = result.rows[0] ?? null;
+      if (!application || normalizeEmail(application.email) !== email) return reply.code(409).send({ error: 'partner_application_not_pending' });
+    }
     const existingEmail = await db.query('SELECT 1 FROM partners WHERE lower(email)=lower($1)', [email]);
     if (existingEmail.rowCount) return reply.code(409).send({ error: 'email_already_used_by_partner' });
     const id = randomUUID();
     try {
-      await db.query(
-        `INSERT INTO partners
-          (id,code,display_name,instagram,whatsapp,email,commission_type,commission_fixed_cents,commission_percentage_bps,currency,attribution_window_days,active)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)`,
-        [
-          id, code, parsed.data.displayName, parsed.data.instagram || null, parsed.data.whatsapp || null,
-          email, parsed.data.commissionType, parsed.data.commissionFixedCents ?? null,
-          parsed.data.commissionPercentageBps ?? null, parsed.data.currency.toUpperCase(), parsed.data.attributionWindowDays,
-        ],
-      );
+      await db.transaction(async (tx) => {
+        await tx.query(
+          `INSERT INTO partners
+            (id,code,display_name,instagram,whatsapp,email,commission_type,commission_fixed_cents,commission_percentage_bps,currency,attribution_window_days,active)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)`,
+          [
+            id, code, parsed.data.displayName, parsed.data.instagram || null, parsed.data.whatsapp || null,
+            email, parsed.data.commissionType, parsed.data.commissionFixedCents ?? null,
+            parsed.data.commissionPercentageBps ?? null, parsed.data.currency.toUpperCase(), parsed.data.attributionWindowDays,
+          ],
+        );
+        if (application) {
+          const linked = await tx.query(
+            `UPDATE partner_applications SET status='accepted',reviewed_by=$1,reviewed_at=now(),partner_id=$2,updated_at=now()
+              WHERE id=$3 AND status='pending'`,
+            [auth.userId, id, application.id],
+          );
+          if (!linked.rowCount) throw new Error('partner_application_not_pending');
+        }
+      });
     } catch (error) {
       // Defense in depth beneath the pre-check above (a concurrent request could race it): the
       // unique index on code and on lower(email) (migration 0006) never surfaces as a raw SQL
       // error to the client.
+      if (error instanceof Error && error.message === 'partner_application_not_pending') return reply.code(409).send({ error: 'partner_application_not_pending' });
       if (isUniqueViolation(error)) return reply.code(409).send({ error: 'code_or_email_already_used' });
       throw error;
     }
     await audit(db, config, request, 'admin.partner_created', auth.userId, 'partner', id);
+    if (application) await audit(db, config, request, 'admin.partner_application_accepted', auth.userId, 'partner_application', application.id, { partnerId: id });
     return reply.code(201).send({ id, code });
   });
 
@@ -596,6 +680,20 @@ function serializePartner(row: PartnerRow & Record<string, unknown>) {
     commissionPendingCents: row.commission_pending_cents ?? undefined,
     commissionApprovedCents: row.commission_approved_cents ?? undefined,
     commissionPaidCents: row.commission_paid_cents ?? undefined,
+  };
+}
+
+function serializePartnerApplication(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    displayName: row.display_name,
+    email: row.email,
+    instagram: row.instagram,
+    whatsapp: row.whatsapp,
+    status: row.status,
+    partnerId: row.partner_id,
+    createdAt: row.created_at,
+    reviewedAt: row.reviewed_at,
   };
 }
 
