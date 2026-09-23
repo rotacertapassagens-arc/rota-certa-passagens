@@ -185,10 +185,42 @@ describe('Partner referral program', () => {
     const paidRow = await db.query<{ status: string }>('SELECT status FROM partner_commissions WHERE id=$1', [commissionId]);
     expect(paidRow.rows[0]?.status).toBe('paid');
 
+    // A paid commission is a settled financial fact: it can never be voided directly, only
+    // through a dedicated adjustment/refund flow this pass does not build.
     const voidAfterPaid = await app.inject({ method: 'POST', url: `/api/admin/commissions/${commissionId}/void`, headers: mutationHeaders(master), payload: { reason: 'tentativa tardia' } });
-    expect(voidAfterPaid.statusCode, voidAfterPaid.body).toBe(200);
+    expect(voidAfterPaid.statusCode, voidAfterPaid.body).toBe(409);
+    expect(voidAfterPaid.json()).toEqual(expect.objectContaining({ error: 'commission_paid_requires_adjustment' }));
+    const stillPaid = await db.query<{ status: string }>('SELECT status FROM partner_commissions WHERE id=$1', [commissionId]);
+    expect(stillPaid.rows[0]?.status).toBe('paid');
+
     const outbox = await db.query<{ count: number }>("SELECT count(*)::int AS count FROM notification_outbox WHERE event_type='commission_paid' AND idempotency_key=$1", [`commission_paid:${commissionId}`]);
     expect(outbox.rows[0]?.count).toBe(1);
+
+    // Nor can the underlying proposal leave "converted" once its commission is paid, even with
+    // a voidCommissionReason supplied — that would silently unwind a settled financial fact.
+    const leaveConverted = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'lost', voidCommissionReason: 'tentativa de reverter' } });
+    expect(leaveConverted.statusCode, leaveConverted.body).toBe(409);
+    expect(leaveConverted.json()).toEqual(expect.objectContaining({ error: 'commission_paid_immutable' }));
+    const leadStillConverted = await db.query<{ status: string }>('SELECT status FROM lead_requests WHERE id=$1', [leadId]);
+    expect(leadStillConverted.rows[0]?.status).toBe('converted');
+  });
+
+  it('voids a pending/approved commission normally, rejects an unknown id, and rejects a double-void', async () => {
+    const master = await createMaster(app, email, 'master-void@example.com');
+    await createPartner(app, master, { code: 'voidnormal', commissionType: 'fixed', commissionFixedCents: 2000 });
+    const leadId = await submitAndGetLeadId(app, db, 'voidnormal', 'voidnormalbuyer@example.com');
+    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    const commissionId = (await db.query<{ id: string }>('SELECT id FROM partner_commissions WHERE lead_request_id=$1', [leadId])).rows[0]!.id;
+
+    const missing = await app.inject({ method: 'POST', url: '/api/admin/commissions/00000000-0000-4000-8000-000000000000/void', headers: mutationHeaders(master), payload: { reason: 'não existe' } });
+    expect(missing.statusCode).toBe(404);
+
+    const voided = await app.inject({ method: 'POST', url: `/api/admin/commissions/${commissionId}/void`, headers: mutationHeaders(master), payload: { reason: 'cliente desistiu' } });
+    expect(voided.statusCode, voided.body).toBe(200);
+
+    const doubleVoid = await app.inject({ method: 'POST', url: `/api/admin/commissions/${commissionId}/void`, headers: mutationHeaders(master), payload: { reason: 'de novo' } });
+    expect(doubleVoid.statusCode).toBe(409);
+    expect(doubleVoid.json()).toEqual(expect.objectContaining({ error: 'already_void' }));
   });
 
   it('lets a partner activate their invite, see only their own scoped data, and never any customer PII', async () => {
@@ -342,6 +374,209 @@ describe('Partner referral program', () => {
 
     const noCsrf = await app.inject({ method: 'POST', url: '/api/admin/partners', headers: { cookie: master.cookie, origin: config.APP_ORIGIN }, payload: { code: 'nocsrf', displayName: 'X', email: 'x@example.com', commissionType: 'fixed', commissionFixedCents: 1000 } });
     expect(noCsrf.statusCode).toBe(403);
+  });
+
+  // --- Fix #1: deactivating a partner immediately blocks panel access -----------------------
+  it('blocks a deactivated partner from the panel immediately, and restores access on reactivation', async () => {
+    const master = await createMaster(app, email, 'master-deactivate@example.com');
+    const partnerId = await createPartner(app, master, { code: 'deactivateme', commissionType: 'fixed', commissionFixedCents: 3000, email: 'deactivateme@example.com' });
+    const partnerAuth = await activatePartner(app, email, master, partnerId, 'deactivateme@example.com');
+
+    const before = await app.inject({ method: 'GET', url: '/api/partner/summary', headers: { cookie: partnerAuth.cookie } });
+    expect(before.statusCode, before.body).toBe(200);
+
+    const deactivate = await app.inject({ method: 'PATCH', url: `/api/admin/partners/${partnerId}`, headers: mutationHeaders(master), payload: { active: false } });
+    expect(deactivate.statusCode, deactivate.body).toBe(200);
+
+    // The session is still technically valid, but partner-scoped access is gone immediately.
+    const summaryBlocked = await app.inject({ method: 'GET', url: '/api/partner/summary', headers: { cookie: partnerAuth.cookie } });
+    expect(summaryBlocked.statusCode).toBe(403);
+    const ledgerBlocked = await app.inject({ method: 'GET', url: '/api/partner/ledger', headers: { cookie: partnerAuth.cookie } });
+    expect(ledgerBlocked.statusCode).toBe(403);
+
+    const reactivate = await app.inject({ method: 'PATCH', url: `/api/admin/partners/${partnerId}`, headers: mutationHeaders(master), payload: { active: true } });
+    expect(reactivate.statusCode, reactivate.body).toBe(200);
+    const summaryRestored = await app.inject({ method: 'GET', url: '/api/partner/summary', headers: { cookie: partnerAuth.cookie } });
+    expect(summaryRestored.statusCode, summaryRestored.body).toBe(200);
+  });
+
+  // --- Fix #2: role granted only after invite acceptance, not at invite creation ------------
+  it('never grants partner access at invite time, and an already-active customer only gains it after accepting', async () => {
+    const master = await createMaster(app, email, 'master-invite-timing@example.com');
+    const customer = await createVerifiedUser(app, email, 'existing-customer@example.com', 'Cliente Existente');
+
+    const partnerId = await createPartner(app, master, { code: 'invitetiming', commissionType: 'fixed', commissionFixedCents: 2000, email: 'existing-customer@example.com' });
+    const invite = await app.inject({ method: 'POST', url: `/api/admin/partners/${partnerId}/invite`, headers: mutationHeaders(master) });
+    expect(invite.statusCode, invite.body).toBe(201);
+
+    // Between invite creation and acceptance, the already-active customer account has no
+    // partner access yet, even though the invite already linked partners.user_id to them.
+    const tooEarly = await app.inject({ method: 'GET', url: '/api/partner/summary', headers: { cookie: customer.cookie } });
+    expect(tooEarly.statusCode).toBe(403);
+
+    const message = email.messages.findLast((item) => item.template === 'partner_invite' && item.to === 'existing-customer@example.com');
+    const code = /<strong>(\d{6})<\/strong>/.exec(message?.html ?? '')?.[1];
+    const accept = await app.inject({ method: 'POST', url: '/api/partner-invites/accept', payload: { email: 'existing-customer@example.com', code, password: 'NovaSenhaForte123' } });
+    expect(accept.statusCode, accept.body).toBe(200);
+
+    // Only now, after explicit acceptance, does the (still the very same) account gain access.
+    const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'existing-customer@example.com', password: 'NovaSenhaForte123' } });
+    const partnerCookie = login.cookies.map((item) => `${item.name}=${item.value}`).join('; ');
+    const afterAccept = await app.inject({ method: 'GET', url: '/api/partner/summary', headers: { cookie: partnerCookie } });
+    expect(afterAccept.statusCode, afterAccept.body).toBe(200);
+  });
+
+  it('invalidates a previous invite token when the invite is resent, and rejects an expired/wrong code', async () => {
+    const master = await createMaster(app, email, 'master-resend@example.com');
+    const partnerId = await createPartner(app, master, { code: 'resendtest', commissionType: 'fixed', commissionFixedCents: 2000, email: 'resend@example.com' });
+    const first = await app.inject({ method: 'POST', url: `/api/admin/partners/${partnerId}/invite`, headers: mutationHeaders(master) });
+    expect(first.statusCode, first.body).toBe(201);
+    const firstMessage = email.messages.findLast((item) => item.template === 'partner_invite');
+    const firstCode = /<strong>(\d{6})<\/strong>/.exec(firstMessage?.html ?? '')?.[1];
+
+    const second = await app.inject({ method: 'POST', url: `/api/admin/partners/${partnerId}/invite`, headers: mutationHeaders(master) });
+    expect(second.statusCode, second.body).toBe(201);
+
+    // The first (now-invalidated) code no longer works, even though it has not technically expired.
+    const acceptWithOldCode = await app.inject({ method: 'POST', url: '/api/partner-invites/accept', payload: { email: 'resend@example.com', code: firstCode, password: 'SenhaForte123456' } });
+    expect(acceptWithOldCode.statusCode).toBe(400);
+
+    const wrongCode = await app.inject({ method: 'POST', url: '/api/partner-invites/accept', payload: { email: 'resend@example.com', code: '000000', password: 'SenhaForte123456' } });
+    expect(wrongCode.statusCode).toBe(400);
+  });
+
+  // --- Fix #3 + #6: commission history across void/reconvert, idempotent sale amount --------
+  it('creates a new commission on reconversion after voiding, preserving history and never duplicating listings', async () => {
+    const master = await createMaster(app, email, 'master-reconvert@example.com');
+    await createPartner(app, master, { code: 'reconvert', commissionType: 'fixed', commissionFixedCents: 4000 });
+    const leadId = await submitAndGetLeadId(app, db, 'reconvert', 'reconvertbuyer@example.com');
+
+    const firstConvert = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    expect(firstConvert.statusCode, firstConvert.body).toBe(200);
+    const firstCommissionId = (await db.query<{ id: string }>("SELECT id FROM partner_commissions WHERE lead_request_id=$1 AND status<>'void'", [leadId])).rows[0]!.id;
+
+    const voided = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'lost', voidCommissionReason: 'cliente desistiu' } });
+    expect(voided.statusCode, voided.body).toBe(200);
+
+    const reconverted = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    expect(reconverted.statusCode, reconverted.body).toBe(200);
+    const activeAfterReconvert = await db.query<{ id: string }>("SELECT id FROM partner_commissions WHERE lead_request_id=$1 AND status<>'void'", [leadId]);
+    expect(activeAfterReconvert.rowCount).toBe(1);
+    expect(activeAfterReconvert.rows[0]!.id).not.toBe(firstCommissionId);
+
+    const allForLead = await db.query<{ count: number }>('SELECT count(*)::int AS count FROM partner_commissions WHERE lead_request_id=$1', [leadId]);
+    expect(allForLead.rows[0]?.count).toBe(2);
+
+    // The admin leads listing must show exactly one row for this lead, not one per historical commission.
+    const list = await app.inject({ method: 'GET', url: '/api/admin/leads', headers: { cookie: master.cookie } });
+    const matches = (list.json().leads as Array<{ id: string }>).filter((row) => row.id === leadId);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('preserves the sale amount on an idempotent repeat conversion, and rejects changing it without voiding first', async () => {
+    const master = await createMaster(app, email, 'master-idempotent-sale@example.com');
+    await createPartner(app, master, { code: 'idemsale', commissionType: 'percentage', commissionPercentageBps: 500 });
+    const leadId = await submitAndGetLeadId(app, db, 'idemsale', 'idemsalebuyer@example.com');
+
+    const first = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
+    expect(first.statusCode, first.body).toBe(200);
+
+    // A repeat call omitting saleAmountCents/saleCurrency must never null out what is already there.
+    const repeat = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    expect(repeat.statusCode, repeat.body).toBe(200);
+    const leadRow = await db.query<{ sale_amount_cents: number; sale_currency: string }>('SELECT sale_amount_cents,sale_currency FROM lead_requests WHERE id=$1', [leadId]);
+    expect(leadRow.rows[0]).toEqual({ sale_amount_cents: 100000, sale_currency: 'EUR' });
+
+    // Trying to change the amount on a repeat call is rejected, not silently reinterpreted.
+    const changed = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 999999, saleCurrency: 'EUR' } });
+    expect(changed.statusCode).toBe(409);
+    expect(changed.json()).toEqual(expect.objectContaining({ error: 'sale_amount_locked' }));
+    const unchanged = await db.query<{ sale_amount_cents: number }>('SELECT sale_amount_cents FROM lead_requests WHERE id=$1', [leadId]);
+    expect(unchanged.rows[0]?.sale_amount_cents).toBe(100000);
+  });
+
+  // --- Fix #7: a single currency per partner ------------------------------------------------
+  it('rejects a sale currency that does not match the partner\'s configured currency', async () => {
+    const master = await createMaster(app, email, 'master-currency@example.com');
+    await createPartner(app, master, { code: 'currencytest', commissionType: 'percentage', commissionPercentageBps: 500, currency: 'EUR' });
+    const leadId = await submitAndGetLeadId(app, db, 'currencytest', 'currencybuyer@example.com');
+
+    const mismatched = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 50000, saleCurrency: 'USD' } });
+    expect(mismatched.statusCode).toBe(409);
+    expect(mismatched.json()).toEqual(expect.objectContaining({ error: 'sale_currency_must_match_partner_currency' }));
+
+    const matched = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 50000, saleCurrency: 'EUR' } });
+    expect(matched.statusCode, matched.body).toBe(200);
+  });
+
+  it('locks a partner\'s currency once it has non-voided commissions', async () => {
+    const master = await createMaster(app, email, 'master-currency-lock@example.com');
+    const partnerId = await createPartner(app, master, { code: 'currencylock', commissionType: 'fixed', commissionFixedCents: 3000, currency: 'EUR' });
+    const leadId = await submitAndGetLeadId(app, db, 'currencylock', 'currencylockbuyer@example.com');
+    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+
+    const changeCurrency = await app.inject({ method: 'PATCH', url: `/api/admin/partners/${partnerId}`, headers: mutationHeaders(master), payload: { currency: 'USD' } });
+    expect(changeCurrency.statusCode).toBe(409);
+    expect(changeCurrency.json()).toEqual(expect.objectContaining({ error: 'currency_locked_existing_commissions' }));
+  });
+
+  // --- Fix #8: outbox claim/lease prevents a concurrent double-send -------------------------
+  it('never sends the same outbox notification twice under concurrent processing calls', async () => {
+    const master = await createMaster(app, email, 'master-concurrent@example.com');
+    await createPartner(app, master, { code: 'concurrentnotif', commissionType: 'fixed', commissionFixedCents: 1500 });
+    await submitAndGetLeadId(app, db, 'concurrentnotif', 'concurrentbuyer@example.com');
+
+    // Two "simultaneous" processing calls, issued without awaiting the first before starting
+    // the second, racing against the same pending outbox row.
+    const [first, second] = await Promise.all([
+      app.inject({ method: 'POST', url: '/api/admin/notifications/process', headers: mutationHeaders(master), payload: {} }),
+      app.inject({ method: 'POST', url: '/api/admin/notifications/process', headers: mutationHeaders(master), payload: {} }),
+    ]);
+    expect(first.statusCode, first.body).toBe(200);
+    expect(second.statusCode, second.body).toBe(200);
+    const totalSent = first.json().sent + second.json().sent;
+    expect(totalSent).toBe(1);
+
+    const sentRows = await db.query<{ count: number }>("SELECT count(*)::int AS count FROM notification_outbox WHERE event_type='referral_confirmed' AND status='sent'");
+    expect(sentRows.rows[0]?.count).toBe(1);
+  });
+
+  // --- Fix #9: notification content goes through the real EmailSender -----------------------
+  it('renders real notification content through EmailSender in capture mode, with no customer PII', async () => {
+    const master = await createMaster(app, email, 'master-notif-content@example.com');
+    await createPartner(app, master, { code: 'notifcontent', commissionType: 'fixed', commissionFixedCents: 1000, email: 'notifcontent@example.com' });
+    await submitAndGetLeadId(app, db, 'notifcontent', 'notifcontentbuyer@example.com');
+
+    const before = email.messages.length;
+    const run = await app.inject({ method: 'POST', url: '/api/admin/notifications/process', headers: mutationHeaders(master), payload: {} });
+    expect(run.statusCode, run.body).toBe(200);
+    expect(run.json().sent).toBe(1);
+
+    const sentMessage = email.messages.slice(before).find((message) => message.template === 'partner_referral_confirmed');
+    expect(sentMessage).toBeTruthy();
+    expect(sentMessage?.to).toBe('notifcontent@example.com');
+    expect(sentMessage?.html).not.toContain('notifcontentbuyer@example.com');
+    expect(sentMessage?.html.length ?? 0).toBeGreaterThan(20);
+  });
+
+  // --- Fix #11: burst-click protection on /i/{code} ------------------------------------------
+  it('deduplicates a burst of repeated clicks on the same code without ever blocking the redirect', async () => {
+    const master = await createMaster(app, email, 'master-burst@example.com');
+    await createPartner(app, master, { code: 'burstcode', commissionType: 'fixed', commissionFixedCents: 1000 });
+
+    for (let i = 0; i < 5; i += 1) {
+      const click = await app.inject({ method: 'GET', url: '/i/burstcode' });
+      expect(click.statusCode).toBe(302);
+      expect(click.headers.location).toBe('/proposta-voo.html?ref=burstcode');
+      expect(click.cookies.find((c) => c.name === 'rc_ref')).toBeTruthy();
+    }
+    const clicks = await db.query<{ count: number }>('SELECT count(*)::int AS count FROM referral_clicks');
+    // Five rapid clicks from the same anonymous visitor only ever count once.
+    expect(clicks.rows[0]?.count).toBe(1);
+
+    const inactive = await app.inject({ method: 'GET', url: '/i/does-not-exist-either' });
+    expect(inactive.statusCode).toBe(302);
+    expect(inactive.headers.location).toBe('/');
   });
 });
 

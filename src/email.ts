@@ -6,7 +6,8 @@ import { tokenDigest } from './security.js';
 export interface EmailMessage {
   userId: string | null;
   to: string;
-  template: 'verify_email' | 'password_reset' | 'master_invite' | 'flight_quote_customer' | 'flight_quote_master' | 'partner_invite';
+  template: 'verify_email' | 'password_reset' | 'master_invite' | 'flight_quote_customer' | 'flight_quote_master' | 'partner_invite'
+    | 'partner_referral_confirmed' | 'partner_proposal_converted' | 'partner_commission_paid' | 'partner_weekly_summary';
   subject: string;
   html: string;
   text?: string;

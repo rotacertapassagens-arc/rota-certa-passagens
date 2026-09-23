@@ -57,7 +57,7 @@ export async function buildApp({ db, config, emailSender = new RuntimeEmailSende
   registerAdminRoutes(app, db, config, emailSender);
   registerPaymentRoutes(app, db, config);
   registerPartnerRoutes(app, db, config, emailSender);
-  registerNotificationRoutes(app, db, config);
+  registerNotificationRoutes(app, db, config, emailSender);
 
   await app.register(fastifyStatic, { root: join(process.cwd(), 'public'), prefix: '/' });
   app.setNotFoundHandler(async (request, reply) => {

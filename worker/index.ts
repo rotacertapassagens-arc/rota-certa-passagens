@@ -141,6 +141,11 @@ function clientKey(req: Request) { return req.headers.get('cf-connecting-ip') ||
 
 const REF_COOKIE = 'rc_ref';
 const PARTNER_CODE_RE = /^[a-z0-9-]{3,32}$/;
+// Mirrors src/security.ts's ALLOWED_CURRENCIES exactly — the product's supported currencies for
+// partner commissions and sale amounts, kept small and explicit rather than accepting any
+// 3-letter string.
+const ALLOWED_CURRENCIES = ['EUR', 'USD', 'BRL', 'GBP'];
+function validCurrency(value: string) { return ALLOWED_CURRENCIES.includes(value.toUpperCase()); }
 function normalizeCode(value: string) { return value.trim().toLowerCase(); }
 function validCode(value: string) { return PARTNER_CODE_RE.test(value); }
 async function signRef(codeValue: string, capturedAtMs: number, env: Env) {
@@ -381,60 +386,139 @@ async function adminPlans(req:Request,env:Env){if(!(await requireMaster(req,env)
 async function adminPayments(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);return reply({payments:(await env.DB.prepare('SELECT p.*,u.email,pl.code plan_code FROM payments p JOIN users u ON u.id=p.user_id LEFT JOIN plans pl ON pl.id=p.plan_id ORDER BY p.created_at DESC LIMIT 200').all()).results});}
 
 const leadStatuses=['new','reviewing','awaiting_customer','ready','sent','converted','lost','canceled','closed'];
-async function adminLeads(req:Request,env:Env,url:URL){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);const status=url.searchParams.get('status');const partnerId=url.searchParams.get('partnerId');if(status&&!leadStatuses.includes(status))return reply({error:'invalid_filter'},400);const conds=["l.kind='flight_quote'"];const binds:unknown[]=[];if(status){conds.push('l.status=?');binds.push(status);}if(partnerId){conds.push('l.partner_id=?');binds.push(partnerId);}const sql=`SELECT l.id,l.protocol,l.customer_name,l.customer_email,l.customer_phone,l.origin,l.destination,l.outbound_on,l.return_on,l.adults,l.children,l.infants,l.trip_type,l.cabin_class,l.baggage,l.date_flexibility,l.payment_preference,l.notes,l.internal_notes,l.status,l.deadline_at,l.created_at,l.updated_at,l.assigned_to,p.display_name assigned_name,l.partner_id,l.referral_code_snapshot,l.referral_source,l.sale_amount_cents,l.sale_currency,l.converted_at,partner.code partner_code,partner.display_name partner_display_name,pc.id commission_id,pc.status commission_status,pc.amount_cents commission_amount_cents,pc.currency commission_currency FROM lead_requests l LEFT JOIN profiles p ON p.user_id=l.assigned_to LEFT JOIN partners partner ON partner.id=l.partner_id LEFT JOIN partner_commissions pc ON pc.lead_request_id=l.id WHERE ${conds.join(' AND ')} ORDER BY CASE WHEN l.status IN ('new','reviewing','awaiting_customer','ready') THEN 0 ELSE 1 END,l.deadline_at ASC,l.created_at DESC LIMIT 200`;return reply({leads:(await env.DB.prepare(sql).bind(...binds).all()).results});}
+async function adminLeads(req:Request,env:Env,url:URL){
+  if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);
+  const status=url.searchParams.get('status');const partnerId=url.searchParams.get('partnerId');
+  if(status&&!leadStatuses.includes(status))return reply({error:'invalid_filter'},400);
+  const conds=["l.kind='flight_quote'"];const binds:unknown[]=[];
+  if(status){conds.push('l.status=?');binds.push(status);}
+  if(partnerId){conds.push('l.partner_id=?');binds.push(partnerId);}
+  const sql=`SELECT l.id,l.protocol,l.customer_name,l.customer_email,l.customer_phone,l.origin,l.destination,l.outbound_on,l.return_on,l.adults,l.children,l.infants,l.trip_type,l.cabin_class,l.baggage,l.date_flexibility,l.payment_preference,l.notes,l.internal_notes,l.status,l.deadline_at,l.created_at,l.updated_at,l.assigned_to,p.display_name assigned_name,l.partner_id,l.referral_code_snapshot,l.referral_source,l.sale_amount_cents,l.sale_currency,l.converted_at,partner.code partner_code,partner.display_name partner_display_name FROM lead_requests l LEFT JOIN profiles p ON p.user_id=l.assigned_to LEFT JOIN partners partner ON partner.id=l.partner_id WHERE ${conds.join(' AND ')} ORDER BY CASE WHEN l.status IN ('new','reviewing','awaiting_customer','ready') THEN 0 ELSE 1 END,l.deadline_at ASC,l.created_at DESC LIMIT 200`;
+  const leads=(await env.DB.prepare(sql).bind(...binds).all<Row>()).results;
+  // A lead can have more than one *historical* commission row (converted -> voided ->
+  // reconverted); this listing must attach exactly one "current" commission per lead without
+  // duplicating rows. Fetched separately and merged here in a fully deterministic order: the
+  // SQL ORDER BY guarantees the first row seen per lead_request_id is the active (non-void)
+  // commission if one exists, otherwise the most recently voided one.
+  const leadIdSet=new Set(leads.map((row)=>String(row.id)));
+  const commissionByLead=new Map<string,{id:string;status:string;amount_cents:number;currency:string}>();
+  if(leadIdSet.size){
+    const commissions=await env.DB.prepare(`SELECT pc.id,pc.lead_request_id,pc.status,pc.amount_cents,pc.currency FROM partner_commissions pc JOIN lead_requests l ON l.id=pc.lead_request_id WHERE l.kind='flight_quote' ORDER BY (pc.status='void') ASC, pc.created_at DESC LIMIT 2000`).all<{id:string;lead_request_id:string;status:string;amount_cents:number;currency:string}>();
+    for(const row of commissions.results){
+      const leadRequestId=String(row.lead_request_id);
+      if(leadIdSet.has(leadRequestId)&&!commissionByLead.has(leadRequestId))commissionByLead.set(leadRequestId,row);
+    }
+  }
+  return reply({leads:leads.map((row)=>{
+    const commission=commissionByLead.get(String(row.id));
+    return {...row,commission_id:commission?.id??null,commission_status:commission?.status??null,commission_amount_cents:commission?.amount_cents??null,commission_currency:commission?.currency??null};
+  })});
+}
 
-async function createCommissionForLead(env:Env,actorUserId:string,leadId:string,partnerId:string,saleAmountCents:number|null,saleCurrency:string|null):Promise<{amountCents:number;currency:string}|{error:string}>{
-  const existing=await env.DB.prepare('SELECT amount_cents,currency FROM partner_commissions WHERE lead_request_id=?').bind(leadId).first<{amount_cents:number;currency:string}>();
-  if(existing)return{amountCents:existing.amount_cents,currency:existing.currency};
+/**
+ * Mirrors src/routes/admin.ts's createCommissionForLead: at most one *active* (non-void)
+ * commission per lead (migration 0006's partial unique index), convert -> void -> reconvert
+ * creates real history, a repeat call is idempotent and never silently changes a sale
+ * amount/currency that already produced a live commission, and a percentage sale must be in the
+ * partner's own configured currency.
+ */
+async function createCommissionForLead(env:Env,actorUserId:string,leadId:string,partnerId:string,saleAmountCents:number|null,saleCurrency:string|null,currentSaleAmountCents:number|null,currentSaleCurrency:string|null):Promise<{amountCents:number;currency:string}|{error:string;statusCode:number}>{
+  const active=await env.DB.prepare("SELECT id,amount_cents,currency FROM partner_commissions WHERE lead_request_id=? AND status<>'void'").bind(leadId).first<{id:string;amount_cents:number;currency:string}>();
+  if(active){
+    const amountChanged=saleAmountCents!==null&&saleAmountCents!==currentSaleAmountCents;
+    const currencyChanged=saleCurrency!==null&&saleCurrency.toUpperCase()!==currentSaleCurrency;
+    if(amountChanged||currencyChanged)return{error:'sale_amount_locked',statusCode:409};
+    return{amountCents:active.amount_cents,currency:active.currency};
+  }
   const rule=await env.DB.prepare('SELECT commission_type,commission_fixed_cents,commission_percentage_bps,currency FROM partners WHERE id=?').bind(partnerId).first<{commission_type:string;commission_fixed_cents:number|null;commission_percentage_bps:number|null;currency:string}>();
-  if(!rule)return{error:'partner_not_found'};
-  let amountCents:number,currency:string,rateSnapshot:number;
+  if(!rule)return{error:'partner_not_found',statusCode:404};
+  let amountCents:number,currency:string,rateSnapshot:number,effectiveSaleAmountCents:number|null=null;
   if(rule.commission_type==='percentage'){
-    if(saleAmountCents===null||!saleCurrency)return{error:'sale_amount_required'};
-    amountCents=Math.round((saleAmountCents*(rule.commission_percentage_bps||0))/10000);currency=saleCurrency.toUpperCase();rateSnapshot=rule.commission_percentage_bps||0;
+    const effectiveAmount=saleAmountCents??currentSaleAmountCents;
+    const effectiveCurrency=(saleCurrency??currentSaleCurrency)?.toUpperCase();
+    if(effectiveAmount===null||effectiveAmount===undefined||!effectiveCurrency)return{error:'sale_amount_required',statusCode:422};
+    if(!validCurrency(effectiveCurrency))return{error:'invalid_currency',statusCode:422};
+    if(effectiveCurrency!==rule.currency)return{error:'sale_currency_must_match_partner_currency',statusCode:409};
+    amountCents=Math.round((effectiveAmount*(rule.commission_percentage_bps||0))/10000);currency=effectiveCurrency;rateSnapshot=rule.commission_percentage_bps||0;
+    effectiveSaleAmountCents=effectiveAmount;
   }else{amountCents=rule.commission_fixed_cents||0;currency=rule.currency;rateSnapshot=rule.commission_fixed_cents||0;}
   const id=crypto.randomUUID();
-  await env.DB.prepare(`INSERT INTO partner_commissions (id,partner_id,lead_request_id,amount_cents,currency,status,commission_type_snapshot,commission_rate_snapshot,sale_amount_cents_snapshot,created_by) VALUES (?,?,?,?,?,'pending',?,?,?,?) ON CONFLICT(lead_request_id) DO NOTHING`)
-    .bind(id,partnerId,leadId,amountCents,currency,rule.commission_type,rateSnapshot,saleAmountCents,actorUserId).run();
-  const finalRow=await env.DB.prepare('SELECT amount_cents,currency FROM partner_commissions WHERE lead_request_id=?').bind(leadId).first<{amount_cents:number;currency:string}>();
+  try {
+    await env.DB.prepare(`INSERT INTO partner_commissions (id,partner_id,lead_request_id,amount_cents,currency,status,commission_type_snapshot,commission_rate_snapshot,sale_amount_cents_snapshot,created_by) VALUES (?,?,?,?,?,'pending',?,?,?,?)`)
+      .bind(id,partnerId,leadId,amountCents,currency,rule.commission_type,rateSnapshot,effectiveSaleAmountCents,actorUserId).run();
+  } catch (error) {
+    // Lost a race against a concurrent conversion request enforced by the partial unique index;
+    // fall back to whatever the winner created.
+    const raceExisting=await env.DB.prepare("SELECT amount_cents,currency FROM partner_commissions WHERE lead_request_id=? AND status<>'void'").bind(leadId).first<{amount_cents:number;currency:string}>();
+    return raceExisting?{amountCents:raceExisting.amount_cents,currency:raceExisting.currency}:{error:'commission_not_created',statusCode:500};
+  }
   await audit(env,actorUserId,'admin.commission_created','partner_commission',id);
-  return finalRow?{amountCents:finalRow.amount_cents,currency:finalRow.currency}:{error:'commission_not_created'};
+  return{amountCents,currency};
 }
 
 async function adminLeadUpdate(req:Request,env:Env,id:string){
   const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
   const b=await body(req);const status=typeof b?.status==='string'&&leadStatuses.includes(b.status)?b?.status:null;const notes=text(b?.internalNotes,3000),assign=b?.assignToMe===true;
   const saleAmountCents=Number.isInteger(b?.saleAmountCents)&&Number(b?.saleAmountCents)>=0?Number(b?.saleAmountCents):null;
-  const saleCurrency=typeof b?.saleCurrency==='string'&&b.saleCurrency.length===3?b?.saleCurrency:null;
+  const saleCurrencyRaw=typeof b?.saleCurrency==='string'&&b.saleCurrency.length===3?b?.saleCurrency.toUpperCase():null;
   const voidReason=text(b?.voidCommissionReason,500,3);
   if(!status)return reply({error:'invalid_request'},400);
-  const existing=await env.DB.prepare("SELECT id,status,partner_id,protocol,destination FROM lead_requests WHERE id=? AND kind='flight_quote'").bind(id).first<Row>();
+  if(saleCurrencyRaw!==null&&!validCurrency(saleCurrencyRaw))return reply({error:'invalid_currency'},422);
+  const existing=await env.DB.prepare("SELECT id,status,partner_id,protocol,destination,sale_amount_cents,sale_currency FROM lead_requests WHERE id=? AND kind='flight_quote'").bind(id).first<Row>();
   if(!existing)return reply({error:'not_found'},404);
+
+  // Everything below is submitted as a single env.DB.batch() call, which D1 runs as one atomic
+  // unit (all statements succeed or none do) — mirroring the single database transaction the
+  // Node/Postgres backend uses for the same operation, so a failure partway through can never
+  // leave a converted proposal without its expected commission, nor a commission without its
+  // proposal update. The lead UPDATE at the end carries an optimistic-concurrency guard
+  // (WHERE status=? matching the status just read above) so a second D1 batch that started
+  // concurrently against the same row cannot silently clobber this one's effects.
+  const statements: D1PreparedStatement[] = [];
+
   if(existing.status==='converted'&&status!=='converted'){
+    const paid=await env.DB.prepare("SELECT id FROM partner_commissions WHERE lead_request_id=? AND status='paid'").bind(id).first<Row>();
+    if(paid)return reply({error:'commission_paid_immutable'},409);
     const active=await env.DB.prepare("SELECT id FROM partner_commissions WHERE lead_request_id=? AND status IN ('pending','approved')").bind(id).first<Row>();
     if(active){
       if(!voidReason)return reply({error:'commission_void_reason_required'},409);
-      await env.DB.prepare("UPDATE partner_commissions SET status='void',voided_at=CURRENT_TIMESTAMP,voided_by=?,void_reason=?,updated_at=CURRENT_TIMESTAMP WHERE lead_request_id=? AND status IN ('pending','approved')").bind(auth.userId,voidReason,id).run();
-      await audit(env,auth.userId,'admin.commission_voided','lead_request',id);
+      statements.push(env.DB.prepare("UPDATE partner_commissions SET status='void',voided_at=CURRENT_TIMESTAMP,voided_by=?,void_reason=?,updated_at=CURRENT_TIMESTAMP WHERE lead_request_id=? AND status IN ('pending','approved')").bind(auth.userId,voidReason,id));
+      statements.push(env.DB.prepare('INSERT INTO audit_events(id,actor_user_id,action,target_type,target_id) VALUES(?,?,?,?,?)').bind(crypto.randomUUID(),auth.userId,'admin.commission_voided','lead_request',id));
     }
   }
+
   let commissionPreview:{amountCents:number;currency:string}|{error:string}|null=null;
+  let finalSaleAmountCents=existing.sale_amount_cents as number|null;
+  let finalSaleCurrency=existing.sale_currency as string|null;
   if(status==='converted'&&existing.partner_id){
-    commissionPreview=await createCommissionForLead(env,auth.userId,id,String(existing.partner_id),saleAmountCents,saleCurrency);
-    if('error'in commissionPreview)return reply({error:commissionPreview.error},422);
+    const created=await createCommissionForLead(env,auth.userId,id,String(existing.partner_id),saleAmountCents,saleCurrencyRaw,existing.sale_amount_cents as number|null,existing.sale_currency as string|null);
+    if('error'in created)return reply({error:created.error},created.statusCode);
+    commissionPreview=created;
+    // A repeated/idempotent conversion call that omits saleAmountCents/saleCurrency must never
+    // null out financial data that already exists on the proposal.
+    finalSaleAmountCents=saleAmountCents??(existing.sale_amount_cents as number|null);
+    finalSaleCurrency=saleCurrencyRaw??(existing.sale_currency as string|null);
   }
-  const result=await env.DB.prepare(`UPDATE lead_requests SET status=?,internal_notes=?,assigned_to=CASE WHEN ? THEN ? ELSE assigned_to END,
-    sale_amount_cents=CASE WHEN ?='converted' THEN ? ELSE sale_amount_cents END,
-    sale_currency=CASE WHEN ?='converted' THEN ? ELSE sale_currency END,
-    converted_at=CASE WHEN ?='converted' THEN COALESCE(converted_at,CURRENT_TIMESTAMP) ELSE converted_at END,
-    updated_at=CURRENT_TIMESTAMP WHERE id=? AND kind='flight_quote'`)
-    .bind(status,notes,assign?1:0,auth.userId,status,saleAmountCents,status,saleCurrency?.toUpperCase()||null,status,id).run();
-  if(!result.meta.changes)return reply({error:'not_found'},404);
-  await audit(env,auth.userId,'admin.lead_updated','lead_request',id);
+
+  statements.push(
+    env.DB.prepare(`UPDATE lead_requests SET status=?,internal_notes=?,assigned_to=CASE WHEN ? THEN ? ELSE assigned_to END,
+      sale_amount_cents=CASE WHEN ?='converted' THEN ? ELSE sale_amount_cents END,
+      sale_currency=CASE WHEN ?='converted' THEN ? ELSE sale_currency END,
+      converted_at=CASE WHEN ?='converted' THEN COALESCE(converted_at,CURRENT_TIMESTAMP) ELSE converted_at END,
+      updated_at=CURRENT_TIMESTAMP WHERE id=? AND kind='flight_quote' AND status=?`)
+      .bind(status,notes,assign?1:0,auth.userId,status,finalSaleAmountCents,status,finalSaleCurrency,status,id,existing.status),
+  );
+  const leadUpdateIndex=statements.length-1;
+  statements.push(env.DB.prepare('INSERT INTO audit_events(id,actor_user_id,action,target_type,target_id) VALUES(?,?,?,?,?)').bind(crypto.randomUUID(),auth.userId,'admin.lead_updated','lead_request',id));
   if(status==='converted'&&existing.partner_id){
-    await env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'proposal_converted',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
-      .bind(crypto.randomUUID(),`proposal_converted:${id}`,existing.partner_id,JSON.stringify({leadId:id,protocol:existing.protocol})).run();
+    statements.push(
+      env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'proposal_converted',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
+        .bind(crypto.randomUUID(),`proposal_converted:${id}`,existing.partner_id,JSON.stringify({leadId:id,protocol:existing.protocol})),
+    );
   }
+  const results=await env.DB.batch(statements);
+  const leadUpdateResult=results[leadUpdateIndex];
+  if(!leadUpdateResult?.meta.changes)return reply({error:'conflict_retry'},409);
   return reply({lead:{id,status,internal_notes:notes,assigned_to:assign?auth.userId:null,updated_at:new Date().toISOString()},commissionPreview});
 }
 
@@ -502,10 +586,20 @@ async function referralClick(req:Request,env:Env,rawCode:string){
   if(!validCode(codeValue))return fallback();
   const partner=await env.DB.prepare('SELECT id,attribution_window_days FROM partners WHERE code=? AND active=1').bind(codeValue).first<{id:string;attribution_window_days:number}>();
   if(!partner)return fallback();
-  try{
-    await env.DB.prepare('INSERT INTO referral_clicks (id,partner_id,landing_path,visitor_hash,ip_hash,user_agent) VALUES (?,?,?,?,?,?)')
-      .bind(crypto.randomUUID(),partner.id,'/proposta-voo.html',await sha(`${clientKey(req)}|${req.headers.get('user-agent')||''}`),await sha(clientKey(req)),(req.headers.get('user-agent')||'').slice(0,300)).run();
-  }catch{/* telemetry must never block the redirect */}
+  // Anonymous burst-click protection, mirroring the Node backend: a repeated click from the
+  // same (IP, user-agent) pair for the same code within 60s is deduplicated so it cannot inflate
+  // click metrics. Reuses the same rate_limit_buckets table/helper as every other rate-limited
+  // route. Only a raw client IP is never stored — `sha()` (SHA-256) is applied first, same as
+  // the existing ip_hash/visitor_hash columns already did. The visitor still always gets their
+  // cookie and redirect below regardless of whether this click was counted.
+  const visitorKey=await sha(`${clientKey(req)}|${req.headers.get('user-agent')||''}`);
+  const firstClickInWindow=await rateLimit(req,env,'referral_click',`${codeValue}:${visitorKey}`,1,60);
+  if(firstClickInWindow){
+    try{
+      await env.DB.prepare('INSERT INTO referral_clicks (id,partner_id,landing_path,visitor_hash,ip_hash,user_agent) VALUES (?,?,?,?,?,?)')
+        .bind(crypto.randomUUID(),partner.id,'/proposta-voo.html',visitorKey,await sha(clientKey(req)),(req.headers.get('user-agent')||'').slice(0,300)).run();
+    }catch{/* telemetry must never block the redirect */}
+  }
   const capturedAtMs=Date.now();
   const token=await signRef(codeValue,capturedAtMs,env);
   const headers=new Headers({location:`/proposta-voo.html?ref=${encodeURIComponent(codeValue)}`,'cache-control':'no-store'});
@@ -557,11 +651,18 @@ async function adminPartnerCreate(req:Request,env:Env){
   if(!validCode(codeValue)||!displayName||!email||!commissionType)return reply({error:'invalid_partner'},400);
   if(commissionType==='fixed'&&(commissionFixedCents===null||commissionPercentageBps!==null))return reply({error:'invalid_partner'},400);
   if(commissionType==='percentage'&&(commissionPercentageBps===null||commissionFixedCents!==null))return reply({error:'invalid_partner'},400);
+  if(!validCurrency(currency))return reply({error:'invalid_currency'},422);
   const existing=await env.DB.prepare('SELECT 1 FROM partners WHERE code=?').bind(codeValue).first();
   if(existing)return reply({error:'code_already_used'},409);
+  const existingEmail=await env.DB.prepare('SELECT 1 FROM partners WHERE lower(email)=lower(?)').bind(email).first();
+  if(existingEmail)return reply({error:'email_already_used_by_partner'},409);
   const id=crypto.randomUUID();
-  await env.DB.prepare(`INSERT INTO partners (id,code,display_name,instagram,whatsapp,email,commission_type,commission_fixed_cents,commission_percentage_bps,currency,attribution_window_days,active) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)`)
-    .bind(id,codeValue,displayName,text(b?.instagram,120)||null,text(b?.whatsapp,30)||null,email,commissionType,commissionFixedCents,commissionPercentageBps,currency,attributionWindowDays).run();
+  try {
+    await env.DB.prepare(`INSERT INTO partners (id,code,display_name,instagram,whatsapp,email,commission_type,commission_fixed_cents,commission_percentage_bps,currency,attribution_window_days,active) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)`)
+      .bind(id,codeValue,displayName,text(b?.instagram,120)||null,text(b?.whatsapp,30)||null,email,commissionType,commissionFixedCents,commissionPercentageBps,currency,attributionWindowDays).run();
+  } catch (error) {
+    return reply({error:'code_or_email_already_used'},409);
+  }
   await audit(env,auth.userId,'admin.partner_created','partner',id);
   return reply({id,code:codeValue},201);
 }
@@ -588,8 +689,16 @@ async function adminPartnerUpdate(req:Request,env:Env,id:string){
   const instagram=b?.instagram!==undefined?(text(b?.instagram,120)||null):partner.instagram;
   const whatsapp=b?.whatsapp!==undefined?(text(b?.whatsapp,30)||null):partner.whatsapp;
   const currency=typeof b?.currency==='string'&&b.currency.length===3?b?.currency.toUpperCase():String(partner.currency);
+  if(!validCurrency(currency))return reply({error:'invalid_currency'},422);
   const attributionWindowDays=Number.isInteger(b?.attributionWindowDays)&&Number(b?.attributionWindowDays)>0?Number(b?.attributionWindowDays):Number(partner.attribution_window_days);
   const active=typeof b?.active==='boolean'?b?.active:Boolean(partner.active);
+  if(currency!==String(partner.currency)){
+    // Changing currency after real commission history exists would make aggregate totals mix
+    // currencies (or silently reinterpret historical amounts). Locked once non-void commissions
+    // exist, same rule as the Node/Postgres backend.
+    const hasCommissions=await env.DB.prepare("SELECT 1 FROM partner_commissions WHERE partner_id=? AND status<>'void' LIMIT 1").bind(id).first();
+    if(hasCommissions)return reply({error:'currency_locked_existing_commissions'},409);
+  }
   await env.DB.prepare(`UPDATE partners SET display_name=?,instagram=?,whatsapp=?,commission_type=?,commission_fixed_cents=?,commission_percentage_bps=?,currency=?,attribution_window_days=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
     .bind(displayName,instagram,whatsapp,commissionType,commissionFixedCents,commissionPercentageBps,currency,attributionWindowDays,active?1:0,id).run();
   await audit(env,auth.userId,'admin.partner_updated','partner',id);
@@ -601,6 +710,11 @@ async function adminPartnerInvite(req:Request,env:Env,id:string){
   const partner=await env.DB.prepare('SELECT * FROM partners WHERE id=?').bind(id).first<Row>();
   if(!partner)return reply({error:'not_found'},404);
   if(!partner.active)return reply({error:'partner_inactive'},409);
+  // Another partner already owns this email/account (partners.user_id and lower(partners.email)
+  // are both unique as of migration 0006) — checked explicitly here for a clear, safe error
+  // instead of letting a raw unique-constraint violation surface later.
+  const conflicting=await env.DB.prepare('SELECT p.id FROM partners p JOIN users u ON u.id=p.user_id WHERE u.email=? AND p.id<>?').bind(partner.email,id).first<Row>();
+  if(conflicting)return reply({error:'email_linked_to_other_partner'},409);
   let user=await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(partner.email).first<Row>();
   const userId=user?String(user.id):crypto.randomUUID();
   if(!user){
@@ -610,8 +724,11 @@ async function adminPartnerInvite(req:Request,env:Env,id:string){
     ]);
   }
   const code=code6();
+  // Links the account and prepares the invite token, but never grants the 'partner' role here —
+  // that only happens in partnerInviteAccept below, after the single-use code is validated. An
+  // already-active account (e.g. an existing customer with this email) gains no access just
+  // because an invite was created; resending also invalidates every previous unused token.
   await env.DB.batch([
-    env.DB.prepare("INSERT OR IGNORE INTO user_roles(user_id,role) VALUES(?,'partner')").bind(userId),
     env.DB.prepare('UPDATE partners SET user_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(userId,id),
     env.DB.prepare("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND purpose='partner_invite' AND used_at IS NULL").bind(userId),
     env.DB.prepare("INSERT INTO account_tokens(id,user_id,purpose,token_hash,expires_at) VALUES(?,?,'partner_invite',?,?)").bind(crypto.randomUUID(),userId,await digest(code,env),isoAfter(900)),
@@ -627,17 +744,26 @@ async function partnerInviteAccept(req:Request,env:Env){
   if(!(await rateLimit(req,env,'partner-invite-accept',email,8,900)))return reply({error:'too_many_attempts'},429);
   const row=await env.DB.prepare("SELECT t.id,t.user_id FROM account_tokens t JOIN users u ON u.id=t.user_id WHERE u.email=? AND t.token_hash=? AND t.purpose='partner_invite' AND t.used_at IS NULL AND t.expires_at>CURRENT_TIMESTAMP AND t.failed_attempts<5 LIMIT 1").bind(email,await digest(codeValue,env)).first<Row>();
   if(!row){await env.DB.prepare("UPDATE account_tokens SET failed_attempts=failed_attempts+1 WHERE id=(SELECT t.id FROM account_tokens t JOIN users u ON u.id=t.user_id WHERE u.email=? AND t.purpose='partner_invite' AND t.used_at IS NULL ORDER BY t.created_at DESC LIMIT 1)").bind(email).run();return reply({error:'invalid_or_expired_invite'},400);}
-  await env.DB.batch([
-    env.DB.prepare("UPDATE users SET password_hash=?,status='active',email_verified_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(await passwordHash(password),row.user_id),
-    env.DB.prepare('UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=?').bind(row.id),
-  ]);
+  try {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET password_hash=?,status='active',email_verified_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(await passwordHash(password),row.user_id),
+      // The 'partner' role is granted only here, transactionally, right after the single-use
+      // code was validated above — never at invite-creation time.
+      env.DB.prepare("INSERT OR IGNORE INTO user_roles(user_id,role) VALUES(?,'partner')").bind(row.user_id),
+      env.DB.prepare('UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=?').bind(row.id),
+    ]);
+  } catch (error) {
+    return reply({error:'email_linked_to_other_partner'},409);
+  }
   await audit(env,String(row.user_id),'partner.invite_accepted','user',String(row.user_id));
   return reply({ok:true});
 }
 
 async function requirePartnerSelf(req:Request,env:Env):Promise<Row|null>{
   const auth=await getAuth(req,env);if(!auth||!auth.roles.includes('partner'))return null;
-  const partner=await env.DB.prepare('SELECT * FROM partners WHERE user_id=?').bind(auth.userId).first<Row>();
+  // A deactivated partner loses panel access immediately: only an active row is ever returned,
+  // so a deactivated partner gets the same "forbidden" outcome as no partner record at all.
+  const partner=await env.DB.prepare('SELECT * FROM partners WHERE user_id=? AND active=1').bind(auth.userId).first<Row>();
   return partner||null;
 }
 
@@ -659,8 +785,14 @@ async function partnerSummary(req:Request,env:Env){
 async function partnerLedger(req:Request,env:Env){
   const partner=await requirePartnerSelf(req,env);if(!partner)return reply({error:'forbidden'},403,{'cache-control':'no-store'});
   const leads=await env.DB.prepare('SELECT id,protocol,status,origin,destination,created_at,converted_at,referral_source FROM lead_requests WHERE partner_id=? ORDER BY created_at DESC LIMIT 200').bind(partner.id).all<Row>();
-  const commissions=await env.DB.prepare('SELECT lead_request_id,amount_cents,currency,status FROM partner_commissions WHERE partner_id=?').bind(partner.id).all<Row>();
-  const byLead=new Map(commissions.results.map(c=>[String(c.lead_request_id),c]));
+  // Documented, deterministic "current commission per lead" rule (mirrors the Node backend): a
+  // lead can have more than one historical commission row (converted -> voided -> reconverted).
+  // The SQL ORDER BY guarantees the first row seen per lead_request_id is the active (non-void)
+  // commission if one exists, otherwise the most recently voided one — the Map below is safe
+  // because of that explicit order, not because of an unspecified database row order.
+  const commissions=await env.DB.prepare("SELECT lead_request_id,amount_cents,currency,status FROM partner_commissions WHERE partner_id=? ORDER BY (status='void') ASC, created_at DESC").bind(partner.id).all<Row>();
+  const byLead=new Map<string,Row>();
+  for(const c of commissions.results){const key=String(c.lead_request_id);if(!byLead.has(key))byLead.set(key,c);}
   return reply({entries:leads.results.map(lead=>{
     const commission=byLead.get(String(lead.id));
     return {protocolMasked:maskProtocol(String(lead.protocol)),route:lead.origin&&lead.destination?`${lead.origin} → ${lead.destination}`:null,status:lead.status,referralSource:lead.referral_source,requestedAt:lead.created_at,convertedAt:lead.converted_at,
@@ -672,66 +804,131 @@ async function commissionTransition(req:Request,env:Env,id:string,action:'approv
   const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
   if(action==='void'){
     const b=await body(req);const reasonValue=text(b?.reason,500,3);if(!reasonValue)return reply({error:'invalid_request'},400);
-    const result=await env.DB.prepare("UPDATE partner_commissions SET status='void',voided_at=CURRENT_TIMESTAMP,voided_by=?,void_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status<>'void'").bind(auth.userId,reasonValue,id).run();
-    if(!result.meta.changes)return reply({error:'not_found_or_already_void'},404);
+    const current=await env.DB.prepare('SELECT id,status FROM partner_commissions WHERE id=?').bind(id).first<{id:string;status:string}>();
+    if(!current)return reply({error:'not_found'},404);
+    // A paid commission is a settled financial fact and can never be voided directly.
+    if(current.status==='paid')return reply({error:'commission_paid_requires_adjustment'},409);
+    if(current.status==='void')return reply({error:'already_void'},409);
+    const result=await env.DB.prepare("UPDATE partner_commissions SET status='void',voided_at=CURRENT_TIMESTAMP,voided_by=?,void_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','approved')").bind(auth.userId,reasonValue,id).run();
+    if(!result.meta.changes)return reply({error:'invalid_transition'},409);
     await audit(env,auth.userId,'admin.commission_voided','partner_commission',id);
     return reply({ok:true});
   }
   const target=action==='approve'?'approved':'paid';
   const allowedFrom=action==='approve'?'pending':'approved';
   const columns=action==='approve'?'approved_at=CURRENT_TIMESTAMP,approved_by=?':'paid_at=CURRENT_TIMESTAMP,paid_by=?';
-  const commission=await env.DB.prepare('SELECT partner_id FROM partner_commissions WHERE id=? AND status=?').bind(id,allowedFrom).first<Row>();
+  const commission=await env.DB.prepare('SELECT partner_id,amount_cents,currency FROM partner_commissions WHERE id=? AND status=?').bind(id,allowedFrom).first<Row>();
   if(!commission)return reply({error:'invalid_transition'},409);
   await env.DB.prepare(`UPDATE partner_commissions SET status=?,${columns},updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(target,auth.userId,id).run();
   await audit(env,auth.userId,`admin.commission_${target}`,'partner_commission',id);
   if(action==='pay'){
     await env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'commission_paid',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
-      .bind(crypto.randomUUID(),`commission_paid:${id}`,commission.partner_id,JSON.stringify({commissionId:id})).run();
+      .bind(crypto.randomUUID(),`commission_paid:${id}`,commission.partner_id,JSON.stringify({commissionId:id,amountCents:commission.amount_cents,currency:commission.currency})).run();
   }
   return reply({ok:true});
 }
 
 // --- Notifications: in-repo outbox processor (capture mode by default) -------------------
 
+const OUTBOX_LEASE_SECONDS=120;
+
+function escapeHtmlText(value:string){return value.replace(/[&<>'"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}as Record<string,string>)[c]!);}
+function formatCentsAmount(cents:unknown,currency:unknown){const amount=typeof cents==='number'?cents:Number(cents??0);const code=typeof currency==='string'&&currency.length===3?currency:'EUR';return `${(amount/100).toFixed(2)} ${code}`;}
+
+/** Mirrors src/routes/notifications.ts's renderNotification: no customer PII, only the
+ * partner's own display name and aggregate/business facts about their own account. */
+function renderOutboxNotification(row:{event_type:string;payload:unknown},partnerName:string){
+  const safeName=escapeHtmlText(partnerName||'parceiro(a)');
+  const payload=(row.payload||{}) as Record<string,unknown>;
+  switch(row.event_type){
+    case 'referral_confirmed':
+      return {subject:'Nova indicação recebida',html:`<p>Olá, ${safeName}.</p><p>Chegou uma nova indicação pelo seu link de parceiro. Acompanhe os detalhes no seu painel.</p>`};
+    case 'proposal_converted':
+      return {subject:'Uma indicação sua fechou negócio',html:`<p>Olá, ${safeName}.</p><p>Uma proposta indicada por você foi convertida em venda. A comissão correspondente já está visível no seu painel de parceiros.</p>`};
+    case 'commission_paid': {
+      const amount=formatCentsAmount(payload.amountCents,payload.currency);
+      return {subject:'Comissão paga',html:`<p>Olá, ${safeName}.</p><p>Sua comissão de <strong>${escapeHtmlText(amount)}</strong> foi marcada como paga. Consulte o extrato completo no seu painel.</p>`};
+    }
+    case 'weekly_summary': {
+      const clicks=Number(payload.clicks??0),proposals=Number(payload.proposals??0),conversions=Number(payload.conversions??0);
+      const commission=formatCentsAmount(payload.commission_cents,'EUR');
+      return {subject:'Resumo semanal do seu link',html:`<p>Olá, ${safeName}.</p><p>Resumo da semana: <strong>${clicks}</strong> cliques, <strong>${proposals}</strong> propostas, <strong>${conversions}</strong> conversões e <strong>${escapeHtmlText(commission)}</strong> em novas comissões.</p>`};
+    }
+    default:
+      return {subject:'Atualização do programa de parceiros',html:`<p>Olá, ${safeName}. Você tem uma atualização.</p>`};
+  }
+}
+
 async function notificationsProcess(req:Request,env:Env){
   const actorUserId=await requireMasterOrCronUserId(req,env);if(actorUserId===undefined)return reply({error:'forbidden'},403);
   const b=await body(req);const limit=Number.isInteger(b?.limit)&&Number(b?.limit)>0&&Number(b?.limit)<=200?Number(b?.limit):50;
-  const pending=await env.DB.prepare("SELECT id,idempotency_key,event_type,partner_id,channel,payload,attempts FROM notification_outbox WHERE status='pending' AND next_attempt_at<=CURRENT_TIMESTAMP ORDER BY next_attempt_at ASC LIMIT ?").bind(limit).all<Row>();
+  // Claim/lease, mirroring src/routes/notifications.ts: a single atomic UPDATE claims each
+  // eligible row (flips 'pending' — or 'processing' with an expired lease — to 'processing' with
+  // this invocation's own lock_token and a short lease) before anything is sent, so two
+  // concurrent cron calls can never both send the same notification. D1/SQLite's UPDATE ... WHERE
+  // id IN (SELECT ...) runs as a single atomic statement, giving the same guarantee as the
+  // Postgres version without needing FOR UPDATE SKIP LOCKED.
+  const lockToken=crypto.randomUUID();
+  const claimableIds=await env.DB.prepare(
+    "SELECT id FROM notification_outbox WHERE next_attempt_at<=CURRENT_TIMESTAMP AND (status='pending' OR (status='processing' AND lease_expires_at<CURRENT_TIMESTAMP)) ORDER BY next_attempt_at ASC LIMIT ?",
+  ).bind(limit).all<{id:string}>();
   let sent=0,skipped=0,failed=0;
-  for(const row of pending.results){
+  for(const {id:claimId} of claimableIds.results){
+    const claim=await env.DB.prepare(
+      "UPDATE notification_outbox SET status='processing',lock_token=?,lease_expires_at=datetime(CURRENT_TIMESTAMP,'+'||?||' seconds'),updated_at=CURRENT_TIMESTAMP WHERE id=? AND (status='pending' OR (status='processing' AND lease_expires_at<CURRENT_TIMESTAMP))",
+    ).bind(lockToken,String(OUTBOX_LEASE_SECONDS),claimId).run();
+    if(!claim.meta.changes)continue; // another concurrent call claimed this row first
+    const row=await env.DB.prepare('SELECT id,idempotency_key,event_type,partner_id,channel,payload,attempts FROM notification_outbox WHERE id=? AND lock_token=?').bind(claimId,lockToken).first<Row>();
+    if(!row)continue;
+    const payload=typeof row.payload==='string'?JSON.parse(row.payload):row.payload;
     try{
       if(row.channel==='whatsapp'&&env.WHATSAPP_NOTIFICATIONS_ENABLED!=='true'){
-        await env.DB.prepare("UPDATE notification_outbox SET status='skipped',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(row.id).run();skipped++;continue;
+        await env.DB.prepare("UPDATE notification_outbox SET status='skipped',updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(row.id,lockToken).run();skipped++;continue;
       }
       if(row.channel==='whatsapp'){
         if(!env.WHATSAPP_WEBHOOK_URL||!env.WHATSAPP_WEBHOOK_TOKEN)throw new Error('whatsapp_webhook_not_configured');
-        const response=await fetch(env.WHATSAPP_WEBHOOK_URL,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${env.WHATSAPP_WEBHOOK_TOKEN}`},body:JSON.stringify({eventType:row.event_type,partnerId:row.partner_id,payload:row.payload})});
+        const response=await fetch(env.WHATSAPP_WEBHOOK_URL,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${env.WHATSAPP_WEBHOOK_TOKEN}`,'idempotency-key':String(row.idempotency_key)},body:JSON.stringify({eventType:row.event_type,partnerId:row.partner_id,payload,idempotencyKey:row.idempotency_key})});
         if(!response.ok)throw new Error(`whatsapp_webhook_http_${response.status}`);
       }else{
-        const partner=await env.DB.prepare('SELECT email FROM partners WHERE id=?').bind(row.partner_id).first<{email:string}>();
+        const partner=await env.DB.prepare('SELECT email,display_name FROM partners WHERE id=?').bind(row.partner_id).first<{email:string;display_name:string}>();
         if(!partner?.email)throw new Error('partner_email_missing');
-        await env.DB.prepare("INSERT INTO email_events (id,user_id,template,recipient_hash,provider,status) VALUES (?,NULL,?,?,'notification-outbox-capture','captured')")
-          .bind(crypto.randomUUID(),row.event_type,await digest(partner.email,env)).run();
+        // Reuses the same sendEmail() helper every other worker email flow uses (Resend-backed;
+        // this task never configures RESEND_API_KEY or triggers a real send), with real,
+        // partner-facing content instead of a manual, content-less email_events row.
+        const {subject,html:htmlBody}=renderOutboxNotification({event_type:row.event_type as string,payload},partner.display_name);
+        await sendEmail(env,null,partner.email,`partner_${row.event_type}`,subject,htmlBody);
       }
-      await env.DB.prepare("UPDATE notification_outbox SET status='sent',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(row.id).run();sent++;
+      await env.DB.prepare("UPDATE notification_outbox SET status='sent',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(row.id,lockToken).run();sent++;
     }catch(error){
       const attempts=Number(row.attempts)+1;const message=(error instanceof Error?error.message:'unknown_error').slice(0,200);
-      if(attempts>=5)await env.DB.prepare("UPDATE notification_outbox SET status='failed',attempts=?,last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(attempts,message,row.id).run();
-      else await env.DB.prepare("UPDATE notification_outbox SET attempts=?,last_error=?,next_attempt_at=datetime(CURRENT_TIMESTAMP,'+'||?||' minutes'),updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(attempts,message,String(2**attempts),row.id).run();
+      if(attempts>=5)await env.DB.prepare("UPDATE notification_outbox SET status='failed',attempts=?,last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(attempts,message,row.id,lockToken).run();
+      else await env.DB.prepare("UPDATE notification_outbox SET attempts=?,last_error=?,next_attempt_at=datetime(CURRENT_TIMESTAMP,'+'||?||' minutes'),status='pending',lock_token=NULL,lease_expires_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(attempts,message,String(2**attempts),row.id,lockToken).run();
       failed++;
     }
   }
   await audit(env,actorUserId,'admin.notifications_processed','notification_outbox','');
-  return reply({processed:pending.results.length,sent,skipped,failed});
+  return reply({processed:sent+skipped+failed,sent,skipped,failed});
 }
 
+/**
+ * Timezone-safe (DST-correct) start of the current Europe/Lisbon week (Monday 00:00 local).
+ * Mirrors src/security.ts's lisbonWeekStartUtc exactly: reads Lisbon's real UTC offset for the
+ * target calendar date (via Intl's shortOffset, which already accounts for DST) instead of
+ * parsing a local-looking string in the host process's own timezone.
+ */
 function lisbonWeekStartIso(reference:Date){
-  const formatter=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
-  const parts=Object.fromEntries(formatter.formatToParts(reference).map(p=>[p.type,p.value]));
-  const localMidnight=new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00`);
+  const dateFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
+  const parts=Object.fromEntries(dateFormatter.formatToParts(reference).map(p=>[p.type,p.value]));
   const weekdayIndex=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(parts.weekday);
-  localMidnight.setDate(localMidnight.getDate()-weekdayIndex);
-  return localMidnight;
+  const referenceDateUtcMs=Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day));
+  const mondayDateUtcMs=referenceDateUtcMs-weekdayIndex*86_400_000;
+  const monday=new Date(mondayDateUtcMs);
+  const guessInstant=Date.UTC(monday.getUTCFullYear(),monday.getUTCMonth(),monday.getUTCDate());
+  const offsetParts=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Lisbon',timeZoneName:'shortOffset'}).formatToParts(new Date(guessInstant));
+  const tzName=offsetParts.find(p=>p.type==='timeZoneName')?.value??'GMT';
+  const match=/GMT([+-]\d{1,2})?/.exec(tzName);
+  const offsetMinutes=(match?.[1]?Number.parseInt(match[1],10):0)*60;
+  return new Date(guessInstant-offsetMinutes*60_000);
 }
 
 async function notificationsWeeklySummary(req:Request,env:Env){

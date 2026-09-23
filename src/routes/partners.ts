@@ -6,7 +6,9 @@ import type { Database } from '../db.js';
 import type { EmailSender } from '../email.js';
 import { audit, enforceRateLimit, requireAuth, requireMutationAuth } from '../auth.js';
 import {
+  ALLOWED_CURRENCIES,
   hashPassword,
+  isUniqueViolation,
   isValidPartnerCode,
   normalizeEmail,
   normalizePartnerCode,
@@ -15,6 +17,8 @@ import {
   tokenDigest,
   verifyReferralToken,
 } from '../security.js';
+
+const CURRENCY_ENUM = z.enum(ALLOWED_CURRENCIES);
 
 export const REF_COOKIE_NAME = 'rc_ref';
 
@@ -53,7 +57,7 @@ const partnerCreateSchema = z.object({
   commissionType: z.enum(['fixed', 'percentage']),
   commissionFixedCents: z.number().int().min(0).max(100_000_00).optional(),
   commissionPercentageBps: z.number().int().min(1).max(10_000).optional(),
-  currency: z.string().length(3).default('EUR'),
+  currency: CURRENCY_ENUM.default('EUR'),
   attributionWindowDays: z.number().int().min(1).max(365).default(30),
 }).superRefine((data, ctx) => {
   if (data.commissionType === 'fixed' && (data.commissionFixedCents === undefined || data.commissionPercentageBps !== undefined)) {
@@ -71,7 +75,7 @@ const partnerUpdateSchema = z.object({
   commissionType: z.enum(['fixed', 'percentage']).optional(),
   commissionFixedCents: z.number().int().min(0).max(100_000_00).optional(),
   commissionPercentageBps: z.number().int().min(1).max(10_000).optional(),
-  currency: z.string().length(3).optional(),
+  currency: CURRENCY_ENUM.optional(),
   attributionWindowDays: z.number().int().min(1).max(365).optional(),
   active: z.boolean().optional(),
 }).superRefine((data, ctx) => {
@@ -102,21 +106,33 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     const row = partner.rows[0];
     if (!row) return fallback();
 
-    // Telemetry is best-effort: a failure here must never block the redirect the partner relies on.
-    try {
-      await db.query(
-        `INSERT INTO referral_clicks (id,partner_id,landing_path,visitor_hash,ip_hash,user_agent)
-         VALUES ($1,$2,'/proposta-voo.html',$3,$4,$5)`,
-        [
-          randomUUID(),
-          row.id,
-          tokenDigest(`${request.ip}|${request.headers['user-agent'] ?? ''}`, config.RATE_LIMIT_SECRET),
-          tokenDigest(request.ip, config.RATE_LIMIT_SECRET),
-          (request.headers['user-agent'] ?? '').toString().slice(0, 300),
-        ],
-      );
-    } catch (error) {
-      request.log.warn({ err: error }, 'referral_click_capture_failed');
+    // Anonymous burst-click protection: a repeated click from the same (IP, user-agent) pair for
+    // the same partner code within a short window is deduplicated so it cannot inflate click
+    // metrics — this reuses the same generic rate_limit_buckets table/helper as every other
+    // rate-limited endpoint (window: 60s, one counted click per window; retention follows that
+    // table's normal lifecycle, there is no separate long-term store). Only a raw client IP is
+    // never stored: `tokenDigest` (HMAC-SHA256) is applied before anything touches the database,
+    // same as the existing ip_hash/visitor_hash columns already did. The visitor still always
+    // gets their cookie and redirect regardless of whether this click was counted.
+    const visitorKey = tokenDigest(`${request.ip}|${request.headers['user-agent'] ?? ''}`, config.RATE_LIMIT_SECRET);
+    const firstClickInWindow = await enforceRateLimit(db, config, request, 'referral_click', `${code}:${visitorKey}`, 1, 60);
+    if (firstClickInWindow) {
+      // Telemetry is best-effort: a failure here must never block the redirect the partner relies on.
+      try {
+        await db.query(
+          `INSERT INTO referral_clicks (id,partner_id,landing_path,visitor_hash,ip_hash,user_agent)
+           VALUES ($1,$2,'/proposta-voo.html',$3,$4,$5)`,
+          [
+            randomUUID(),
+            row.id,
+            visitorKey,
+            tokenDigest(request.ip, config.RATE_LIMIT_SECRET),
+            (request.headers['user-agent'] ?? '').toString().slice(0, 300),
+          ],
+        );
+      } catch (error) {
+        request.log.warn({ err: error }, 'referral_click_capture_failed');
+      }
     }
 
     const capturedAtMs = Date.now();
@@ -152,14 +168,35 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     const query = z.object({ active: z.enum(['true', 'false']).optional() }).safeParse(request.query);
     if (!query.success) return reply.code(400).send({ error: 'invalid_filter' });
     const rows = await db.query<PartnerRow & Record<string, unknown>>(
-      `SELECT p.*,
-        (SELECT count(*)::int FROM referral_clicks c WHERE c.partner_id=p.id) AS clicks,
-        (SELECT count(*)::int FROM lead_requests l WHERE l.partner_id=p.id) AS proposals,
-        (SELECT count(*)::int FROM lead_requests l WHERE l.partner_id=p.id AND l.status='converted') AS conversions,
-        (SELECT COALESCE(sum(amount_cents),0)::int FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='pending') AS commission_pending_cents,
-        (SELECT COALESCE(sum(amount_cents),0)::int FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='approved') AS commission_approved_cents,
-        (SELECT COALESCE(sum(amount_cents),0)::int FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='paid') AS commission_paid_cents
+      // Pre-aggregated derived tables (one row per partner_id) joined 1:1, rather than either
+      // "p.*, (correlated subquery on p) ..." or a single multi-table LEFT JOIN with SUM/COUNT —
+      // the former errors on pg-mem (used only by this repo's Node test/E2E harness: it cannot
+      // resolve an outer FROM-alias referenced from inside a SELECT-list subquery at all, a
+      // genuine engine limitation, not a bug in the SQL itself) and the latter would silently
+      // inflate every aggregate via a fan-out cartesian product across the three joined 1-to-many
+      // relations (clicks × leads × commissions). This form is correct and portable on both.
+      `SELECT p.id,p.code,p.display_name,p.instagram,p.whatsapp,p.email,p.commission_type,
+        p.commission_fixed_cents,p.commission_percentage_bps,p.currency,p.attribution_window_days,
+        p.active,p.user_id,p.created_at,p.updated_at,
+        COALESCE(clicks.n,0)::int AS clicks,
+        COALESCE(leads.proposals,0)::int AS proposals,
+        COALESCE(leads.conversions,0)::int AS conversions,
+        COALESCE(commissions.pending,0)::int AS commission_pending_cents,
+        COALESCE(commissions.approved,0)::int AS commission_approved_cents,
+        COALESCE(commissions.paid,0)::int AS commission_paid_cents
        FROM partners p
+       LEFT JOIN (SELECT partner_id, count(*) AS n FROM referral_clicks GROUP BY partner_id) clicks ON clicks.partner_id=p.id
+       LEFT JOIN (
+         SELECT partner_id, count(*) AS proposals, SUM(CASE WHEN status='converted' THEN 1 ELSE 0 END) AS conversions
+           FROM lead_requests GROUP BY partner_id
+       ) leads ON leads.partner_id=p.id
+       LEFT JOIN (
+         SELECT partner_id,
+           SUM(CASE WHEN status='pending' THEN amount_cents ELSE 0 END) AS pending,
+           SUM(CASE WHEN status='approved' THEN amount_cents ELSE 0 END) AS approved,
+           SUM(CASE WHEN status='paid' THEN amount_cents ELSE 0 END) AS paid
+           FROM partner_commissions GROUP BY partner_id
+       ) commissions ON commissions.partner_id=p.id
        WHERE ($1::boolean IS NULL OR p.active=$1)
        ORDER BY p.created_at DESC LIMIT 200`,
       [query.data.active === undefined ? null : query.data.active === 'true'],
@@ -176,17 +213,28 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     if (!isValidPartnerCode(code)) return reply.code(400).send({ error: 'invalid_code' });
     const existing = await db.query('SELECT 1 FROM partners WHERE code=$1', [code]);
     if (existing.rowCount) return reply.code(409).send({ error: 'code_already_used' });
+    const email = normalizeEmail(parsed.data.email);
+    const existingEmail = await db.query('SELECT 1 FROM partners WHERE lower(email)=lower($1)', [email]);
+    if (existingEmail.rowCount) return reply.code(409).send({ error: 'email_already_used_by_partner' });
     const id = randomUUID();
-    await db.query(
-      `INSERT INTO partners
-        (id,code,display_name,instagram,whatsapp,email,commission_type,commission_fixed_cents,commission_percentage_bps,currency,attribution_window_days,active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)`,
-      [
-        id, code, parsed.data.displayName, parsed.data.instagram || null, parsed.data.whatsapp || null,
-        normalizeEmail(parsed.data.email), parsed.data.commissionType, parsed.data.commissionFixedCents ?? null,
-        parsed.data.commissionPercentageBps ?? null, parsed.data.currency.toUpperCase(), parsed.data.attributionWindowDays,
-      ],
-    );
+    try {
+      await db.query(
+        `INSERT INTO partners
+          (id,code,display_name,instagram,whatsapp,email,commission_type,commission_fixed_cents,commission_percentage_bps,currency,attribution_window_days,active)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)`,
+        [
+          id, code, parsed.data.displayName, parsed.data.instagram || null, parsed.data.whatsapp || null,
+          email, parsed.data.commissionType, parsed.data.commissionFixedCents ?? null,
+          parsed.data.commissionPercentageBps ?? null, parsed.data.currency.toUpperCase(), parsed.data.attributionWindowDays,
+        ],
+      );
+    } catch (error) {
+      // Defense in depth beneath the pre-check above (a concurrent request could race it): the
+      // unique index on code and on lower(email) (migration 0006) never surfaces as a raw SQL
+      // error to the client.
+      if (isUniqueViolation(error)) return reply.code(409).send({ error: 'code_or_email_already_used' });
+      throw error;
+    }
     await audit(db, config, request, 'admin.partner_created', auth.userId, 'partner', id);
     return reply.code(201).send({ id, code });
   });
@@ -215,6 +263,15 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
       attributionWindowDays: parsed.data.attributionWindowDays ?? partner.attribution_window_days,
       active: parsed.data.active ?? partner.active,
     };
+    if (next.currency !== partner.currency) {
+      // Changing a partner's operating currency after they already have non-voided commissions
+      // would make aggregate totals mix currencies (or silently reinterpret historical amounts
+      // as if they had always been in the new currency). Each commission row keeps its own
+      // currency snapshot regardless, but new totals must never be built by just relabeling old
+      // ones, so the currency itself is locked once real commission history exists.
+      const hasCommissions = await db.query('SELECT 1 FROM partner_commissions WHERE partner_id=$1 AND status<>\'void\' LIMIT 1', [params.data.id]);
+      if (hasCommissions.rowCount) return reply.code(409).send({ error: 'currency_locked_existing_commissions' });
+    }
     await db.query(
       `UPDATE partners SET display_name=$1,instagram=$2,whatsapp=$3,commission_type=$4,commission_fixed_cents=$5,
               commission_percentage_bps=$6,currency=$7,attribution_window_days=$8,active=$9,updated_at=now()
@@ -253,6 +310,15 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     if (!row) return reply.code(404).send({ error: 'not_found' });
     if (!row.active) return reply.code(409).send({ error: 'partner_inactive' });
 
+    // Another partner already owns this email/account: `partners.user_id` is unique, and (since
+    // migration 0006) so is lower(partners.email). Detected up front with a clear, safe error
+    // instead of letting a raw unique-violation surface from the transaction below.
+    const conflictingLink = await db.query<{ id: string }>(
+      `SELECT p.id FROM partners p JOIN users u ON u.id=p.user_id WHERE u.email=$1 AND p.id<>$2`,
+      [row.email, row.id],
+    );
+    if (conflictingLink.rowCount) return reply.code(409).send({ error: 'email_linked_to_other_partner' });
+
     const code = randomEmailCode();
     let userId: string;
     await db.transaction(async (tx) => {
@@ -262,8 +328,14 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
         await tx.query("INSERT INTO users (id,email,status) VALUES ($1,$2,'pending')", [userId, row.email]);
         await tx.query('INSERT INTO profiles (user_id,display_name) VALUES ($1,$2)', [userId, row.display_name]);
       }
-      await tx.query("INSERT INTO user_roles (user_id,role) VALUES ($1,'partner') ON CONFLICT DO NOTHING", [userId]);
+      // Linking the account and preparing the invite token happens here, but the 'partner' role
+      // itself is granted only after the invite code is actually accepted (see
+      // /api/partner-invites/accept below) — never at invite-creation time. Otherwise an account
+      // that already exists and is already active (e.g. an existing customer with this email)
+      // would gain partner-panel access immediately, before completing any activation step.
       await tx.query('UPDATE partners SET user_id=$1,updated_at=now() WHERE id=$2', [userId, row.id]);
+      // Resending an invite invalidates every previous unused token for this purpose, so an
+      // older code from a prior invite email can never be redeemed after a newer one is sent.
       await tx.query("UPDATE account_tokens SET used_at=now() WHERE user_id=$1 AND purpose='partner_invite' AND used_at IS NULL", [userId]);
       await tx.query(
         `INSERT INTO account_tokens (id,user_id,purpose,token_hash,expires_at)
@@ -303,10 +375,22 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
       return reply.code(400).send({ error: 'invalid_or_expired_invite' });
     }
     const passwordHash = await hashPassword(parsed.data.password);
-    await db.transaction(async (tx) => {
-      await tx.query("UPDATE users SET password_hash=$1,status='active',email_verified_at=now(),updated_at=now() WHERE id=$2", [passwordHash, token.user_id]);
-      await tx.query('UPDATE account_tokens SET used_at=now() WHERE id=$1', [token.id]);
-    });
+    try {
+      await db.transaction(async (tx) => {
+        await tx.query("UPDATE users SET password_hash=$1,status='active',email_verified_at=now(),updated_at=now() WHERE id=$2", [passwordHash, token.user_id]);
+        // The 'partner' role — and therefore all partner-panel access — is granted only here,
+        // transactionally, after the single-use code has just been validated above. An invite
+        // that is expired, wrong, or never accepted never reaches this line, so it never grants
+        // access. This also covers an already-active customer account with the same email: they
+        // only gain partner access once they actually complete this acceptance step, not the
+        // moment a master sends the invite.
+        await tx.query("INSERT INTO user_roles (user_id,role) VALUES ($1,'partner') ON CONFLICT DO NOTHING", [token.user_id]);
+        await tx.query('UPDATE account_tokens SET used_at=now() WHERE id=$1', [token.id]);
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) return reply.code(409).send({ error: 'email_linked_to_other_partner' });
+      throw error;
+    }
     await audit(db, config, request, 'partner.invite_accepted', token.user_id, 'user', token.user_id);
     return reply.send({ ok: true });
   });
@@ -344,11 +428,27 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
          FROM lead_requests WHERE partner_id=$1 ORDER BY created_at DESC LIMIT 200`,
       [partner.id],
     );
-    const commissionRows = await db.query<{ lead_request_id: string; amount_cents: number; currency: string; status: string; created_at: Date; approved_at: Date | null; paid_at: Date | null }>(
-      'SELECT lead_request_id,amount_cents,currency,status,created_at,approved_at,paid_at FROM partner_commissions WHERE partner_id=$1',
-      [partner.id],
-    );
-    const commissionByLead = new Map(commissionRows.rows.map((row) => [row.lead_request_id, row]));
+    // Documented, deterministic "current commission per lead" rule: a lead can have more than
+    // one historical commission row (converted -> voided -> reconverted). The SQL ORDER BY
+    // guarantees the first row seen per lead_request_id is the active (non-void) commission if
+    // one exists, otherwise the most recently voided one — so the Map built from it below is
+    // safe, unlike the previous version which depended on the database's unspecified row order.
+    const leadIds = leads.rows.map((row) => row.id);
+    const commissionByLead = new Map<string, { amount_cents: number; currency: string; status: string }>();
+    if (leadIds.length) {
+      // Filtered by partner_id alone (every commission row for this partner is, by definition,
+      // for one of this partner's own leads) rather than `lead_request_id = ANY($n)` — kept
+      // simple and portable, since not every SQL engine this repo tests against infers a text[]
+      // bind parameter's element type the same way real Postgres does.
+      const commissionRows = await db.query<{ lead_request_id: string; amount_cents: number; currency: string; status: string }>(
+        `SELECT lead_request_id,amount_cents,currency,status FROM partner_commissions
+          WHERE partner_id=$1 ORDER BY (status='void') ASC, created_at DESC`,
+        [partner.id],
+      );
+      for (const row of commissionRows.rows) {
+        if (!commissionByLead.has(row.lead_request_id)) commissionByLead.set(row.lead_request_id, row);
+      }
+    }
     return reply.send({
       entries: leads.rows.map((lead) => ({
         protocolMasked: maskProtocol(lead.protocol),
@@ -376,12 +476,22 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     const params = z.object({ id: z.string().uuid() }).safeParse(request.params);
     const body = z.object({ reason: z.string().trim().min(3).max(500) }).safeParse(request.body);
     if (!params.success || !body.success) return reply.code(400).send({ error: 'invalid_request' });
+    const current = await db.query<{ id: string; status: string }>('SELECT id,status FROM partner_commissions WHERE id=$1', [params.data.id]);
+    const commission = current.rows[0];
+    if (!commission) return reply.code(404).send({ error: 'not_found' });
+    if (commission.status === 'paid') {
+      // A paid commission is a settled financial fact and can never be voided directly — that
+      // would destroy the record of money that already went out. A dedicated adjustment/refund
+      // flow (not built in this pass) is required first.
+      return reply.code(409).send({ error: 'commission_paid_requires_adjustment' });
+    }
+    if (commission.status === 'void') return reply.code(409).send({ error: 'already_void' });
     const updated = await db.query(
       `UPDATE partner_commissions SET status='void',voided_at=now(),voided_by=$1,void_reason=$2,updated_at=now()
-        WHERE id=$3 AND status<>'void' RETURNING id,partner_id`,
+        WHERE id=$3 AND status IN ('pending','approved') RETURNING id,partner_id`,
       [auth.userId, body.data.reason, params.data.id],
     );
-    if (!updated.rowCount) return reply.code(404).send({ error: 'not_found_or_already_void' });
+    if (!updated.rowCount) return reply.code(409).send({ error: 'invalid_transition' });
     await audit(db, config, request, 'admin.commission_voided', auth.userId, 'partner_commission', params.data.id, { reason: body.data.reason });
     return reply.send({ ok: true });
   });
@@ -396,17 +506,17 @@ async function commissionTransition(app: FastifyInstance, db: Database, config: 
   const columns = target === 'approved' ? "approved_at=now(),approved_by=$1" : "paid_at=now(),paid_by=$1";
   const updated = await db.query(
     `UPDATE partner_commissions SET status=$2,${columns},updated_at=now()
-      WHERE id=$3 AND status = ANY($4) RETURNING id,partner_id`,
+      WHERE id=$3 AND status = ANY($4) RETURNING id,partner_id,amount_cents,currency`,
     [auth.userId, target, params.data.id, allowedFrom],
   );
   if (!updated.rowCount) return reply.code(409).send({ error: 'invalid_transition' });
   await audit(db, config, request, `admin.commission_${target}`, auth.userId, 'partner_commission', params.data.id);
   if (target === 'paid') {
-    const commission = updated.rows[0] as { id: string; partner_id: string };
+    const commission = updated.rows[0] as { id: string; partner_id: string; amount_cents: number; currency: string };
     await db.query(
       `INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload)
        VALUES ($1,$2,'commission_paid',$3,$4::jsonb) ON CONFLICT (idempotency_key) DO NOTHING`,
-      [randomUUID(), `commission_paid:${commission.id}`, commission.partner_id, JSON.stringify({ commissionId: commission.id })],
+      [randomUUID(), `commission_paid:${commission.id}`, commission.partner_id, JSON.stringify({ commissionId: commission.id, amountCents: commission.amount_cents, currency: commission.currency })],
     );
   }
   return reply.send({ ok: true });
@@ -519,7 +629,12 @@ async function requirePartnerSelf(db: Database, config: AppConfig, request: Fast
     await reply.code(403).send({ error: 'forbidden' });
     return null;
   }
-  const partner = await db.query<PartnerRow>('SELECT * FROM partners WHERE user_id=$1', [auth.userId]);
+  // A deactivated partner keeps whatever other roles their account has (e.g. they can still be
+  // a 'customer'), but partner-scoped access is revoked immediately: the query only ever
+  // returns an active row, so a deactivated partner gets the same 403 as someone with no
+  // partner record at all, with no separate "reactivate to restore access" step needed beyond
+  // flipping `active` back to true.
+  const partner = await db.query<PartnerRow>('SELECT * FROM partners WHERE user_id=$1 AND active=true', [auth.userId]);
   const row = partner.rows[0];
   if (!row) {
     await reply.code(403).send({ error: 'forbidden' });

@@ -162,6 +162,14 @@ paths:
     get:
       tags: [Partners]
       summary: Link rastreável do parceiro; registra clique e redireciona ao formulário
+      description: >
+        Proteção anti-rajada: um clique repetido do mesmo par (IP, user-agent) anônimo para o
+        mesmo código dentro de 60s não é contado de novo em referral_clicks (deduplicação via a
+        mesma tabela rate_limit_buckets usada por todo o resto do app) — mas o cookie e o
+        redirecionamento sempre acontecem, mesmo quando o clique não é contado. Nenhum IP puro é
+        armazenado, apenas HMAC-SHA256 do IP/IP+user-agent. Retenção segue o ciclo de vida normal
+        de referral_clicks/rate_limit_buckets (sem tabela de retenção longa dedicada nesta
+        versão).
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -346,9 +354,17 @@ paths:
       description: >
         Ao mudar status para "converted" com proposta atribuída a um parceiro percentual, exige
         saleAmountCents e saleCurrency (senão 422 sale_amount_required) e cria a comissão de forma
-        transacional e idempotente (uma única comissão por proposta). Repetir a chamada não duplica
-        a comissão. Mover uma proposta convertida para outro status enquanto existir comissão
-        pending/approved exige voidCommissionReason (senão 409 commission_void_reason_required).
+        transacional e idempotente: no máximo uma comissão *ativa* (não anulada) por proposta a
+        qualquer momento, mas convert → void → reconvert cria uma nova comissão com novo snapshot,
+        preservando o histórico das anteriores (nunca duplica linhas nas listagens). Repetir a
+        chamada de conversão sem saleAmountCents/saleCurrency preserva o valor já gravado; tentar
+        alterá-lo depois que a comissão já existe devolve 409 sale_amount_locked. saleCurrency deve
+        ser igual à moeda configurada do parceiro (senão 409
+        sale_currency_must_match_partner_currency) e um código ISO suportado pelo produto (senão
+        422 invalid_currency). Mover uma proposta convertida para outro status enquanto existir
+        comissão pending/approved exige voidCommissionReason (senão 409
+        commission_void_reason_required); se a comissão já estiver paid, a transição é sempre
+        bloqueada com 409 commission_paid_immutable, mesmo com motivo informado.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -368,8 +384,11 @@ paths:
         "200": { description: "Proposta atualizada; commissionPreview presente quando uma comissão foi criada/já existia" }
         "403": { description: Papel master necessário }
         "404": { description: Proposta não encontrada }
-        "409": { description: commission_void_reason_required — comissão ativa exige motivo explícito para sair de "converted" }
-        "422": { description: sale_amount_required — regra percentual sem valor de venda informado }
+        "409": >
+          description: commission_void_reason_required (comissão pending/approved exige motivo explícito para sair de "converted"),
+          commission_paid_immutable (comissão já paga nunca pode sair de "converted"), sale_amount_locked
+          (repetição tentando alterar valor/moeda já usados) ou sale_currency_must_match_partner_currency
+        "422": { description: sale_amount_required (regra percentual sem valor de venda) ou invalid_currency (moeda fora do allowlist do produto) }
   /api/admin/partners:
     get:
       tags: [Partners]
@@ -392,7 +411,8 @@ paths:
       responses:
         "201": { description: Parceiro criado }
         "400": { description: Dados inválidos (código malformado ou tipo/valor de comissão inconsistente) }
-        "409": { description: code_already_used }
+        "409": { description: code_already_used ou email_already_used_by_partner (e-mail já vinculado a outro parceiro; normalizado e único) }
+        "422": { description: invalid_currency — código de moeda fora do allowlist do produto (EUR, USD, BRL, GBP) }
   /api/admin/partners/{id}:
     get:
       tags: [Partners]
@@ -406,37 +426,58 @@ paths:
       tags: [Partners]
       security: [{ sessionCookie: [], csrfToken: [] }]
       summary: Edita dados do parceiro, regra de comissão ou ativa/desativa (sem apagar histórico)
+      description: >
+        Desativar o parceiro (active=false) bloqueia o acesso ao próprio painel
+        (/api/partner/summary, /api/partner/ledger) imediatamente, mesmo com a sessão ainda
+        tecnicamente válida; reativar restaura o acesso. Alterar a moeda (currency) é bloqueado
+        com 409 currency_locked_existing_commissions quando já existe qualquer comissão não
+        anulada para o parceiro, para nunca reinterpretar valores históricos.
       parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
         "200": { description: Parceiro atualizado }
         "404": { description: Parceiro não encontrado }
+        "409": { description: currency_locked_existing_commissions }
+        "422": { description: invalid_currency }
   /api/admin/partners/{id}/invite:
     post:
       tags: [Partners]
       security: [{ sessionCookie: [], csrfToken: [] }]
-      summary: Cria/atualiza a conta de acesso do parceiro e envia código de ativação de uso único
+      summary: Prepara/vincula a conta de acesso do parceiro e envia código de ativação de uso único
+      description: >
+        Vincula partners.user_id e prepara o token de convite, mas NUNCA concede o papel
+        "partner" nesta chamada — isso só acontece em /api/partner-invites/accept, depois do
+        código de uso único ser validado. Reenviar o convite invalida qualquer token anterior
+        ainda não usado.
       parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
-        "201": { description: Convite criado }
+        "201": { description: Convite criado (ainda sem acesso concedido) }
         "404": { description: Parceiro não encontrado }
-        "409": { description: partner_inactive }
+        "409": { description: partner_inactive ou email_linked_to_other_partner }
   /api/partner-invites/accept:
     post:
       tags: [Partners]
       summary: Ativa a conta do parceiro com e-mail + código de 6 dígitos + nova senha
+      description: >
+        Só aqui, transacionalmente e depois de validar o código de uso único, o papel "partner"
+        é concedido. Um convite expirado, com código errado, ou nunca aceito nunca concede
+        acesso — inclusive quando o e-mail já pertence a uma conta de cliente ativa.
       responses:
-        "200": { description: Conta ativada; papel "partner" vinculado ao parceiro }
+        "200": { description: Conta ativada; papel "partner" concedido nesta chamada }
         "400": { description: invalid_or_expired_invite }
+        "409": { description: email_linked_to_other_partner }
         "429": { description: too_many_attempts }
   /api/partner/summary:
     get:
       tags: [Partners]
       security: [{ sessionCookie: [] }]
       summary: Painel do próprio parceiro autenticado — link, estatísticas e totais de comissão
-      description: Sempre filtrado pelo partners.user_id da sessão autenticada; nunca aceita um id de outro parceiro.
+      description: >
+        Sempre filtrado pelo partners.user_id da sessão autenticada; nunca aceita um id de outro
+        parceiro. Um parceiro desativado (active=false) recebe 403 imediatamente, mesmo com a
+        sessão ainda válida para outros papéis da mesma conta.
       responses:
         "200": { description: Resumo do próprio parceiro }
-        "403": { description: Conta sem papel partner vinculado }
+        "403": { description: Conta sem papel partner vinculado, ou parceiro desativado }
   /api/partner/ledger:
     get:
       tags: [Partners]
@@ -467,7 +508,11 @@ paths:
     post:
       tags: [Partners]
       security: [{ sessionCookie: [], csrfToken: [] }]
-      summary: Anula uma comissão com motivo obrigatório (auditado; preserva histórico)
+      summary: Anula uma comissão pending/approved com motivo obrigatório (auditado; preserva histórico)
+      description: >
+        Só pending/approved podem ser anuladas. Uma comissão paid nunca pode ser voidada por
+        aqui — devolve 409 commission_paid_requires_adjustment; um fluxo de ajuste/estorno
+        financeiro dedicado não faz parte desta versão.
       parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody:
         required: true
@@ -476,7 +521,8 @@ paths:
             schema: { type: object, required: [reason], properties: { reason: { type: string, minLength: 3, maxLength: 500 } } }
       responses:
         "200": { description: Comissão anulada }
-        "404": { description: not_found_or_already_void }
+        "404": { description: not_found }
+        "409": { description: commission_paid_requires_adjustment ou already_void }
   /api/admin/notifications/process:
     post:
       tags: [Partners]
