@@ -644,7 +644,7 @@ async function partnerAttribution(req:Request,env:Env,url:URL){
 function serializePartnerRow(row:Row){
   return {id:row.id,code:row.code,displayName:row.display_name,instagram:row.instagram,whatsapp:row.whatsapp,email:row.email,
     commissionType:row.commission_type,commissionFixedCents:row.commission_fixed_cents,commissionPercentageBps:row.commission_percentage_bps,
-    currency:row.currency,attributionWindowDays:row.attribution_window_days,active:Boolean(row.active),hasAccount:Boolean(row.user_id),createdAt:row.created_at,
+    currency:row.currency,attributionWindowDays:row.attribution_window_days,active:Boolean(row.active),hasAccount:Boolean(row.user_id),accountActivated:Boolean(row.account_activated),createdAt:row.created_at,
     clicks:row.clicks,proposals:row.proposals,conversions:row.conversions,commissionPendingCents:row.commission_pending_cents,commissionApprovedCents:row.commission_approved_cents,commissionPaidCents:row.commission_paid_cents};
 }
 
@@ -657,8 +657,10 @@ async function adminPartners(req:Request,env:Env,url:URL){
     (SELECT count(*) FROM lead_requests l WHERE l.partner_id=p.id AND l.status='converted') conversions,
     (SELECT COALESCE(sum(amount_cents),0) FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='pending') commission_pending_cents,
     (SELECT COALESCE(sum(amount_cents),0) FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='approved') commission_approved_cents,
-    (SELECT COALESCE(sum(amount_cents),0) FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='paid') commission_paid_cents
-    FROM partners p ${activeParam!==null?'WHERE p.active=?':''} ORDER BY p.created_at DESC LIMIT 200`)
+    (SELECT COALESCE(sum(amount_cents),0) FROM partner_commissions pc WHERE pc.partner_id=p.id AND pc.status='paid') commission_paid_cents,
+    (activated.user_id IS NOT NULL) account_activated
+    FROM partners p LEFT JOIN (SELECT DISTINCT user_id FROM user_roles WHERE role='partner') activated ON activated.user_id=p.user_id
+    ${activeParam!==null?'WHERE p.active=?':''} ORDER BY p.created_at DESC LIMIT 200`)
     .bind(...(activeParam!==null?[activeParam==='true'?1:0]:[])).all<Row>();
   return reply({partners:rows.results.map(serializePartnerRow)});
 }
@@ -695,7 +697,7 @@ async function adminPartnerCreate(req:Request,env:Env){
 
 async function adminPartnerDetail(req:Request,env:Env,id:string){
   if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);
-  const partner=await env.DB.prepare('SELECT * FROM partners WHERE id=?').bind(id).first<Row>();
+  const partner=await env.DB.prepare("SELECT p.*,(activated.user_id IS NOT NULL) account_activated FROM partners p LEFT JOIN (SELECT DISTINCT user_id FROM user_roles WHERE role='partner') activated ON activated.user_id=p.user_id WHERE p.id=?").bind(id).first<Row>();
   if(!partner)return reply({error:'not_found'},404);
   const commissions=await env.DB.prepare(`SELECT pc.id,pc.amount_cents,pc.currency,pc.status,pc.created_at,pc.approved_at,pc.paid_at,pc.voided_at,pc.void_reason,l.protocol,l.status lead_status,l.origin,l.destination FROM partner_commissions pc JOIN lead_requests l ON l.id=pc.lead_request_id WHERE pc.partner_id=? ORDER BY pc.created_at DESC LIMIT 200`).bind(id).all<Row>();
   return reply({partner:serializePartnerRow(partner),commissions:commissions.results});
@@ -759,7 +761,7 @@ async function adminPartnerInvite(req:Request,env:Env,id:string){
     env.DB.prepare("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND purpose='partner_invite' AND used_at IS NULL").bind(userId),
     env.DB.prepare("INSERT INTO account_tokens(id,user_id,purpose,token_hash,expires_at) VALUES(?,?,'partner_invite',?,?)").bind(crypto.randomUUID(),userId,await digest(code,env),isoAfter(900)),
   ]);
-  await sendEmail(env,userId,String(partner.email),'partner_invite','Convite para o painel de parceiros - Rota Certa Passagens',`<p>Seu código de ativação é: <strong>${code}</strong></p><p>Digite-o em ${env.APP_ORIGIN}/parceiro-convite.html junto com o e-mail ${html(String(partner.email))}. Expira em 15 minutos.</p>`);
+  await sendEmail(env,userId,String(partner.email),'partner_invite','Convite para o painel de parceiros - Rota Certa Passagens',`<p>Você foi convidado(a) para acompanhar suas indicações no painel de parceiros da Rota Certa Passagens.</p><p>Seu código de ativação é: <strong>${code}</strong></p><p><a href="${env.APP_ORIGIN}/parceiro-convite.html">Finalizar cadastro do parceiro</a></p><p>Use o mesmo e-mail que recebeu este convite. O código expira em 15 minutos e só pode ser usado uma vez.</p>`,`Você foi convidado(a) para o painel de parceiros da Rota Certa Passagens. Código de ativação: ${code}. Finalize em ${env.APP_ORIGIN}/parceiro-convite.html. O código expira em 15 minutos e só pode ser usado uma vez.`);
   await audit(env,auth.userId,'admin.partner_invite_created','partner',id);
   return reply({ok:true},201);
 }

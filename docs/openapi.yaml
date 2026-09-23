@@ -87,7 +87,8 @@ components:
         currency: { type: string, minLength: 3, maxLength: 3 }
         attributionWindowDays: { type: integer, minimum: 1, maximum: 365, default: 30 }
         active: { type: boolean }
-        hasAccount: { type: boolean, description: "Se já existe um usuário com papel partner vinculado." }
+        hasAccount: { type: boolean, description: "Se o convite já criou ou vinculou uma conta de usuário." }
+        accountActivated: { type: boolean, description: "Se o parceiro já aceitou o convite e ativou o acesso ao painel." }
     PartnerCreate:
       type: object
       required: [code, displayName, email, commissionType, currency]
