@@ -260,6 +260,53 @@ describe('Partner referral program', () => {
     expect(weeklySecond.json().summariesCreated).toBe(0);
   });
 
+  it('runs the full smoke chain: master creates partner, partner activates, click, attributed proposal, conversion with value, commission appears, partner sees only its own totals', async () => {
+    const master = await createMaster(app, email, 'master-smoke@example.com');
+
+    // 1. master cria parceiro
+    const partnerId = await createPartner(app, master, { code: 'smoke-flow', commissionType: 'percentage', commissionPercentageBps: 1000, email: 'smoke-partner@example.com' });
+
+    // 2. parceiro ativa conta
+    const partnerAuth = await activatePartner(app, email, master, partnerId, 'smoke-partner@example.com');
+
+    // 3. clique em link
+    const click = await app.inject({ method: 'GET', url: '/i/smoke-flow' });
+    expect(click.statusCode).toBe(302);
+    const refCookie = click.cookies.find((c) => c.name === 'rc_ref')!;
+
+    // 4. proposta atribuída
+    const proposal = await app.inject({ method: 'POST', url: '/api/lead', headers: { cookie: `${refCookie.name}=${refCookie.value}` }, payload: validLeadPayload({ email: 'smoke-buyer@example.com' }) });
+    expect(proposal.statusCode, proposal.body).toBe(201);
+    const leadRow = await db.query<{ id: string; partner_id: string }>('SELECT id,partner_id FROM lead_requests WHERE protocol=$1', [proposal.json().protocol]);
+    expect(leadRow.rows[0]?.partner_id).toBe(partnerId);
+
+    // 5. master converte com valor
+    const convert = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadRow.rows[0]!.id}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 200000, saleCurrency: 'EUR' } });
+    expect(convert.statusCode, convert.body).toBe(200);
+    expect(convert.json().commissionPreview).toEqual({ amountCents: 20000, currency: 'EUR' });
+
+    // 6. comissão aparece (para o master, no extrato do parceiro)
+    const partnerDetail = await app.inject({ method: 'GET', url: `/api/admin/partners/${partnerId}`, headers: { cookie: master.cookie } });
+    expect(partnerDetail.json().commissions).toEqual(expect.arrayContaining([expect.objectContaining({ amount_cents: 20000, currency: 'EUR', status: 'pending' })]));
+
+    // 7. parceiro vê apenas os próprios totais (sem PII do comprador)
+    const summary = await app.inject({ method: 'GET', url: '/api/partner/summary', headers: { cookie: partnerAuth.cookie } });
+    expect(summary.json()).toEqual(expect.objectContaining({
+      stats: { clicks: 1, proposals: 1, conversions: 1 },
+      commissionTotalsCents: { pending: 20000, approved: 0, paid: 0, void: 0 },
+    }));
+    const ledger = await app.inject({ method: 'GET', url: '/api/partner/ledger', headers: { cookie: partnerAuth.cookie } });
+    expect(ledger.json().entries).toHaveLength(1);
+    expect(ledger.json().entries[0]).toEqual(expect.objectContaining({ status: 'converted', commission: { amountCents: 20000, currency: 'EUR', status: 'pending' } }));
+    expect(JSON.stringify(ledger.json())).not.toContain('smoke-buyer@example.com');
+
+    // A second, unrelated partner never sees any of this.
+    const otherPartnerId = await createPartner(app, master, { code: 'smoke-other', commissionType: 'fixed', commissionFixedCents: 1000, email: 'smoke-other@example.com' });
+    const otherAuth = await activatePartner(app, email, master, otherPartnerId, 'smoke-other@example.com');
+    const otherSummary = await app.inject({ method: 'GET', url: '/api/partner/summary', headers: { cookie: otherAuth.cookie } });
+    expect(otherSummary.json().stats).toEqual({ clicks: 0, proposals: 0, conversions: 0 });
+  });
+
   it('rejects XSS-style and malformed input on partner creation and the referral form', async () => {
     const master = await createMaster(app, email, 'master11@example.com');
     const xss = await app.inject({ method: 'POST', url: '/api/admin/partners', headers: mutationHeaders(master), payload: { code: 'xsstest', displayName: '<script>alert(1)</script>', email: 'xss@example.com', commissionType: 'fixed', commissionFixedCents: 1000 } });
