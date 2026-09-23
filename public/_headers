@@ -1,0 +1,22 @@
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; frame-src https://www.google.com; connect-src 'self'; upgrade-insecure-requests
+
+/admin*
+  X-Robots-Tag: noindex, nofollow
+
+/painel-parceiro*
+  X-Robots-Tag: noindex, nofollow
+
+/master-invite*
+  X-Robots-Tag: noindex, nofollow
+
+/parceiro-convite*
+  X-Robots-Tag: noindex, nofollow
+
+/reset-password*
+  X-Robots-Tag: noindex, nofollow

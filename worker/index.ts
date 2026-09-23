@@ -24,14 +24,23 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/i/')) return env.ASSETS.fetch(request);
     try {
-      if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
-      return await route(request, env, url);
+      if (request.method === 'OPTIONS') return secureResponse(new Response(null, { status: 204 }));
+      return secureResponse(await route(request, env, url));
     } catch (error) {
       console.error(JSON.stringify({ message: 'request_failed', error: error instanceof Error ? error.message : 'unknown', path: url.pathname }));
-      return reply({ error: 'internal_error' }, 500);
+      return secureResponse(reply({ error: 'internal_error' }, 500));
     }
   },
 } satisfies ExportedHandler<Env>;
+
+function secureResponse(response: Response) {
+  response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
+  response.headers.set('x-content-type-options', 'nosniff');
+  response.headers.set('x-frame-options', 'DENY');
+  response.headers.set('referrer-policy', 'strict-origin-when-cross-origin');
+  response.headers.set('permissions-policy', 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()');
+  return response;
+}
 
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;

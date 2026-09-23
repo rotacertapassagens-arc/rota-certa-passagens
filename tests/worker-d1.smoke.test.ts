@@ -107,6 +107,15 @@ describe('Worker + D1 (local, isolated): full smoke chain', () => {
   });
 
   it('runs the full checklist: master/partner setup, invite, click, proposal, conversion, outbox, weekly BRL summary, deactivation, concurrent claim', async () => {
+    const health = await worker.fetch('/api/health');
+    expect(health.headers.get('strict-transport-security')).toContain('max-age=31536000');
+    expect(health.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(health.headers.get('x-frame-options')).toBe('DENY');
+    const publicPage = await worker.fetch('/parceiros');
+    expect(publicPage.status).toBe(200);
+    expect(publicPage.headers.get('content-security-policy')).toContain("default-src 'self'");
+    expect(publicPage.headers.get('strict-transport-security')).toContain('max-age=31536000');
+
     // --- 2. create master/partner ---------------------------------------------------------
     const masterEmail = 'smoke-master@example.com';
     const bootstrap = await worker.fetch('/api/admin/bootstrap/master-invites', {
