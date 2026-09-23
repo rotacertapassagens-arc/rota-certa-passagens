@@ -365,6 +365,16 @@ async function acceptMaster(req: Request, env: Env) {
   ]);await audit(env,String(row.user_id),'admin.master_invite_accepted','user',String(row.user_id));return reply({ok:true});
 }
 async function requireMaster(req:Request,env:Env){const a=await getAuth(req,env);return a?.roles.includes('master')?a:null;}
+// Mirrors src/routes/notifications.ts requireMasterOrCron: an unattended Cloudflare Scheduled
+// Event has no session cookie, so it authenticates with the NOTIFICATIONS_CRON_TOKEN bearer
+// secret instead, following the same bootstrap-token pattern already used for master.
+async function requireMasterOrCronUserId(req:Request,env:Env):Promise<string|null|undefined>{
+  const provided=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
+  if(env.NOTIFICATIONS_CRON_TOKEN&&provided&&(await safeEqual(provided,env.NOTIFICATIONS_CRON_TOKEN)))return null;
+  const auth=await mutationAuth(req,env);
+  if(!auth||!auth.roles.includes('master'))return undefined;
+  return auth.userId;
+}
 async function adminOverview(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);const u=await env.DB.prepare("SELECT count(*) n FROM users WHERE status<>'deleted'").first<{n:number}>();const a=await env.DB.prepare("SELECT count(*) n FROM users WHERE status='active'").first<{n:number}>();const p=await env.DB.prepare("SELECT count(*) n FROM payments WHERE status IN ('pending','processing')").first<{n:number}>();const paid=await env.DB.prepare("SELECT count(*) n FROM payments WHERE status='paid'").first<{n:number}>();const fresh=await env.DB.prepare("SELECT count(*) n FROM lead_requests WHERE kind='flight_quote' AND status='new'").first<{n:number}>();const overdue=await env.DB.prepare("SELECT count(*) n FROM lead_requests WHERE kind='flight_quote' AND deadline_at<CURRENT_TIMESTAMP AND status NOT IN ('sent','converted','lost','canceled','closed')").first<{n:number}>();return reply({users:u?.n||0,active_access:a?.n||0,pending_payments:p?.n||0,paid_payments:paid?.n||0,new_leads:fresh?.n||0,overdue_leads:overdue?.n||0});}
 async function adminUsers(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);const users=await env.DB.prepare('SELECT u.id,u.email,p.display_name,u.status,u.email_verified_at,u.created_at,u.last_login_at FROM users u JOIN profiles p ON p.user_id=u.id ORDER BY u.created_at DESC LIMIT 200').all<Row>();const roles=await env.DB.prepare('SELECT user_id,role FROM user_roles').all<Row>();return reply({users:users.results.map(u=>({...u,roles:roles.results.filter(r=>r.user_id===u.id).map(r=>r.role)}))});}
 async function adminPlans(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);return reply({plans:(await env.DB.prepare('SELECT * FROM plans ORDER BY price_cents').all()).results});}
@@ -684,7 +694,7 @@ async function commissionTransition(req:Request,env:Env,id:string,action:'approv
 // --- Notifications: in-repo outbox processor (capture mode by default) -------------------
 
 async function notificationsProcess(req:Request,env:Env){
-  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const actorUserId=await requireMasterOrCronUserId(req,env);if(actorUserId===undefined)return reply({error:'forbidden'},403);
   const b=await body(req);const limit=Number.isInteger(b?.limit)&&Number(b?.limit)>0&&Number(b?.limit)<=200?Number(b?.limit):50;
   const pending=await env.DB.prepare("SELECT id,idempotency_key,event_type,partner_id,channel,payload,attempts FROM notification_outbox WHERE status='pending' AND next_attempt_at<=CURRENT_TIMESTAMP ORDER BY next_attempt_at ASC LIMIT ?").bind(limit).all<Row>();
   let sent=0,skipped=0,failed=0;
@@ -711,7 +721,7 @@ async function notificationsProcess(req:Request,env:Env){
       failed++;
     }
   }
-  await audit(env,auth.userId,'admin.notifications_processed','notification_outbox','');
+  await audit(env,actorUserId,'admin.notifications_processed','notification_outbox','');
   return reply({processed:pending.results.length,sent,skipped,failed});
 }
 
@@ -725,7 +735,7 @@ function lisbonWeekStartIso(reference:Date){
 }
 
 async function notificationsWeeklySummary(req:Request,env:Env){
-  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const actorUserId=await requireMasterOrCronUserId(req,env);if(actorUserId===undefined)return reply({error:'forbidden'},403);
   const weekStart=lisbonWeekStartIso(new Date());const weekStartIso=weekStart.toISOString();
   const partners=await env.DB.prepare('SELECT id,code,display_name FROM partners WHERE active=1').all<Row>();
   let created=0;

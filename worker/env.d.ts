@@ -14,6 +14,7 @@ interface __BaseEnv_Env {
 	WHATSAPP_NOTIFICATIONS_ENABLED: "false" | "true";
 	WHATSAPP_WEBHOOK_URL?: string;
 	WHATSAPP_WEBHOOK_TOKEN?: string;
+	NOTIFICATIONS_CRON_TOKEN?: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {

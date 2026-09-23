@@ -23,6 +23,7 @@ const config: AppConfig = {
   STRIPE_WEBHOOK_SECRET: 'whsec_local_test_only',
   MASTER_BOOTSTRAP_TOKEN: 'bootstrap-token-long-enough-for-tests',
   WHATSAPP_NOTIFICATIONS_ENABLED: false,
+  NOTIFICATIONS_CRON_TOKEN: 'cron-token-long-enough-for-tests-000000',
 };
 
 describe('Partner referral program', () => {
@@ -305,6 +306,27 @@ describe('Partner referral program', () => {
     const otherAuth = await activatePartner(app, email, master, otherPartnerId, 'smoke-other@example.com');
     const otherSummary = await app.inject({ method: 'GET', url: '/api/partner/summary', headers: { cookie: otherAuth.cookie } });
     expect(otherSummary.json().stats).toEqual({ clicks: 0, proposals: 0, conversions: 0 });
+  });
+
+  it('lets an unattended cron caller trigger notification processing with the bearer token, but rejects a wrong or missing one', async () => {
+    const master = await createMaster(app, email, 'master-cron@example.com');
+    await createPartner(app, master, { code: 'cron-flow', commissionType: 'fixed', commissionFixedCents: 1000 });
+    await submitAndGetLeadId(app, db, 'cron-flow', 'cron-buyer@example.com');
+
+    // With neither a session nor a valid bearer token, the route behaves like any other
+    // authenticated-only endpoint: 401 (no identity at all), never a silent 200.
+    const noAuth = await app.inject({ method: 'POST', url: '/api/admin/notifications/process', payload: {} });
+    expect(noAuth.statusCode).toBe(401);
+    const wrongToken = await app.inject({ method: 'POST', url: '/api/admin/notifications/process', headers: { authorization: 'Bearer wrong-token' }, payload: {} });
+    expect(wrongToken.statusCode).toBe(401);
+
+    const cronRun = await app.inject({ method: 'POST', url: '/api/admin/notifications/process', headers: { authorization: `Bearer ${config.NOTIFICATIONS_CRON_TOKEN}` }, payload: {} });
+    expect(cronRun.statusCode, cronRun.body).toBe(200);
+    expect(cronRun.json().sent).toBe(1);
+
+    const cronWeekly = await app.inject({ method: 'POST', url: '/api/admin/notifications/weekly-summary', headers: { authorization: `Bearer ${config.NOTIFICATIONS_CRON_TOKEN}` } });
+    expect(cronWeekly.statusCode, cronWeekly.body).toBe(200);
+    expect(cronWeekly.json().summariesCreated).toBe(1);
   });
 
   it('rejects XSS-style and malformed input on partner creation and the referral form', async () => {

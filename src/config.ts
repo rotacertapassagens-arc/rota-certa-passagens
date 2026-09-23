@@ -21,6 +21,7 @@ const schema = z.object({
   WHATSAPP_NOTIFICATIONS_ENABLED: booleanString.default(false),
   WHATSAPP_WEBHOOK_URL: z.string().url().optional(),
   WHATSAPP_WEBHOOK_TOKEN: z.string().min(16).optional(),
+  NOTIFICATIONS_CRON_TOKEN: z.string().min(24).optional(),
 });
 
 export type AppConfig = z.infer<typeof schema>;

@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyReply, FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppConfig } from '../config.js';
 import type { Database } from '../db.js';
 import { audit, requireMutationAuth } from '../auth.js';
+import { safeEqualText } from '../security.js';
 
 interface OutboxRow {
   id: string;
@@ -21,10 +22,31 @@ interface OutboxRow {
  * A WhatsApp send only happens through an authenticated webhook adapter that is off by default
  * (WHATSAPP_NOTIFICATIONS_ENABLED=false) so this task never activates real delivery.
  */
+/**
+ * Either an authenticated master (session + CSRF, for the admin UI) or the dedicated
+ * NOTIFICATIONS_CRON_TOKEN bearer secret (for an unattended scheduler, e.g. a Cloudflare
+ * Scheduled Event or an external cron caller with no session cookie) may trigger these two
+ * routes. This mirrors the project's existing bootstrap-token pattern used for the very first
+ * master invite. Returns the acting user id for the audit trail, or null for a cron call.
+ */
+async function requireMasterOrCron(db: Database, config: AppConfig, request: FastifyRequest, reply: FastifyReply): Promise<{ userId: string | null } | null> {
+  const provided = request.headers.authorization?.replace(/^Bearer\s+/i, '');
+  if (config.NOTIFICATIONS_CRON_TOKEN && provided && safeEqualText(provided, config.NOTIFICATIONS_CRON_TOKEN)) {
+    return { userId: null };
+  }
+  const auth = await requireMutationAuth(db, config, request, reply);
+  if (!auth) return null;
+  if (!auth.roles.includes('master')) {
+    await reply.code(403).send({ error: 'forbidden' });
+    return null;
+  }
+  return { userId: auth.userId };
+}
+
 export function registerNotificationRoutes(app: FastifyInstance, db: Database, config: AppConfig) {
   app.post('/api/admin/notifications/process', async (request, reply) => {
-    const auth = await requireMutationAuth(db, config, request, reply);
-    if (!auth || !auth.roles.includes('master')) return auth ? reply.code(403).send({ error: 'forbidden' }) : undefined;
+    const auth = await requireMasterOrCron(db, config, request, reply);
+    if (!auth) return;
     const limit = Math.min(z.coerce.number().int().min(1).max(200).default(50).parse((request.body as { limit?: number } | undefined)?.limit ?? 50));
     const pending = await db.query<OutboxRow & { payload: string | Record<string, unknown> }>(
       `SELECT id,idempotency_key,event_type,partner_id,channel,payload,attempts
@@ -49,21 +71,23 @@ export function registerNotificationRoutes(app: FastifyInstance, db: Database, c
   });
 
   app.post('/api/admin/notifications/weekly-summary', async (request, reply) => {
-    const auth = await requireMutationAuth(db, config, request, reply);
-    if (!auth || !auth.roles.includes('master')) return auth ? reply.code(403).send({ error: 'forbidden' }) : undefined;
+    const auth = await requireMasterOrCron(db, config, request, reply);
+    if (!auth) return;
     const weekStart = lisbonWeekStart(new Date());
+    const weekStartIso = weekStart.toISOString();
     const partners = await db.query<{ id: string; code: string; display_name: string }>('SELECT id,code,display_name FROM partners WHERE active=true');
     let created = 0;
     for (const partner of partners.rows) {
-      const stats = await db.query<{ clicks: number; proposals: number; conversions: number; commission_cents: number }>(
-        `SELECT
-          (SELECT count(*)::int FROM referral_clicks WHERE partner_id=$1 AND clicked_at>=$2) AS clicks,
-          (SELECT count(*)::int FROM lead_requests WHERE partner_id=$1 AND created_at>=$2) AS proposals,
-          (SELECT count(*)::int FROM lead_requests WHERE partner_id=$1 AND status='converted' AND converted_at>=$2) AS conversions,
-          (SELECT COALESCE(sum(amount_cents),0)::int FROM partner_commissions WHERE partner_id=$1 AND status<>'void' AND created_at>=$2) AS commission_cents`,
-        [partner.id, weekStart.toISOString()],
-      );
-      const idempotencyKey = `weekly_summary:${partner.id}:${weekStart.toISOString().slice(0, 10)}`;
+      // Kept as separate single-purpose queries (rather than one SELECT with four sibling
+      // scalar subqueries) so the aggregate values are always returned as plain scalars.
+      const [clicks, proposals, conversions, commission] = await Promise.all([
+        db.query<{ count: number }>('SELECT count(*)::int AS count FROM referral_clicks WHERE partner_id=$1 AND clicked_at>=$2', [partner.id, weekStartIso]),
+        db.query<{ count: number }>('SELECT count(*)::int AS count FROM lead_requests WHERE partner_id=$1 AND created_at>=$2', [partner.id, weekStartIso]),
+        db.query<{ count: number }>("SELECT count(*)::int AS count FROM lead_requests WHERE partner_id=$1 AND status='converted' AND converted_at>=$2", [partner.id, weekStartIso]),
+        db.query<{ total: number }>("SELECT COALESCE(sum(amount_cents),0)::int AS total FROM partner_commissions WHERE partner_id=$1 AND status<>'void' AND created_at>=$2", [partner.id, weekStartIso]),
+      ]);
+      const stats = { rows: [{ clicks: clicks.rows[0]?.count ?? 0, proposals: proposals.rows[0]?.count ?? 0, conversions: conversions.rows[0]?.count ?? 0, commission_cents: commission.rows[0]?.total ?? 0 }] };
+      const idempotencyKey = `weekly_summary:${partner.id}:${weekStartIso.slice(0, 10)}`;
       // A plain existence check (rather than relying on ON CONFLICT ... RETURNING, whose "no
       // row affected" signal is not consistent across every local SQL driver this repo tests
       // against) keeps idempotency both correct and easy to verify: repeat calls just see the
@@ -73,7 +97,7 @@ export function registerNotificationRoutes(app: FastifyInstance, db: Database, c
       await db.query(
         `INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload)
          VALUES ($1,$2,'weekly_summary',$3,$4::jsonb) ON CONFLICT (idempotency_key) DO NOTHING`,
-        [randomUUID(), idempotencyKey, partner.id, JSON.stringify({ weekStart: weekStart.toISOString(), ...stats.rows[0] })],
+        [randomUUID(), idempotencyKey, partner.id, JSON.stringify({ weekStart: weekStartIso, ...stats.rows[0] })],
       );
       created += 1;
     }
