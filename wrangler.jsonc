@@ -18,7 +18,15 @@
     "APP_ORIGIN": "https://rotacertapassagens.com",
     "EMAIL_FROM": "Rota Certa Passagens <acesso@mail.rotacertapassagens.com>",
     "PAYMENTS_MODE": "disabled",
-    "WHATSAPP_NOTIFICATIONS_ENABLED": "false"
+    "WHATSAPP_NOTIFICATIONS_ENABLED": "false",
+    // Mirrors src/config.ts's EMAIL_MODE exactly: 'capture' (the default) never makes network
+    // I/O — every email is recorded in email_events with provider='local-capture'. Switching to
+    // 'resend' (real transactional email) is a deliberate, explicit change to this var, never the
+    // implicit behavior. Local/test runs (including the Worker/D1 smoke test) always use
+    // 'capture'. Production intentionally still defaults to 'capture' here too, matching the
+    // Node backend's default and this task's constraint against ever triggering a real send —
+    // switching production to 'resend' is an explicit follow-up left for the staging phase.
+    "EMAIL_MODE": "capture"
   },
   // WHATSAPP_WEBHOOK_URL / WHATSAPP_WEBHOOK_TOKEN are optional secrets, only needed when
   // WHATSAPP_NOTIFICATIONS_ENABLED=true. Never set in this task; see docs/SECURITY.md.

@@ -37,7 +37,7 @@ describe('Partner referral program', () => {
     memory.public.registerFunction({ name: 'char_length', args: [DataType.text], returns: DataType.integer, implementation: (value: string) => value.length });
     const adapter = memory.adapters.createPg();
     const pool = new adapter.Pool();
-    db = new PostgresDatabase(pool);
+    db = new PostgresDatabase(pool, { supportsSkipLocked: false });
     await migrate(db);
     email = new TestEmailSender();
     app = await buildApp({ db, config, emailSender: email });

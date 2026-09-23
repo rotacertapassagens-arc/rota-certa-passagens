@@ -532,12 +532,20 @@ paths:
         Aceita uma sessão master autenticada (painel) OU o cabeçalho `Authorization: Bearer
         <NOTIFICATIONS_CRON_TOKEN>` para um chamador automatizado sem cookie de sessão (ex.: um
         Cloudflare Scheduled Event), no mesmo padrão já usado pelo bootstrap do primeiro master.
-        Em EMAIL_MODE=capture (padrão local/teste) apenas registra o evento em email_events, sem
-        envio real. WhatsApp só é tentado quando WHATSAPP_NOTIFICATIONS_ENABLED=true; caso
-        contrário o item é marcado "skipped". Nunca reverte proposta nem duplica comissão em caso
-        de falha do provedor.
+        Em EMAIL_MODE=capture (padrão local/teste, em ambos os backends Node e Worker) apenas
+        registra o evento em email_events, sem envio real. WhatsApp só é tentado quando
+        WHATSAPP_NOTIFICATIONS_ENABLED=true; caso contrário o item é marcado "skipped". Nunca
+        reverte proposta nem duplica comissão em caso de falha do provedor.
+
+        Cada linha elegível é reclamada com uma lease curta (120s) antes de qualquer envio; a
+        lease é renovada logo antes da chamada externa (e-mail/WhatsApp) e toda escrita
+        condicionada ao lock_token confere quantas linhas foram de fato afetadas. Entrega é
+        **"pelo menos uma vez, com deduplicação a cargo do provedor"** (via a idempotency_key da
+        própria linha, propagada ao provedor de e-mail e ao webhook do WhatsApp) — nunca
+        "exatamente uma vez": se a lease expirar durante um envio lento, outra chamada pode
+        reclamar e reenviar a mesma linha antes que a primeira termine.
       responses:
-        "200": { description: "{ processed, sent, skipped, failed }" }
+        "200": { description: "{ processed, sent, skipped, failed, lockLost }. `lockLost` conta linhas cujo lock foi perdido para outro chamador antes desta chamada conseguir gravar o resultado final — nunca contadas em sent/skipped/failed por esta chamada." }
         "401": { description: Sem sessão válida e sem token cron }
         "403": { description: Sessão autenticada sem papel master }
   /api/admin/notifications/weekly-summary:
@@ -545,7 +553,13 @@ paths:
       tags: [Partners]
       security: [{ sessionCookie: [], csrfToken: [] }, { cronToken: [] }]
       summary: Gera (idempotente, por parceiro e por semana Europe/Lisbon) o resumo semanal agregado
-      description: Mesma autenticação dupla (sessão master ou NOTIFICATIONS_CRON_TOKEN) do endpoint de processamento acima.
+      description: >
+        Mesma autenticação dupla (sessão master ou NOTIFICATIONS_CRON_TOKEN) do endpoint de
+        processamento acima. O payload gravado em notification_outbox segue o contrato
+        camelCase compartilhado entre os backends Node e Worker (ver shared/notificationPayloads.ts):
+        `{ weekStart, clicks, proposals, conversions, commissionCents, currency }`, sempre com a
+        moeda própria do parceiro (nunca um padrão fixo) — nunca `commission_cents` (snake_case) e
+        nunca uma moeda hardcoded.
       responses:
         "200": { description: "{ partnersConsidered, summariesCreated }" }
         "401": { description: Sem sessão válida e sem token cron }

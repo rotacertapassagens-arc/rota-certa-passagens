@@ -180,4 +180,22 @@ test.describe.serial('partner referral program — real browser smoke chain', ()
     await expect(page.locator('#partnerContent')).toBeHidden();
     await expect(page.locator('#accessMessage p')).toContainText(/não tem acesso/i);
   });
+
+  // --- Item #6: financial error codes render as clear Portuguese messages, not a generic one ---
+  test('8. a duplicate partner code shows a specific, actionable message instead of a generic failure', async ({ page }) => {
+    await loginViaUi(page, MASTER_EMAIL, MASTER_PASSWORD);
+    await page.goto('/admin.html');
+    await expect(page.locator('#adminContent')).toBeVisible({ timeout: 10_000 });
+
+    // PARTNER_CODE already exists from test 1 — the backend returns 409 code_already_used, and
+    // admin.js must map that to the specific message, not "Não foi possível criar o parceiro...".
+    await page.locator('#partnerCode').fill(PARTNER_CODE);
+    await page.locator('#partnerDisplayName').fill('Outro Parceiro');
+    await page.locator('#partnerEmail').fill('e2e-outro-parceiro@example.com');
+    await page.locator('#partnerCurrency').fill('EUR');
+    await page.locator('#partnerCommissionType').selectOption('fixed');
+    await page.locator('#partnerCommissionFixed').fill('30');
+    await page.locator('#partnerForm button[type=submit]').click();
+    await expect(page.locator('#partnerFormStatus')).toContainText('Já existe um parceiro com esse código.', { timeout: 10_000 });
+  });
 });

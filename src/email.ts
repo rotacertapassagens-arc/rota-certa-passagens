@@ -11,6 +11,15 @@ export interface EmailMessage {
   subject: string;
   html: string;
   text?: string;
+  /**
+   * Optional provider-level idempotency key. When present, it is passed through to the
+   * Resend-backed sender as an `Idempotency-Key` header (per Resend's documented idempotency
+   * support), so a genuine duplicate send attempt (e.g. an outbox row resent after a lost claim
+   * lock, or a caller-level retry) is deduplicated by the provider itself rather than relying
+   * solely on this app's own outbox claim/lease. Delivery is "at least once, deduplicated by the
+   * provider" — never promised as "exactly once".
+   */
+  idempotencyKey?: string;
 }
 
 export interface EmailSender {
@@ -39,12 +48,16 @@ export class RuntimeEmailSender implements EmailSender {
       return;
     }
     if (!this.config.RESEND_API_KEY) throw new Error('RESEND_API_KEY is required');
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${this.config.RESEND_API_KEY}`,
+      'content-type': 'application/json',
+    };
+    // See EmailMessage.idempotencyKey: Resend documents `Idempotency-Key` as the supported header
+    // for deduplicating a repeated send of the same logical message.
+    if (message.idempotencyKey) headers['idempotency-key'] = message.idempotencyKey;
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        authorization: `Bearer ${this.config.RESEND_API_KEY}`,
-        'content-type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ from: this.config.EMAIL_FROM, to: [message.to], subject: message.subject, html: message.html, text: message.text }),
     });
     const body = (await response.json().catch(() => ({}))) as { id?: string };

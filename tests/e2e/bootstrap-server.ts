@@ -49,7 +49,11 @@ memory.public.registerFunction({ name: 'current_database', returns: DataType.tex
 memory.public.registerFunction({ name: 'char_length', args: [DataType.text], returns: DataType.integer, implementation: (value: string) => value.length });
 const adapter = memory.adapters.createPg();
 const pool = new adapter.Pool();
-const db: Database = new PostgresDatabase(pool);
+// pg-mem does not implement `FOR UPDATE SKIP LOCKED` (see src/db.ts's DatabaseCapabilities
+// docstring) — same as every other pg-mem-backed harness in this repo (tests/partners.test.ts,
+// tests/notifications.test.ts), this must be constructed with supportsSkipLocked:false or any
+// e2e flow that reaches the notification outbox claim would crash the whole test server.
+const db: Database = new PostgresDatabase(pool, { supportsSkipLocked: false });
 await migrate(db);
 
 const emailSender = new TestEmailSender();

@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { parseCommissionPaidPayload, parseWeeklySummaryPayload } from '../shared/notificationPayloads.js';
 
 type Row = Record<string, unknown>;
 type Auth = { userId: string; sessionId: string; email: string; name: string; roles: string[] };
@@ -249,9 +250,26 @@ async function canCreateActiveTrip(auth:Auth,env:Env,access?:Entitlement){const 
 }
 async function requirePlannerAccess(auth:Auth,env:Env){const access=await entitlement(auth,env);return access.accessActive?access:null;}
 
-async function sendEmail(env: Env, userId: string | null, to: string, template: string, subject: string, htmlBody: string, textBody?: string) {
+// Mirrors src/email.ts's EMAIL_MODE contract exactly: 'capture' (the default, used locally and
+// in every automated test — including the Worker/D1 smoke test) never makes network I/O and just
+// records the event in email_events with provider='local-capture'; 'resend' is the real
+// Resend-backed provider and must be explicitly configured (EMAIL_MODE=resend as a wrangler var)
+// before any network call is ever made. Earlier revisions of this file always called Resend
+// regardless of a (non-existent) "capture mode" claimed only in comments — this is the actual
+// fix, not just documentation.
+async function sendEmail(env: Env, userId: string | null, to: string, template: string, subject: string, htmlBody: string, textBody?: string, idempotencyKey?: string) {
   const recipientHash = await digest(to, env); const id = crypto.randomUUID();
-  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html: htmlBody, text: textBody }) });
+  const mode = env.EMAIL_MODE ?? 'capture';
+  if (mode === 'capture') {
+    await env.DB.prepare("INSERT INTO email_events(id,user_id,template,recipient_hash,provider,status) VALUES(?,?,?,?,'local-capture','captured')").bind(id,userId,template,recipientHash).run();
+    return;
+  }
+  const headers: Record<string,string> = { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' };
+  // See src/email.ts's EmailMessage.idempotencyKey: passed through to Resend's documented
+  // Idempotency-Key header so a genuine duplicate send (lost outbox lock / caller-level retry) is
+  // deduplicated by the provider — "at least once, provider-deduplicated", never "exactly once".
+  if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
+  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers, body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html: htmlBody, text: textBody }) });
   let reference: string | null = null; try { reference = String(((await response.json()) as Row).id || '') || null; } catch {}
   await env.DB.prepare('INSERT INTO email_events(id,user_id,template,recipient_hash,provider,provider_reference,status,error_code) VALUES(?,?,?,?,?,?,?,?)').bind(id,userId,template,recipientHash,'resend',reference,response.ok?'sent':'failed',response.ok?null:`http_${response.status}`).run();
   if (!response.ok) throw new Error('email_delivery_failed');
@@ -835,24 +853,27 @@ const OUTBOX_LEASE_SECONDS=120;
 function escapeHtmlText(value:string){return value.replace(/[&<>'"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}as Record<string,string>)[c]!);}
 function formatCentsAmount(cents:unknown,currency:unknown){const amount=typeof cents==='number'?cents:Number(cents??0);const code=typeof currency==='string'&&currency.length===3?currency:'EUR';return `${(amount/100).toFixed(2)} ${code}`;}
 
-/** Mirrors src/routes/notifications.ts's renderNotification: no customer PII, only the
- * partner's own display name and aggregate/business facts about their own account. */
+/** Mirrors src/routes/notifications.ts's renderNotification exactly: same field names (see
+ * ../shared/notificationPayloads.ts), same fail-closed payload validation, no customer PII —
+ * only the partner's own display name and aggregate/business facts about their own account. */
 function renderOutboxNotification(row:{event_type:string;payload:unknown},partnerName:string){
   const safeName=escapeHtmlText(partnerName||'parceiro(a)');
-  const payload=(row.payload||{}) as Record<string,unknown>;
   switch(row.event_type){
     case 'referral_confirmed':
       return {subject:'Nova indicação recebida',html:`<p>Olá, ${safeName}.</p><p>Chegou uma nova indicação pelo seu link de parceiro. Acompanhe os detalhes no seu painel.</p>`};
     case 'proposal_converted':
       return {subject:'Uma indicação sua fechou negócio',html:`<p>Olá, ${safeName}.</p><p>Uma proposta indicada por você foi convertida em venda. A comissão correspondente já está visível no seu painel de parceiros.</p>`};
     case 'commission_paid': {
+      // Validated before rendering: a malformed payload throws (caught by the caller, treated as
+      // a failed outbox attempt) instead of silently rendering "0.00 EUR".
+      const payload=parseCommissionPaidPayload(row.payload);
       const amount=formatCentsAmount(payload.amountCents,payload.currency);
       return {subject:'Comissão paga',html:`<p>Olá, ${safeName}.</p><p>Sua comissão de <strong>${escapeHtmlText(amount)}</strong> foi marcada como paga. Consulte o extrato completo no seu painel.</p>`};
     }
     case 'weekly_summary': {
-      const clicks=Number(payload.clicks??0),proposals=Number(payload.proposals??0),conversions=Number(payload.conversions??0);
-      const commission=formatCentsAmount(payload.commission_cents,'EUR');
-      return {subject:'Resumo semanal do seu link',html:`<p>Olá, ${safeName}.</p><p>Resumo da semana: <strong>${clicks}</strong> cliques, <strong>${proposals}</strong> propostas, <strong>${conversions}</strong> conversões e <strong>${escapeHtmlText(commission)}</strong> em novas comissões.</p>`};
+      const payload=parseWeeklySummaryPayload(row.payload);
+      const commission=formatCentsAmount(payload.commissionCents,payload.currency);
+      return {subject:'Resumo semanal do seu link',html:`<p>Olá, ${safeName}.</p><p>Resumo da semana: <strong>${payload.clicks}</strong> cliques, <strong>${payload.proposals}</strong> propostas, <strong>${payload.conversions}</strong> conversões e <strong>${escapeHtmlText(commission)}</strong> em novas comissões.</p>`};
     }
     default:
       return {subject:'Atualização do programa de parceiros',html:`<p>Olá, ${safeName}. Você tem uma atualização.</p>`};
@@ -862,17 +883,25 @@ function renderOutboxNotification(row:{event_type:string;payload:unknown},partne
 async function notificationsProcess(req:Request,env:Env){
   const actorUserId=await requireMasterOrCronUserId(req,env);if(actorUserId===undefined)return reply({error:'forbidden'},403);
   const b=await body(req);const limit=Number.isInteger(b?.limit)&&Number(b?.limit)>0&&Number(b?.limit)<=200?Number(b?.limit):50;
-  // Claim/lease, mirroring src/routes/notifications.ts: a single atomic UPDATE claims each
-  // eligible row (flips 'pending' — or 'processing' with an expired lease — to 'processing' with
-  // this invocation's own lock_token and a short lease) before anything is sent, so two
-  // concurrent cron calls can never both send the same notification. D1/SQLite's UPDATE ... WHERE
-  // id IN (SELECT ...) runs as a single atomic statement, giving the same guarantee as the
-  // Postgres version without needing FOR UPDATE SKIP LOCKED.
+  // Claim/lease: each eligible row is claimed with a conditional compare-and-swap UPDATE (flips
+  // 'pending' — or 'processing' with an expired lease — to 'processing' with this invocation's
+  // own lock_token and a short lease, WHERE the row is still in that claimable state) before
+  // anything is sent. D1/SQLite executes each single UPDATE statement atomically, so two
+  // concurrent calls racing on the *same row* can never both have their conditional UPDATE match
+  // — one succeeds (meta.changes===1), the other's WHERE clause no longer matches (meta.changes
+  // ===0) once the winner's UPDATE has applied. This is a real compare-and-swap per row, not the
+  // same mechanism as the PostgreSQL `FOR UPDATE SKIP LOCKED` claim in src/routes/notifications.ts
+  // (D1 has no equivalent multi-row locking clause) — but it gives the same end result: at most
+  // one caller ever holds a given row's lock_token at a time.
+  //
+  // Holding the lock_token is still not "exactly once" delivery: if the external send takes
+  // longer than the lease, another worker can reclaim the row and resend. See the lease renewal
+  // below and idempotencyKey passed to sendEmail/the WhatsApp webhook.
   const lockToken=crypto.randomUUID();
   const claimableIds=await env.DB.prepare(
     "SELECT id FROM notification_outbox WHERE next_attempt_at<=CURRENT_TIMESTAMP AND (status='pending' OR (status='processing' AND lease_expires_at<CURRENT_TIMESTAMP)) ORDER BY next_attempt_at ASC LIMIT ?",
   ).bind(limit).all<{id:string}>();
-  let sent=0,skipped=0,failed=0;
+  let sent=0,skipped=0,failed=0,lockLost=0;
   for(const {id:claimId} of claimableIds.results){
     const claim=await env.DB.prepare(
       "UPDATE notification_outbox SET status='processing',lock_token=?,lease_expires_at=datetime(CURRENT_TIMESTAMP,'+'||?||' seconds'),updated_at=CURRENT_TIMESTAMP WHERE id=? AND (status='pending' OR (status='processing' AND lease_expires_at<CURRENT_TIMESTAMP))",
@@ -883,8 +912,15 @@ async function notificationsProcess(req:Request,env:Env){
     const payload=typeof row.payload==='string'?JSON.parse(row.payload):row.payload;
     try{
       if(row.channel==='whatsapp'&&env.WHATSAPP_NOTIFICATIONS_ENABLED!=='true'){
-        await env.DB.prepare("UPDATE notification_outbox SET status='skipped',updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(row.id,lockToken).run();skipped++;continue;
+        const skip=await env.DB.prepare("UPDATE notification_outbox SET status='skipped',updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(row.id,lockToken).run();
+        if(skip.meta.changes)skipped++;else lockLost++;
+        continue;
       }
+      // Renew the lease immediately before the external call — same rationale as
+      // src/routes/notifications.ts's processOutboxRow: abort before sending if the lock was
+      // already lost, so this invocation never fires a send the new owner will also fire.
+      const renew=await env.DB.prepare("UPDATE notification_outbox SET lease_expires_at=datetime(CURRENT_TIMESTAMP,'+'||?||' seconds'),updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(String(OUTBOX_LEASE_SECONDS),row.id,lockToken).run();
+      if(!renew.meta.changes){lockLost++;continue;}
       if(row.channel==='whatsapp'){
         if(!env.WHATSAPP_WEBHOOK_URL||!env.WHATSAPP_WEBHOOK_TOKEN)throw new Error('whatsapp_webhook_not_configured');
         const response=await fetch(env.WHATSAPP_WEBHOOK_URL,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${env.WHATSAPP_WEBHOOK_TOKEN}`,'idempotency-key':String(row.idempotency_key)},body:JSON.stringify({eventType:row.event_type,partnerId:row.partner_id,payload,idempotencyKey:row.idempotency_key})});
@@ -892,22 +928,26 @@ async function notificationsProcess(req:Request,env:Env){
       }else{
         const partner=await env.DB.prepare('SELECT email,display_name FROM partners WHERE id=?').bind(row.partner_id).first<{email:string;display_name:string}>();
         if(!partner?.email)throw new Error('partner_email_missing');
-        // Reuses the same sendEmail() helper every other worker email flow uses (Resend-backed;
-        // this task never configures RESEND_API_KEY or triggers a real send), with real,
-        // partner-facing content instead of a manual, content-less email_events row.
+        // Reuses the same sendEmail() helper every other worker email flow uses: EMAIL_MODE=capture
+        // (the default, used by every local/test run including the Worker/D1 smoke test) never
+        // touches the network; EMAIL_MODE=resend is required for a real send. Real, partner-facing
+        // content instead of a manual, content-less email_events row, with the outbox row's own
+        // idempotency_key passed through for provider-level deduplication.
         const {subject,html:htmlBody}=renderOutboxNotification({event_type:row.event_type as string,payload},partner.display_name);
-        await sendEmail(env,null,partner.email,`partner_${row.event_type}`,subject,htmlBody);
+        await sendEmail(env,null,partner.email,`partner_${row.event_type}`,subject,htmlBody,undefined,String(row.idempotency_key));
       }
-      await env.DB.prepare("UPDATE notification_outbox SET status='sent',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(row.id,lockToken).run();sent++;
+      const done=await env.DB.prepare("UPDATE notification_outbox SET status='sent',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(row.id,lockToken).run();
+      if(done.meta.changes)sent++;else lockLost++;
     }catch(error){
       const attempts=Number(row.attempts)+1;const message=(error instanceof Error?error.message:'unknown_error').slice(0,200);
-      if(attempts>=5)await env.DB.prepare("UPDATE notification_outbox SET status='failed',attempts=?,last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(attempts,message,row.id,lockToken).run();
-      else await env.DB.prepare("UPDATE notification_outbox SET attempts=?,last_error=?,next_attempt_at=datetime(CURRENT_TIMESTAMP,'+'||?||' minutes'),status='pending',lock_token=NULL,lease_expires_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(attempts,message,String(2**attempts),row.id,lockToken).run();
-      failed++;
+      const result=attempts>=5
+        ?await env.DB.prepare("UPDATE notification_outbox SET status='failed',attempts=?,last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(attempts,message,row.id,lockToken).run()
+        :await env.DB.prepare("UPDATE notification_outbox SET attempts=?,last_error=?,next_attempt_at=datetime(CURRENT_TIMESTAMP,'+'||?||' minutes'),status='pending',lock_token=NULL,lease_expires_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lock_token=?").bind(attempts,message,String(2**attempts),row.id,lockToken).run();
+      if(result.meta.changes)failed++;else lockLost++;
     }
   }
   await audit(env,actorUserId,'admin.notifications_processed','notification_outbox','');
-  return reply({processed:sent+skipped+failed,sent,skipped,failed});
+  return reply({processed:sent+skipped+failed,sent,skipped,failed,lockLost});
 }
 
 /**
@@ -934,7 +974,10 @@ function lisbonWeekStartIso(reference:Date){
 async function notificationsWeeklySummary(req:Request,env:Env){
   const actorUserId=await requireMasterOrCronUserId(req,env);if(actorUserId===undefined)return reply({error:'forbidden'},403);
   const weekStart=lisbonWeekStartIso(new Date());const weekStartIso=weekStart.toISOString();
-  const partners=await env.DB.prepare('SELECT id,code,display_name FROM partners WHERE active=1').all<Row>();
+  // `currency` selected alongside the partner so the payload always carries the partner's own
+  // configured currency — see src/routes/notifications.ts's mirrored fix and
+  // ../shared/notificationPayloads.ts's WeeklySummaryPayload contract both backends share.
+  const partners=await env.DB.prepare('SELECT id,code,display_name,currency FROM partners WHERE active=1').all<Row>();
   let created=0;
   for(const partner of partners.results){
     const clicks=await env.DB.prepare('SELECT count(*) n FROM referral_clicks WHERE partner_id=? AND clicked_at>=?').bind(partner.id,weekStartIso).first<{n:number}>();
@@ -943,7 +986,7 @@ async function notificationsWeeklySummary(req:Request,env:Env){
     const commission=await env.DB.prepare("SELECT COALESCE(sum(amount_cents),0) n FROM partner_commissions WHERE partner_id=? AND status<>'void' AND created_at>=?").bind(partner.id,weekStartIso).first<{n:number}>();
     const idempotencyKey=`weekly_summary:${partner.id}:${weekStartIso.slice(0,10)}`;
     const result=await env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'weekly_summary',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
-      .bind(crypto.randomUUID(),idempotencyKey,partner.id,JSON.stringify({weekStart:weekStartIso,clicks:clicks?.n||0,proposals:proposals?.n||0,conversions:conversions?.n||0,commissionCents:commission?.n||0})).run();
+      .bind(crypto.randomUUID(),idempotencyKey,partner.id,JSON.stringify({weekStart:weekStartIso,clicks:clicks?.n||0,proposals:proposals?.n||0,conversions:conversions?.n||0,commissionCents:commission?.n||0,currency:partner.currency})).run();
     if(result.meta.changes)created++;
   }
   return reply({partnersConsidered:partners.results.length,summariesCreated:created});

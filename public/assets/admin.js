@@ -8,6 +8,31 @@ async function api(path, options={}) {
   if(!response.ok) throw Object.assign(new Error(body.error||'request_failed'),{status:response.status});
   return body;
 }
+
+// Maps a specific backend error code (never the raw code itself, and never any other internal
+// detail) to a clear, actionable message in Portuguese. Falls back to a generic message for any
+// code not explicitly listed here — the fallback is passed in by each call site so it stays
+// contextual to the action that failed.
+const financialErrorMessages = {
+  commission_paid_immutable: 'Esta proposta já tem uma comissão paga e não pode ser alterada por aqui. Um ajuste financeiro precisa ser feito separadamente.',
+  commission_paid_requires_adjustment: 'Uma comissão já paga não pode ser anulada diretamente. Um ajuste financeiro precisa ser feito separadamente.',
+  commission_void_reason_required: 'É necessário informar o motivo para anular a comissão ativa desta proposta.',
+  sale_amount_required: 'Informe o valor da venda: a regra de comissão deste parceiro é percentual.',
+  sale_amount_locked: 'O valor da venda já está definido para esta proposta. Anule a comissão atual para poder alterá-lo.',
+  sale_currency_must_match_partner_currency: 'A moeda da venda precisa ser a mesma moeda configurada para este parceiro.',
+  currency_locked_existing_commissions: 'Não é possível mudar a moeda deste parceiro: já existem comissões registradas nela.',
+  email_already_used_by_partner: 'Este e-mail já está sendo usado por outro parceiro.',
+  email_linked_to_other_partner: 'Este e-mail já está vinculado à conta de outro parceiro.',
+  code_already_used: 'Já existe um parceiro com esse código.',
+  code_or_email_already_used: 'O código ou e-mail informado já está em uso por outro parceiro.',
+  invalid_currency: 'Moeda inválida. Escolha EUR, USD, BRL ou GBP.',
+  invalid_partner: 'Dados inválidos. Confira os campos obrigatórios.',
+  partner_inactive: 'Este parceiro está desativado. Ative-o antes de enviar um novo convite.',
+  invalid_transition: 'Esta comissão não está mais no estado esperado para essa ação. Atualize a página e tente novamente.',
+};
+function financialErrorMessage(error, fallback) {
+  return financialErrorMessages[error?.message] || fallback;
+}
 const fmtDate=(value)=>value?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'-';
 const fmtDay=(value)=>value?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeZone:'UTC'}).format(new Date(`${String(value).slice(0,10)}T00:00:00Z`)):'-';
 const fmtMoney=(cents,currency='EUR')=>cents==null?'A partir de 49,99 €':new Intl.NumberFormat('pt-PT',{style:'currency',currency}).format(cents/100);
@@ -85,7 +110,7 @@ document.getElementById('partners')?.addEventListener('click',async(event)=>{
       statusEl.textContent='Convite enviado (registrado conforme o modo de e-mail configurado).';
       await loadPartners();
     }
-  }catch{statusEl.textContent='Não foi possível concluir a ação.';}
+  }catch(error){statusEl.textContent=financialErrorMessage(error,'Não foi possível concluir a ação.');}
 });
 
 document.getElementById('partnerForm')?.addEventListener('submit',async(event)=>{
@@ -111,7 +136,7 @@ document.getElementById('partnerForm')?.addEventListener('submit',async(event)=>
     document.getElementById('partnerCurrency').value='EUR';
     document.getElementById('partnerWindow').value='30';
     await loadPartners();
-  }catch(error){status.textContent=error.status===409?'Já existe um parceiro com esse código.':'Não foi possível criar o parceiro. Confira os dados.';}
+  }catch(error){status.textContent=financialErrorMessage(error,'Não foi possível criar o parceiro. Confira os dados.');}
 });
 document.getElementById('leads')?.addEventListener('click',async(event)=>{
   const commissionButton=event.target.closest('[data-commission-action]');
@@ -123,7 +148,7 @@ document.getElementById('leads')?.addEventListener('click',async(event)=>{
       await api(`/api/admin/commissions/${commissionButton.dataset.commissionId}/${commissionButton.dataset.commissionAction}`,{method:'POST'});
       feedback.textContent='Comissão atualizada.';
       await loadLeads();await loadPartners();
-    }catch{feedback.textContent='Não foi possível atualizar a comissão.';commissionButton.disabled=false;}
+    }catch(error){feedback.textContent=financialErrorMessage(error,'Não foi possível atualizar a comissão.');commissionButton.disabled=false;}
     return;
   }
   const button=event.target.closest('[data-save-lead]');
@@ -145,18 +170,20 @@ document.getElementById('leads')?.addEventListener('click',async(event)=>{
     await loadLeads();
     await loadPartners();
   }catch(error){
-    if(error.status===409){
+    if(error.message==='commission_void_reason_required'){
       const reason=prompt('Esta proposta já tem uma comissão ativa. Descreva o motivo para anular a comissão e mudar o status (mínimo 3 caracteres):');
       if(reason&&reason.trim().length>=3){
         try{
           await api(`/api/admin/leads/${button.dataset.saveLead}`,{method:'PATCH',body:JSON.stringify({...payload,voidCommissionReason:reason.trim()})});
           feedback.textContent='Proposta atualizada e comissão anulada com o motivo informado.';
           await loadLeads();await loadPartners();
-        }catch{feedback.textContent='Não foi possível salvar a alteração.';}
+        }catch(retryError){feedback.textContent=financialErrorMessage(retryError,'Não foi possível salvar a alteração.');}
       } else feedback.textContent='Alteração cancelada: é necessário informar o motivo para anular a comissão.';
-    } else if(error.status===422){
-      feedback.textContent='Informe o valor da venda e a moeda: a regra deste parceiro é percentual.';
-    } else feedback.textContent='Não foi possível salvar a alteração.';
+    } else if(error.message==='sale_amount_required'||error.status===422){
+      feedback.textContent=financialErrorMessage(error,'Informe o valor da venda e a moeda: a regra deste parceiro é percentual.');
+    } else {
+      feedback.textContent=financialErrorMessage(error,'Não foi possível salvar a alteração.');
+    }
   } finally { button.disabled=false; }
 });
 

@@ -6,6 +6,7 @@ import type { Database } from '../db.js';
 import type { EmailSender } from '../email.js';
 import { audit, requireMutationAuth } from '../auth.js';
 import { lisbonWeekStartUtc, safeEqualText } from '../security.js';
+import { parseCommissionPaidPayload, parseWeeklySummaryPayload } from '../../shared/notificationPayloads.js';
 
 interface OutboxRow {
   id: string;
@@ -54,36 +55,75 @@ export function registerNotificationRoutes(app: FastifyInstance, db: Database, c
 
     // Claim/lease: an unattended cron can fire this endpoint concurrently from more than one
     // caller (or a single caller can be retried while the first attempt is still running). Each
-    // eligible row is atomically claimed by this specific worker invocation — 'pending' flips to
+    // eligible row is atomically claimed by this specific invocation — 'pending' flips to
     // 'processing' with this invocation's own lock_token and a short lease — before anything is
     // sent. A row whose lease has already expired (the previous claimant crashed mid-send) is
-    // just as claimable as a plain 'pending' row, so nothing gets stuck forever. Only the holder
-    // of the still-valid lock_token may later flip the row to 'sent'/'failed'/'skipped'; a lost
-    // race on any single row simply claims zero rows for the loser (checked via rowCount), so two
-    // concurrent processors can never both send the same notification.
-    // A single atomic UPDATE ... WHERE id IN (SELECT ... ) statement is itself the claim: under
-    // real Postgres MVCC, two concurrent calls to this route serialize on any row they both try
-    // to claim (the second one's subquery re-evaluates the WHERE predicate only after the first
-    // has committed/released, at which point that row is already 'processing' and so is excluded)
-    // — so both correctness (never claimed twice) and eventual claimability (an expired lease is
-    // claimable again) hold without needing an explicit FOR UPDATE SKIP LOCKED clause.
+    // just as claimable as a plain 'pending' row, so nothing gets stuck forever.
+    //
+    // On real PostgreSQL, the claim itself uses `SELECT ... FOR UPDATE SKIP LOCKED` inside an
+    // explicit transaction: the SELECT takes real row locks on the candidate rows, a concurrent
+    // claimer skips whatever is already locked (rather than blocking or re-reading a stale
+    // snapshot), and the following UPDATE is scoped to exactly the ids that were actually locked.
+    // This is the standard, well-documented PostgreSQL pattern for a multi-worker queue claim and
+    // is what actually prevents two concurrent transactions from claiming the same row — a plain
+    // `UPDATE ... WHERE id IN (SELECT ...)` (the previous implementation here) does NOT have that
+    // guarantee: nothing stops a second transaction's subquery from also reading a row before the
+    // first transaction's UPDATE commits and releases its lock.
+    //
+    // pg-mem (this repo's default test-suite driver; see tests/partners.test.ts) parses SKIP
+    // LOCKED but does not implement it in its query planner, so `db.capabilities.supportsSkipLocked`
+    // is false there and the code falls back to the old single-UPDATE pattern. That fallback is
+    // NOT claimed to be safe under real concurrent PostgreSQL transactions — it only supports the
+    // pg-mem-backed suite, which has no real MVCC/locking to race against regardless of the SQL
+    // used. The real concurrent-claim guarantee is proven only by the separate, explicitly-gated
+    // integration test tests/outbox-claim.pg-real.test.ts (see its header for how to run it
+    // against a real PostgreSQL instance).
+    //
+    // Holding a valid lock_token is also not "exactly once" delivery: if the external send (email
+    // provider / WhatsApp webhook) takes longer than the lease, another worker can reclaim the
+    // row and resend. See the lease renewal and idempotency-key handling in processOutboxRow.
     const lockToken = randomUUID();
-    const claimed = await db.query<OutboxRow & { payload: string | Record<string, unknown> }>(
-      `UPDATE notification_outbox
-          SET status='processing', lock_token=$1, lease_expires_at=now() + ($2 || ' seconds')::interval, updated_at=now()
-        WHERE id IN (
-          SELECT id FROM notification_outbox
-           WHERE next_attempt_at<=now()
-             AND (status='pending' OR (status='processing' AND lease_expires_at < now()))
-           ORDER BY next_attempt_at ASC LIMIT $3
-        )
-        RETURNING id,idempotency_key,event_type,partner_id,channel,payload,attempts`,
-      [lockToken, String(LEASE_SECONDS), limit],
-    );
+    let claimed: { rows: (OutboxRow & { payload: string | Record<string, unknown> })[] };
+    if (db.capabilities.supportsSkipLocked) {
+      claimed = await db.transaction(async (tx) => {
+        const candidates = await tx.query<{ id: string }>(
+          `SELECT id FROM notification_outbox
+            WHERE next_attempt_at<=now()
+              AND (status='pending' OR (status='processing' AND lease_expires_at < now()))
+            ORDER BY next_attempt_at ASC
+            LIMIT $1
+            FOR UPDATE SKIP LOCKED`,
+          [limit],
+        );
+        if (!candidates.rows.length) return { rows: [] };
+        const ids = candidates.rows.map((row) => row.id);
+        return tx.query<OutboxRow & { payload: string | Record<string, unknown> }>(
+          `UPDATE notification_outbox
+              SET status='processing', lock_token=$1, lease_expires_at=now() + ($2 || ' seconds')::interval, updated_at=now()
+            WHERE id = ANY($3::uuid[])
+            RETURNING id,idempotency_key,event_type,partner_id,channel,payload,attempts`,
+          [lockToken, String(LEASE_SECONDS), ids],
+        );
+      });
+    } else {
+      claimed = await db.query<OutboxRow & { payload: string | Record<string, unknown> }>(
+        `UPDATE notification_outbox
+            SET status='processing', lock_token=$1, lease_expires_at=now() + ($2 || ' seconds')::interval, updated_at=now()
+          WHERE id IN (
+            SELECT id FROM notification_outbox
+             WHERE next_attempt_at<=now()
+               AND (status='pending' OR (status='processing' AND lease_expires_at < now()))
+             ORDER BY next_attempt_at ASC LIMIT $3
+          )
+          RETURNING id,idempotency_key,event_type,partner_id,channel,payload,attempts`,
+        [lockToken, String(LEASE_SECONDS), limit],
+      );
+    }
 
     let sent = 0;
     let skipped = 0;
     let failed = 0;
+    let lockLost = 0;
     for (const row of claimed.rows) {
       const outcome = await processOutboxRow(db, config, emailSender, lockToken, {
         ...row,
@@ -91,10 +131,15 @@ export function registerNotificationRoutes(app: FastifyInstance, db: Database, c
       });
       if (outcome === 'sent') sent += 1;
       else if (outcome === 'skipped') skipped += 1;
+      else if (outcome === 'lock_lost') lockLost += 1;
       else failed += 1;
     }
-    await audit(db, config, request, 'admin.notifications_processed', auth.userId, null, null, { sent, skipped, failed });
-    return reply.send({ processed: claimed.rows.length, sent, skipped, failed });
+    await audit(db, config, request, 'admin.notifications_processed', auth.userId, null, null, { sent, skipped, failed, lockLost });
+    // `sent`/`skipped`/`failed` only ever count rows this invocation itself held the lock for at
+    // the moment it wrote the final status; `lockLost` is reported separately for visibility and
+    // deliberately excluded from `processed` since this invocation made no authoritative decision
+    // about that row's outcome.
+    return reply.send({ processed: sent + skipped + failed, sent, skipped, failed, lockLost });
   });
 
   app.post('/api/admin/notifications/weekly-summary', async (request, reply) => {
@@ -102,7 +147,10 @@ export function registerNotificationRoutes(app: FastifyInstance, db: Database, c
     if (!auth) return;
     const weekStart = lisbonWeekStartUtc(new Date());
     const weekStartIso = weekStart.toISOString();
-    const partners = await db.query<{ id: string; code: string; display_name: string }>('SELECT id,code,display_name FROM partners WHERE active=true');
+    // `currency` is fetched alongside the partner's identity: the weekly_summary payload must
+    // always carry the partner's own configured currency (never a hardcoded default) so the
+    // rendered notification shows the correct amount, in the correct currency, for that partner.
+    const partners = await db.query<{ id: string; code: string; display_name: string; currency: string }>('SELECT id,code,display_name,currency FROM partners WHERE active=true');
     let created = 0;
     for (const partner of partners.rows) {
       // Kept as separate single-purpose queries (rather than one SELECT with four sibling
@@ -113,7 +161,18 @@ export function registerNotificationRoutes(app: FastifyInstance, db: Database, c
         db.query<{ count: number }>("SELECT count(*)::int AS count FROM lead_requests WHERE partner_id=$1 AND status='converted' AND converted_at>=$2", [partner.id, weekStartIso]),
         db.query<{ total: number }>("SELECT COALESCE(sum(amount_cents),0)::int AS total FROM partner_commissions WHERE partner_id=$1 AND status<>'void' AND created_at>=$2", [partner.id, weekStartIso]),
       ]);
-      const stats = { rows: [{ clicks: clicks.rows[0]?.count ?? 0, proposals: proposals.rows[0]?.count ?? 0, conversions: conversions.rows[0]?.count ?? 0, commission_cents: commission.rows[0]?.total ?? 0 }] };
+      // Field names (camelCase) and the presence of `currency` here are the documented contract
+      // shared with the Worker backend — see shared/notificationPayloads.ts's WeeklySummaryPayload
+      // and parseWeeklySummaryPayload, which both backends' renderers validate against before
+      // rendering anything to a partner.
+      const payload = {
+        weekStart: weekStartIso,
+        clicks: clicks.rows[0]?.count ?? 0,
+        proposals: proposals.rows[0]?.count ?? 0,
+        conversions: conversions.rows[0]?.count ?? 0,
+        commissionCents: commission.rows[0]?.total ?? 0,
+        currency: partner.currency,
+      };
       const idempotencyKey = `weekly_summary:${partner.id}:${weekStartIso.slice(0, 10)}`;
       // A plain existence check (rather than relying on ON CONFLICT ... RETURNING, whose "no
       // row affected" signal is not consistent across every local SQL driver this repo tests
@@ -124,7 +183,7 @@ export function registerNotificationRoutes(app: FastifyInstance, db: Database, c
       await db.query(
         `INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload)
          VALUES ($1,$2,'weekly_summary',$3,$4::jsonb) ON CONFLICT (idempotency_key) DO NOTHING`,
-        [randomUUID(), idempotencyKey, partner.id, JSON.stringify({ weekStart: weekStartIso, ...stats.rows[0] })],
+        [randomUUID(), idempotencyKey, partner.id, JSON.stringify(payload)],
       );
       created += 1;
     }
@@ -132,33 +191,48 @@ export function registerNotificationRoutes(app: FastifyInstance, db: Database, c
   });
 }
 
-async function processOutboxRow(db: Database, config: AppConfig, emailSender: EmailSender, lockToken: string, row: OutboxRow): Promise<'sent' | 'skipped' | 'failed'> {
+type OutboxOutcome = 'sent' | 'skipped' | 'failed' | 'lock_lost';
+
+async function processOutboxRow(db: Database, config: AppConfig, emailSender: EmailSender, lockToken: string, row: OutboxRow): Promise<OutboxOutcome> {
   try {
     if (row.channel === 'whatsapp' && config.WHATSAPP_NOTIFICATIONS_ENABLED !== true) {
-      await claimedUpdate(db, row.id, lockToken, "status='skipped',updated_at=now()");
-      return 'skipped';
+      const result = await claimedUpdate(db, row.id, lockToken, "status='skipped',updated_at=now()");
+      return result.rowCount ? 'skipped' : 'lock_lost';
     }
+    // Renew the lease immediately before the external call (email provider / WhatsApp webhook).
+    // LEASE_SECONDS is sized for the normal claim+send round trip, but a slow provider can
+    // occasionally exceed it; renewing here — still gated on holding the *current* lock_token —
+    // extends the window without ever handing a second claimant a "free" takeover mid-send. If
+    // the renewal itself affects zero rows, the lock was already lost (another worker reclaimed
+    // this row after its lease expired): abort before making the external call at all, so this
+    // invocation never fires a send that the new owner will also independently fire.
+    const renewed = await claimedUpdate(db, row.id, lockToken, "lease_expires_at=now() + ($2 || ' seconds')::interval, updated_at=now()", [String(LEASE_SECONDS)]);
+    if (!renewed.rowCount) return 'lock_lost';
+
     if (row.channel === 'whatsapp') {
       await sendWhatsAppWebhook(config, row);
     } else {
       await deliverViaEmail(db, config, emailSender, row);
     }
-    await claimedUpdate(db, row.id, lockToken, "status='sent',attempts=attempts+1,updated_at=now()");
-    return 'sent';
+    const result = await claimedUpdate(db, row.id, lockToken, "status='sent',attempts=attempts+1,updated_at=now()");
+    // The external send may have genuinely succeeded, but if the lock was lost in the brief
+    // window between the send and this write, this invocation must not claim credit for it (and
+    // must not overwrite whatever the new owner has since done to the row) — the delivery is
+    // reported as `lock_lost`, not `sent`. This is also why delivery here is documented as
+    // "at least once, deduplicated by idempotency_key / the provider", never "exactly once": the
+    // same row's payload can legitimately be sent by two different owners in this narrow window.
+    return result.rowCount ? 'sent' : 'lock_lost';
   } catch (error) {
     const attempts = row.attempts + 1;
     const message = error instanceof Error ? error.message.slice(0, 200) : 'unknown_error';
-    if (attempts >= 5) {
-      await claimedUpdate(db, row.id, lockToken, 'status=\'failed\',attempts=$2,last_error=$3,updated_at=now()', [attempts, message]);
-    } else {
-      const backoffMinutes = 2 ** attempts;
-      await claimedUpdate(
+    const result = attempts >= 5
+      ? await claimedUpdate(db, row.id, lockToken, 'status=\'failed\',attempts=$2,last_error=$3,updated_at=now()', [attempts, message])
+      : await claimedUpdate(
         db, row.id, lockToken,
         "attempts=$2,last_error=$3,next_attempt_at=now()+ ($4 || ' minutes')::interval,status='pending',lock_token=NULL,lease_expires_at=NULL,updated_at=now()",
-        [attempts, message, String(backoffMinutes)],
+        [attempts, message, String(2 ** attempts)],
       );
-    }
-    return 'failed';
+    return result.rowCount ? 'failed' : 'lock_lost';
   }
 }
 
@@ -166,10 +240,11 @@ async function processOutboxRow(db: Database, config: AppConfig, emailSender: Em
  * Only the caller holding the still-current lock_token for this row may update it. This is what
  * makes the claim meaningful: even if a lease is (incorrectly) believed to still be held, a
  * conditional WHERE on both id and lock_token means a stale/duplicate writer's update simply
- * affects zero rows instead of corrupting a row another worker has since re-claimed.
+ * affects zero rows instead of corrupting a row another worker has since re-claimed. Every call
+ * site MUST check the returned rowCount rather than assume the write landed.
  */
 async function claimedUpdate(db: Database, id: string, lockToken: string, setClause: string, extraParams: unknown[] = []) {
-  await db.query(`UPDATE notification_outbox SET ${setClause} WHERE id=$1 AND lock_token=${extraParams.length ? `$${extraParams.length + 2}` : '$2'}`, [id, ...extraParams, lockToken]);
+  return db.query(`UPDATE notification_outbox SET ${setClause} WHERE id=$1 AND lock_token=${extraParams.length ? `$${extraParams.length + 2}` : '$2'}`, [id, ...extraParams, lockToken]);
 }
 
 async function deliverViaEmail(db: Database, config: AppConfig, emailSender: EmailSender, row: OutboxRow) {
@@ -179,10 +254,13 @@ async function deliverViaEmail(db: Database, config: AppConfig, emailSender: Ema
   const { template, subject, html, text } = renderNotification(row, partner.rows[0]?.display_name ?? '');
   // Reuses the same EmailSender abstraction as every other transactional email in the app
   // (capture mode in local/test — no network I/O — or the Resend-backed provider once
-  // EMAIL_MODE=resend is actually configured for production, which this task never does). The
-  // outbox row's own idempotency_key is what guarantees a retried outbox row is not resent as a
-  // *new* outbox row; EmailSender.send() itself is a single best-effort delivery attempt.
-  await emailSender.send({ userId: null, to, template, subject, html, text });
+  // EMAIL_MODE=resend is actually configured for production, which this task never does).
+  // idempotencyKey is the outbox row's own idempotency_key, passed through to the provider (see
+  // RuntimeEmailSender) so a genuine double-send (the lock-loss race described above, or a
+  // caller-level retry) is deduplicated by Resend's own idempotency-key support rather than
+  // relying solely on this outbox's own claim/lease. This is "at least once with provider-level
+  // deduplication", not "exactly once" — see LEASE_SECONDS/renewal comments in processOutboxRow.
+  await emailSender.send({ userId: null, to, template, subject, html, text, idempotencyKey: row.idempotency_key });
   void config;
 }
 
@@ -236,7 +314,11 @@ function renderNotification(row: OutboxRow, partnerName: string) {
         text: `Olá, ${partnerName}. Uma proposta indicada por você foi convertida em venda. Veja a comissão no seu painel.`,
       };
     case 'commission_paid': {
-      const amount = formatCents((row.payload as { amountCents?: unknown }).amountCents, (row.payload as { currency?: unknown }).currency);
+      // Validated against the shared contract before rendering: a malformed/incomplete payload
+      // throws here (caught by processOutboxRow, retried like any other failure) instead of
+      // silently rendering "0.00 EUR" to the partner.
+      const payload = parseCommissionPaidPayload(row.payload);
+      const amount = formatCents(payload.amountCents, payload.currency);
       return {
         template: 'partner_commission_paid' as const,
         subject: 'Comissão paga',
@@ -245,16 +327,14 @@ function renderNotification(row: OutboxRow, partnerName: string) {
       };
     }
     case 'weekly_summary': {
-      const payload = row.payload as { clicks?: unknown; proposals?: unknown; conversions?: unknown; commission_cents?: unknown };
-      const clicks = Number(payload.clicks ?? 0);
-      const proposals = Number(payload.proposals ?? 0);
-      const conversions = Number(payload.conversions ?? 0);
-      const commission = formatCents(payload.commission_cents, 'EUR');
+      // Same fail-closed validation as commission_paid above; see shared/notificationPayloads.ts.
+      const payload = parseWeeklySummaryPayload(row.payload);
+      const commission = formatCents(payload.commissionCents, payload.currency);
       return {
         template: 'partner_weekly_summary' as const,
         subject: 'Resumo semanal do seu link',
-        html: `<p>Olá, ${safeName}.</p><p>Resumo da semana: <strong>${clicks}</strong> cliques, <strong>${proposals}</strong> propostas, <strong>${conversions}</strong> conversões e <strong>${escapeHtml(commission)}</strong> em novas comissões.</p>`,
-        text: `Olá, ${partnerName}. Resumo da semana: ${clicks} cliques, ${proposals} propostas, ${conversions} conversões, ${commission} em novas comissões.`,
+        html: `<p>Olá, ${safeName}.</p><p>Resumo da semana: <strong>${payload.clicks}</strong> cliques, <strong>${payload.proposals}</strong> propostas, <strong>${payload.conversions}</strong> conversões e <strong>${escapeHtml(commission)}</strong> em novas comissões.</p>`,
+        text: `Olá, ${partnerName}. Resumo da semana: ${payload.clicks} cliques, ${payload.proposals} propostas, ${payload.conversions} conversões, ${commission} em novas comissões.`,
       };
     }
     default:
