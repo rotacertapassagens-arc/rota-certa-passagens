@@ -27,6 +27,7 @@ const financialErrorMessages = {
   code_or_email_already_used: 'O código ou e-mail informado já está em uso por outro parceiro.',
   invalid_currency: 'Moeda inválida. Escolha EUR, USD, BRL ou GBP.',
   invalid_partner: 'Dados inválidos. Confira os campos obrigatórios.',
+  invalid_partner_program_settings: 'A regra é inválida. Confira percentuais e limites crescentes das faixas.',
   partner_inactive: 'Este parceiro está desativado. Ative-o antes de enviar um novo convite.',
   invalid_transition: 'Esta comissão não está mais no estado esperado para essa ação. Atualize a página e tente novamente.',
 };
@@ -54,6 +55,7 @@ try {
   document.getElementById('plans').innerHTML=plans.plans.map((p)=>`<tr><td>${escapeHtml(p.name)}</td><td>${fmtMoney(p.price_cents,p.currency)}</td><td>${p.duration_days?`${p.duration_days} dias`:'Proposta'}</td><td>${p.checkout_enabled?'Sandbox':'Manual'}</td></tr>`).join('');
   document.getElementById('payments').innerHTML=payments.payments.map((p)=>`<tr><td>${fmtDate(p.created_at)}</td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.plan_code||'-')}</td><td>${fmtMoney(p.amount_cents,p.currency)}</td><td>${escapeHtml(p.status)}</td></tr>`).join('')||'<tr><td colspan="5">Nenhum pagamento registrado.</td></tr>';
   await loadPartners();
+  await loadPartnerProgramSettings();
   await loadPartnerApplications();
   await loadLeads();
 } catch(error) {
@@ -83,7 +85,7 @@ async function loadPartnerApplications(){
 function renderPartnerApplication(application){
   const statusLabel={pending:'Pendente',accepted:'Aceita',rejected:'Recusada'}[application.status]||application.status;
   const actions=application.status==='pending'?`<div class="lead-actions"><button type="button" data-use-application="${application.id}">Usar no cadastro</button><button type="button" data-reject-application="${application.id}">Recusar</button></div>`:'';
-  return `<article class="lead-card"><div class="lead-title"><div><span class="protocol">${escapeHtml(statusLabel)}</span><h3>${escapeHtml(application.displayName)}</h3></div><span class="muted">${fmtDate(application.createdAt)}</span></div><div class="lead-details"><div><small>E-mail</small><strong>${escapeHtml(application.email)}</strong></div><div><small>Instagram</small><strong>${escapeHtml(application.instagram||'-')}</strong></div><div><small>WhatsApp</small><strong>${escapeHtml(application.whatsapp||'-')}</strong></div></div>${actions}</article>`;
+  return `<article class="lead-card"><div class="lead-title"><div><span class="protocol">${escapeHtml(statusLabel)}</span><h3>${escapeHtml(application.displayName)}</h3></div><span class="muted">${fmtDate(application.createdAt)}</span></div><div class="lead-details"><div><small>E-mail</small><strong>${escapeHtml(application.email)}</strong></div><div><small>Instagram</small><strong>${escapeHtml(application.instagram||'-')}</strong></div><div><small>WhatsApp</small><strong>${escapeHtml(application.whatsapp||'-')}</strong><small>Privacidade: ${escapeHtml(application.privacyPolicyVersion||'-')} · ${fmtDate(application.privacyConsentAt)}</small></div></div>${actions}</article>`;
 }
 
 document.getElementById('partnerApplications')?.addEventListener('click',async(event)=>{
@@ -100,7 +102,7 @@ document.getElementById('partnerApplications')?.addEventListener('click',async(e
     document.getElementById('partnerWhatsapp').value=application.whatsapp||'';
     const suggested=(application.instagram||application.displayName).replace(/^@/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,32);
     if(suggested.length>=3)document.getElementById('partnerCode').value=suggested;
-    document.getElementById('partnerFormStatus').textContent='Dados recuperados da solicitação. Confira o código e defina a comissão antes de criar.';
+    document.getElementById('partnerFormStatus').textContent='Dados recuperados da solicitação. Confira o código; a regra global de comissão será aplicada automaticamente.';
     document.getElementById('partnerForm').scrollIntoView({behavior:'smooth',block:'start'});
   }else if(reject){
     try{
@@ -112,8 +114,29 @@ document.getElementById('partnerApplications')?.addEventListener('click',async(e
 });
 
 function commissionLabel(type,fixedCents,percentageBps,currency){
-  return type==='fixed'?fmtMoney(fixedCents,currency):`${((percentageBps||0)/100).toFixed(2)}%`;
+  return 'Regra global';
 }
+
+async function loadPartnerProgramSettings(){
+  const {settings}=await api('/api/admin/partner-program/settings');
+  document.getElementById('programMode').value=settings.mode;
+  document.getElementById('programFlatRate').value=(settings.flatBps/100).toFixed(2);
+  document.getElementById('programTier1Max').value=settings.tier1MaxPassengers;
+  document.getElementById('programTier1Rate').value=(settings.tier1Bps/100).toFixed(2);
+  document.getElementById('programTier2Max').value=settings.tier2MaxPassengers;
+  document.getElementById('programTier2Rate').value=(settings.tier2Bps/100).toFixed(2);
+  document.getElementById('programTier3Max').value=settings.tier3MaxPassengers;
+  document.getElementById('programTier3Rate').value=(settings.tier3Bps/100).toFixed(2);
+  document.getElementById('programTier4Rate').value=(settings.tier4Bps/100).toFixed(2);
+}
+
+document.getElementById('partnerProgramForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();const status=document.getElementById('partnerProgramStatus');
+  const percent=(id)=>Math.round(Number(document.getElementById(id).value||0)*100);
+  const payload={mode:document.getElementById('programMode').value,flatBps:percent('programFlatRate'),tier1MaxPassengers:Number(document.getElementById('programTier1Max').value),tier1Bps:percent('programTier1Rate'),tier2MaxPassengers:Number(document.getElementById('programTier2Max').value),tier2Bps:percent('programTier2Rate'),tier3MaxPassengers:Number(document.getElementById('programTier3Max').value),tier3Bps:percent('programTier3Rate'),tier4Bps:percent('programTier4Rate')};
+  try{await api('/api/admin/partner-program/settings',{method:'PATCH',body:JSON.stringify(payload)});status.textContent='Regra global salva. Ela será usada nas próximas conversões; o histórico não muda.';await loadPartnerProgramSettings();}
+  catch(error){status.textContent=financialErrorMessage(error,'Não foi possível salvar a regra.');}
+});
 
 function renderPartnerRow(p){
   return `<tr>
@@ -157,7 +180,6 @@ document.getElementById('partners')?.addEventListener('click',async(event)=>{
 document.getElementById('partnerForm')?.addEventListener('submit',async(event)=>{
   event.preventDefault();
   const status=document.getElementById('partnerFormStatus');
-  const commissionType=document.getElementById('partnerCommissionType').value;
   const payload={
     ...(selectedPartnerApplicationId?{applicationId:selectedPartnerApplicationId}:{}),
     code:document.getElementById('partnerCode').value,
@@ -166,11 +188,10 @@ document.getElementById('partnerForm')?.addEventListener('submit',async(event)=>
     instagram:document.getElementById('partnerInstagram').value,
     whatsapp:document.getElementById('partnerWhatsapp').value,
     currency:document.getElementById('partnerCurrency').value||'EUR',
-    commissionType,
+    commissionType:'percentage',
+    commissionPercentageBps:200,
     attributionWindowDays:Number(document.getElementById('partnerWindow').value)||30,
   };
-  if(commissionType==='fixed') payload.commissionFixedCents=Math.round(Number(document.getElementById('partnerCommissionFixed').value||0)*100);
-  else payload.commissionPercentageBps=Math.round(Number(document.getElementById('partnerCommissionPercentage').value||0)*100);
   try{
     const created=await api('/api/admin/partners',{method:'POST',body:JSON.stringify(payload)});
     event.target.reset();

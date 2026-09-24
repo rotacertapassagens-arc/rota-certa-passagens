@@ -81,9 +81,9 @@ components:
         instagram: { type: [string, "null"] }
         whatsapp: { type: [string, "null"] }
         email: { type: string, format: email }
-        commissionType: { type: string, enum: [fixed, percentage] }
-        commissionFixedCents: { type: [integer, "null"], description: "Centavos; exigido quando commissionType=fixed." }
-        commissionPercentageBps: { type: [integer, "null"], description: "Pontos base (1% = 100); exigido quando commissionType=percentage." }
+        commissionType: { type: string, enum: [fixed, percentage], description: "Campo legado do cadastro. O cálculo efetivo usa a regra global do programa." }
+        commissionFixedCents: { type: [integer, "null"], description: "Campo legado; preservado para compatibilidade e histórico." }
+        commissionPercentageBps: { type: [integer, "null"], description: "Campo legado; a regra global vigente é a autoridade para novas conversões." }
         currency: { type: string, minLength: 3, maxLength: 3 }
         attributionWindowDays: { type: integer, minimum: 1, maximum: 365, default: 30 }
         active: { type: boolean }
@@ -117,6 +117,21 @@ components:
         partnerId: { type: [string, "null"], format: uuid }
         createdAt: { type: string, format: date-time }
         reviewedAt: { type: [string, "null"], format: date-time }
+        privacyPolicyVersion: { type: string }
+        privacyConsentAt: { type: string, format: date-time }
+    PartnerProgramSettings:
+      type: object
+      required: [mode, flatBps, tier1MaxPassengers, tier1Bps, tier2MaxPassengers, tier2Bps, tier3MaxPassengers, tier3Bps, tier4Bps]
+      properties:
+        mode: { type: string, enum: [flat, progressive] }
+        flatBps: { type: integer, minimum: 0, maximum: 10000 }
+        tier1MaxPassengers: { type: integer, minimum: 1 }
+        tier1Bps: { type: integer, minimum: 0, maximum: 10000 }
+        tier2MaxPassengers: { type: integer, minimum: 2 }
+        tier2Bps: { type: integer, minimum: 0, maximum: 10000 }
+        tier3MaxPassengers: { type: integer, minimum: 3 }
+        tier3Bps: { type: integer, minimum: 0, maximum: 10000 }
+        tier4Bps: { type: integer, minimum: 0, maximum: 10000 }
     PartnerCommission:
       type: object
       required: [id, partnerId, amountCents, currency, status]
@@ -213,19 +228,32 @@ paths:
           application/json:
             schema:
               type: object
-              required: [displayName, email, instagram, whatsapp, privacyConsent]
+              required: [displayName, email, instagram, whatsapp, privacyConsent, privacyPolicyVersion]
               properties:
                 displayName: { type: string, minLength: 2, maxLength: 120 }
                 email: { type: string, format: email, maxLength: 254 }
                 instagram: { type: string, minLength: 2, maxLength: 120 }
                 whatsapp: { type: string, minLength: 8, maxLength: 30 }
                 privacyConsent: { type: boolean, const: true }
+                privacyPolicyVersion: { type: string, const: "2026-09-24" }
                 website: { type: string, description: Campo honeypot; deve permanecer vazio. }
       responses:
         "201": { description: Solicitação registrada }
         "202": { description: Honeypot aceito sem persistência }
         "409": { description: Já existe solicitação pendente para o e-mail }
         "429": { description: Limite excedido }
+  /api/partner-program/settings:
+    get:
+      tags: [Partners]
+      summary: Regra global vigente exibida publicamente aos parceiros
+      responses:
+        "200":
+          description: Regra global de comissão
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { settings: { $ref: "#/components/schemas/PartnerProgramSettings" } }
   /api/auth/signup:
     post:
       tags: [Auth]
@@ -441,7 +469,7 @@ paths:
     post:
       tags: [Partners]
       security: [{ sessionCookie: [], csrfToken: [] }]
-      summary: Cria um parceiro (código único, comissão fixa ou percentual)
+      summary: Cria um parceiro; novas conversões usam a regra global do programa
       requestBody:
         required: true
         content:
@@ -452,6 +480,28 @@ paths:
         "400": { description: Dados inválidos (código malformado ou tipo/valor de comissão inconsistente) }
         "409": { description: code_already_used, email_already_used_by_partner ou partner_application_not_pending }
         "422": { description: invalid_currency — código de moeda fora do allowlist do produto (EUR, USD, BRL, GBP) }
+  /api/admin/partner-program/settings:
+    get:
+      tags: [Partners]
+      security: [{ sessionCookie: [] }]
+      summary: Lê a regra global de comissão no painel master
+      responses:
+        "200": { description: Regra vigente }
+        "403": { description: Papel master necessário }
+    patch:
+      tags: [Partners]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Alterna entre percentual único e faixas progressivas por passageiros e edita todos os valores
+      description: A mudança vale para próximas conversões de todos os parceiros; comissões existentes mantêm a fotografia da regra usada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PartnerProgramSettings" }
+      responses:
+        "200": { description: Regra salva }
+        "400": { description: Percentuais inválidos ou limites de faixas não crescentes }
+        "403": { description: Papel master necessário }
   /api/admin/partner-applications:
     get:
       tags: [Partners]

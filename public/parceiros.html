@@ -56,8 +56,9 @@
 
   <section class="panel">
     <h2>Comissão</h2>
-    <p>O tipo de comissão (valor fixo por venda fechada ou percentual sobre o valor da passagem), a moeda e a janela de atribuição são definidos individualmente no acordo combinado com cada parceiro e ficam registrados no seu cadastro no painel — não existe um valor único e fixo para todos os parceiros, e nenhum valor comercial é prometido nesta página antes de estar configurado no seu cadastro.</p>
-    <p>A comissão só é criada quando uma proposta indicada por você é marcada como convertida (venda fechada) pela nossa equipe. Se a regra combinada for percentual, o valor da comissão depende do valor real da venda informado nesse momento.</p>
+    <p>A mesma regra vale para todos os parceiros, independentemente do número de seguidores. O que conta é a quantidade de passageiros de vendas elegíveis efetivamente fechadas no mês.</p>
+    <div id="partnerProgramRule"><p>Carregando a regra vigente do programa…</p></div>
+    <p>Quando uma venda com vários passageiros atravessa uma faixa, o valor elegível é rateado proporcionalmente entre os passageiros e cada parte recebe o percentual da sua faixa. A comissão fica registrada com a regra vigente no momento da conversão; mudanças futuras não alteram o histórico.</p>
   </section>
 
   <section class="panel">
@@ -92,7 +93,7 @@
       <label>Instagram<input id="applicationInstagram" required maxlength="120" placeholder="@seuinstagram" autocomplete="off"></label>
       <label>WhatsApp<input id="applicationWhatsapp" type="tel" required maxlength="30" placeholder="+351 900 000 000" autocomplete="tel"></label>
       <label class="hidden" aria-hidden="true">Site<input id="applicationWebsite" tabindex="-1" autocomplete="off"></label>
-      <label class="consent"><input id="applicationConsent" type="checkbox" required> <span>Autorizo a Rota Certa Passagens a usar estes dados exclusivamente para analisar e responder à minha solicitação de parceria.</span></label>
+      <label class="consent"><input id="applicationConsent" type="checkbox" required> <span>Li a <a href="/politica-privacidade-parceiros.html" target="_blank" rel="noopener">Política de Privacidade do Parceiro</a> e autorizo o uso destes dados para analisar e responder à solicitação de parceria.</span></label>
       <button type="submit">Enviar solicitação</button>
       <p class="status" id="partnerApplicationStatus" aria-live="polite"></p>
     </form>

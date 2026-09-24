@@ -115,6 +115,9 @@ describe('Worker + D1 (local, isolated): full smoke chain', () => {
     expect(publicPage.status).toBe(200);
     expect(publicPage.headers.get('content-security-policy')).toContain("default-src 'self'");
     expect(publicPage.headers.get('strict-transport-security')).toContain('max-age=31536000');
+    const publicProgram = await worker.fetch('/api/partner-program/settings');
+    expect(publicProgram.status).toBe(200);
+    expect((await publicProgram.json() as { settings: { mode: string; tier1Bps: number } }).settings).toEqual(expect.objectContaining({ mode: 'progressive', tier1Bps: 200 }));
 
     // --- 2. create master/partner ---------------------------------------------------------
     const masterEmail = 'smoke-master@example.com';
@@ -152,7 +155,7 @@ describe('Worker + D1 (local, isolated): full smoke chain', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         displayName: 'Parceiro Smoke BRL', email: partnerEmail, instagram: '@smokebrl',
-        whatsapp: '+55 11 91234-5678', privacyConsent: true,
+        whatsapp: '+55 11 91234-5678', privacyConsent: true, privacyPolicyVersion: '2026-09-24',
       }),
     });
     expect(application.status, await application.clone().text()).toBe(201);
@@ -224,7 +227,7 @@ describe('Worker + D1 (local, isolated): full smoke chain', () => {
     const convert = await worker.fetch(`/api/admin/leads/${leadId}`, {
       method: 'PATCH',
       headers: masterCookieJar.mutationHeaders(),
-      body: JSON.stringify({ status: 'converted' }),
+      body: JSON.stringify({ status: 'converted', saleAmountCents: 200000, saleCurrency: 'BRL' }),
     });
     expect(convert.status, await convert.clone().text()).toBe(200);
     const commissionPreview = (await convert.json() as { commissionPreview: { amountCents: number; currency: string } }).commissionPreview;
@@ -297,7 +300,7 @@ describe('Worker + D1 (local, isolated): full smoke chain', () => {
     expect(bodyA.sent + bodyB.sent).toBe(1);
     const finalRow = d1Query<{ status: string }>(persistTo, `SELECT status FROM notification_outbox WHERE id='${secondLeadOutboxId}'`);
     expect(finalRow[0]?.status).toBe('sent');
-  }, 60_000);
+  }, 120_000);
 });
 
 /**

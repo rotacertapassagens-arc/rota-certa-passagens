@@ -17,6 +17,7 @@ import {
   tokenDigest,
   verifyReferralToken,
 } from '../security.js';
+import { lisbonMonthStartUtc, nextProgressiveTier, PARTNER_PRIVACY_POLICY_VERSION, type PartnerCommissionPolicy } from '../../shared/partnerCommission.js';
 
 const CURRENCY_ENUM = z.enum(ALLOWED_CURRENCIES);
 
@@ -75,6 +76,7 @@ const partnerApplicationSchema = z.object({
   instagram: z.string().trim().min(2).max(120),
   whatsapp: z.string().trim().min(8).max(30).regex(/^\+?[0-9 ()-]+$/),
   privacyConsent: z.literal(true),
+  privacyPolicyVersion: z.literal(PARTNER_PRIVACY_POLICY_VERSION),
   website: z.string().max(200).optional().default(''),
 });
 
@@ -97,9 +99,53 @@ const partnerUpdateSchema = z.object({
   }
 });
 
+const partnerProgramSettingsSchema = z.object({
+  mode: z.enum(['flat', 'progressive']),
+  flatBps: z.number().int().min(0).max(10_000),
+  tier1MaxPassengers: z.number().int().min(1).max(100_000),
+  tier1Bps: z.number().int().min(0).max(10_000),
+  tier2MaxPassengers: z.number().int().min(2).max(100_000),
+  tier2Bps: z.number().int().min(0).max(10_000),
+  tier3MaxPassengers: z.number().int().min(3).max(100_000),
+  tier3Bps: z.number().int().min(0).max(10_000),
+  tier4Bps: z.number().int().min(0).max(10_000),
+}).superRefine((data, ctx) => {
+  if (!(data.tier1MaxPassengers < data.tier2MaxPassengers && data.tier2MaxPassengers < data.tier3MaxPassengers)) {
+    ctx.addIssue({ code: 'custom', path: ['tier2MaxPassengers'], message: 'tier_limits_must_increase' });
+  }
+});
+
 const acceptInviteSchema = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/), password: z.string().min(12).max(128).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/) });
 
 export function registerPartnerRoutes(app: FastifyInstance, db: Database, config: AppConfig, emailSender: EmailSender) {
+  app.get('/api/partner-program/settings', async (_request, reply) => {
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send({ settings: await getPartnerProgramPolicy(db) });
+  });
+
+  app.get('/api/admin/partner-program/settings', async (request, reply) => {
+    const auth = await requireMaster(db, config, request, reply);
+    if (!auth) return;
+    return reply.send({ settings: await getPartnerProgramPolicy(db) });
+  });
+
+  app.patch('/api/admin/partner-program/settings', async (request, reply) => {
+    const auth = await requireMutationMaster(db, config, request, reply);
+    if (!auth) return;
+    const parsed = partnerProgramSettingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_partner_program_settings' });
+    const p = parsed.data;
+    await db.query(
+      `UPDATE partner_program_settings SET mode=$1,flat_bps=$2,tier1_max_passengers=$3,tier1_bps=$4,
+        tier2_max_passengers=$5,tier2_bps=$6,tier3_max_passengers=$7,tier3_bps=$8,tier4_bps=$9,
+        updated_by=$10,updated_at=now() WHERE id=1`,
+      [p.mode, p.flatBps, p.tier1MaxPassengers, p.tier1Bps, p.tier2MaxPassengers, p.tier2Bps,
+       p.tier3MaxPassengers, p.tier3Bps, p.tier4Bps, auth.userId],
+    );
+    await audit(db, config, request, 'admin.partner_program_settings_updated', auth.userId, 'partner_program_settings', null, p);
+    return reply.send({ settings: p });
+  });
+
   // --- Public partner applications --------------------------------------------------------
 
   app.post('/api/partner-applications', async (request, reply) => {
@@ -115,9 +161,10 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     const id = randomUUID();
     try {
       await db.query(
-        `INSERT INTO partner_applications (id,display_name,email,instagram,whatsapp,privacy_consent)
-         VALUES ($1,$2,$3,$4,$5,true)`,
-        [id, parsed.data.displayName, email, parsed.data.instagram, parsed.data.whatsapp],
+        `INSERT INTO partner_applications
+          (id,display_name,email,instagram,whatsapp,privacy_consent,privacy_policy_version,privacy_consent_at)
+         VALUES ($1,$2,$3,$4,$5,true,$6,now())`,
+        [id, parsed.data.displayName, email, parsed.data.instagram, parsed.data.whatsapp, parsed.data.privacyPolicyVersion],
       );
     } catch (error) {
       // The partial unique index is the final authority if two identical submissions race.
@@ -132,7 +179,8 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     const auth = await requireMaster(db, config, request, reply);
     if (!auth) return;
     const rows = await db.query(
-      `SELECT id,display_name,email,instagram,whatsapp,status,partner_id,created_at,reviewed_at
+      `SELECT id,display_name,email,instagram,whatsapp,status,partner_id,created_at,reviewed_at,
+              privacy_policy_version,privacy_consent_at
          FROM partner_applications ORDER BY CASE WHEN status='pending' THEN 0 ELSE 1 END,created_at DESC LIMIT 200`,
     );
     return reply.send({ applications: rows.rows.map(serializePartnerApplication) });
@@ -504,10 +552,26 @@ export function registerPartnerRoutes(app: FastifyInstance, db: Database, config
     );
     const totals = { pending: 0, approved: 0, paid: 0, void: 0 };
     for (const row of commissions.rows) totals[row.status as keyof typeof totals] = row.total;
+    const monthStart = lisbonMonthStartUtc(new Date());
+    const monthPassengersResult = await db.query<{ count: number }>(
+      `SELECT COALESCE(sum(l.adults+l.children+l.infants),0)::int AS count
+         FROM partner_commissions pc JOIN lead_requests l ON l.id=pc.lead_request_id
+        WHERE pc.partner_id=$1 AND pc.status<>'void' AND pc.created_at>=$2`,
+      [partner.id, monthStart.toISOString()],
+    );
+    const currentMonthPassengers = monthPassengersResult.rows[0]?.count ?? 0;
+    const policy = await getPartnerProgramPolicy(db);
+    const tier = nextProgressiveTier(currentMonthPassengers, policy);
     return reply.send({
       partner: { code: partner.code, displayName: partner.display_name, active: partner.active, commissionType: partner.commission_type, commissionFixedCents: partner.commission_fixed_cents, commissionPercentageBps: partner.commission_percentage_bps, currency: partner.currency, attributionWindowDays: partner.attribution_window_days, link: `${config.APP_ORIGIN.replace(/\/$/, '')}/i/${partner.code}` },
       stats: stats.rows[0],
       commissionTotalsCents: totals,
+      programCommission: {
+        mode: policy.mode,
+        currentMonthPassengers,
+        currentRateBps: policy.mode === 'flat' ? policy.flatBps : rateForPosition(currentMonthPassengers + 1, policy),
+        ...tier,
+      },
     });
   });
 
@@ -694,7 +758,33 @@ function serializePartnerApplication(row: Record<string, unknown>) {
     partnerId: row.partner_id,
     createdAt: row.created_at,
     reviewedAt: row.reviewed_at,
+    privacyPolicyVersion: row.privacy_policy_version,
+    privacyConsentAt: row.privacy_consent_at,
   };
+}
+
+export async function getPartnerProgramPolicy(db: Database): Promise<PartnerCommissionPolicy> {
+  const result = await db.query<Record<string, unknown>>('SELECT * FROM partner_program_settings WHERE id=1');
+  const row = result.rows[0];
+  if (!row) throw new Error('partner_program_settings_missing');
+  return {
+    mode: row.mode as 'flat' | 'progressive',
+    flatBps: Number(row.flat_bps),
+    tier1MaxPassengers: Number(row.tier1_max_passengers),
+    tier1Bps: Number(row.tier1_bps),
+    tier2MaxPassengers: Number(row.tier2_max_passengers),
+    tier2Bps: Number(row.tier2_bps),
+    tier3MaxPassengers: Number(row.tier3_max_passengers),
+    tier3Bps: Number(row.tier3_bps),
+    tier4Bps: Number(row.tier4_bps),
+  };
+}
+
+function rateForPosition(position: number, policy: PartnerCommissionPolicy): number {
+  if (position <= policy.tier1MaxPassengers) return policy.tier1Bps;
+  if (position <= policy.tier2MaxPassengers) return policy.tier2Bps;
+  if (position <= policy.tier3MaxPassengers) return policy.tier3Bps;
+  return policy.tier4Bps;
 }
 
 function maskProtocol(protocol: string) {

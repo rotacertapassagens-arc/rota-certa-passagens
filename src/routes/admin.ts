@@ -6,6 +6,8 @@ import type { Database } from '../db.js';
 import type { EmailSender } from '../email.js';
 import { audit, enforceRateLimit, requireAuth, requireMutationAuth } from '../auth.js';
 import { hashPassword, isUniqueViolation, isValidCurrency, normalizeEmail, randomEmailCode, safeEqualText, tokenDigest } from '../security.js';
+import { calculateProgramCommission, lisbonMonthStartUtc } from '../../shared/partnerCommission.js';
+import { getPartnerProgramPolicy } from './partners.js';
 
 /**
  * Thrown from inside a db.transaction() callback to abort with ROLLBACK while still producing
@@ -313,32 +315,37 @@ async function createCommissionForLead(
     return { amountCents: activeRow.amount_cents, currency: activeRow.currency };
   }
 
-  const partner = await db.query<{ commission_type: 'fixed' | 'percentage'; commission_fixed_cents: number | null; commission_percentage_bps: number | null; currency: string }>(
-    'SELECT commission_type,commission_fixed_cents,commission_percentage_bps,currency FROM partners WHERE id=$1',
+  const partner = await db.query<{ currency: string }>(
+    'SELECT currency FROM partners WHERE id=$1',
     [partnerId],
   );
   const rule = partner.rows[0];
   if (!rule) return null;
 
-  let amountCents: number;
-  let currency: string;
-  let rateSnapshot: number;
-  let effectiveSaleAmountCents: number | null = null;
-  if (rule.commission_type === 'percentage') {
-    const effectiveAmount = saleAmountCents ?? currentSaleAmountCents ?? undefined;
-    const effectiveCurrency = (saleCurrency ?? currentSaleCurrency ?? undefined)?.toUpperCase();
-    if (effectiveAmount === undefined || !effectiveCurrency) throw new RequestError(422, 'sale_amount_required');
-    if (!isValidCurrency(effectiveCurrency)) throw new RequestError(422, 'invalid_currency');
-    if (effectiveCurrency !== rule.currency) throw new RequestError(409, 'sale_currency_must_match_partner_currency');
-    amountCents = Math.round((effectiveAmount * (rule.commission_percentage_bps ?? 0)) / 10_000);
-    currency = effectiveCurrency;
-    rateSnapshot = rule.commission_percentage_bps ?? 0;
-    effectiveSaleAmountCents = effectiveAmount;
-  } else {
-    amountCents = rule.commission_fixed_cents ?? 0;
-    currency = rule.currency;
-    rateSnapshot = rule.commission_fixed_cents ?? 0;
-  }
+  const effectiveAmount = saleAmountCents ?? currentSaleAmountCents ?? undefined;
+  const effectiveCurrency = (saleCurrency ?? currentSaleCurrency ?? undefined)?.toUpperCase();
+  if (effectiveAmount === undefined || !effectiveCurrency) throw new RequestError(422, 'sale_amount_required');
+  if (!isValidCurrency(effectiveCurrency)) throw new RequestError(422, 'invalid_currency');
+  if (effectiveCurrency !== rule.currency) throw new RequestError(409, 'sale_currency_must_match_partner_currency');
+  const leadPassengers = await db.query<{ count: number }>(
+    'SELECT (adults+children+infants)::int AS count FROM lead_requests WHERE id=$1', [leadId],
+  );
+  const passengerCount = leadPassengers.rows[0]?.count ?? 0;
+  if (passengerCount < 1) throw new RequestError(422, 'invalid_passenger_count');
+  const monthStart = lisbonMonthStartUtc(new Date()).toISOString();
+  const monthPassengers = await db.query<{ count: number }>(
+    `SELECT COALESCE(sum(l.adults+l.children+l.infants),0)::int AS count
+       FROM partner_commissions pc JOIN lead_requests l ON l.id=pc.lead_request_id
+      WHERE pc.partner_id=$1 AND pc.status<>'void' AND pc.created_at>=$2`,
+    [partnerId, monthStart],
+  );
+  const alreadyClosedPassengers = monthPassengers.rows[0]?.count ?? 0;
+  const policy = await getPartnerProgramPolicy(db);
+  const calculated = calculateProgramCommission(effectiveAmount, passengerCount, alreadyClosedPassengers, policy);
+  const amountCents = calculated.amountCents;
+  const currency = effectiveCurrency;
+  const rateSnapshot = calculated.effectiveRateBps;
+  const effectiveSaleAmountCents = effectiveAmount;
 
   const id = randomUUID();
   // No ON CONFLICT clause: the arbiter here is a *partial* unique index
@@ -351,10 +358,11 @@ async function createCommissionForLead(
   try {
     const inserted = await db.query<{ amount_cents: number; currency: string }>(
       `INSERT INTO partner_commissions
-        (id,partner_id,lead_request_id,amount_cents,currency,status,commission_type_snapshot,commission_rate_snapshot,sale_amount_cents_snapshot,created_by)
-       VALUES ($1,$2,$3,$4,$5,'pending',$6,$7,$8,$9)
+        (id,partner_id,lead_request_id,amount_cents,currency,status,commission_type_snapshot,commission_rate_snapshot,sale_amount_cents_snapshot,created_by,commission_policy_snapshot,passenger_count_snapshot,month_passenger_start_snapshot)
+       VALUES ($1,$2,$3,$4,$5,'pending','percentage',$6,$7,$8,$9::jsonb,$10,$11)
        RETURNING amount_cents,currency`,
-      [id, partnerId, leadId, amountCents, currency, rule.commission_type, rateSnapshot, effectiveSaleAmountCents, actorUserId],
+      [id, partnerId, leadId, amountCents, currency, rateSnapshot, effectiveSaleAmountCents, actorUserId,
+       JSON.stringify(policy), passengerCount, calculated.startPosition],
     );
     insertedRow = inserted.rows[0];
   } catch (error) {

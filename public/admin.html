@@ -11,6 +11,25 @@
   <div id="adminContent" class="hidden">
     <section class="grid" id="metrics"></section>
     <section class="panel">
+      <h2>Regra global de comissão</h2>
+      <p class="muted">Aplica-se igualmente a todos os parceiros. Seguidores não entram no cálculo; somente passageiros de vendas elegíveis fechadas no mês.</p>
+      <form id="partnerProgramForm">
+        <label>Modo<select id="programMode"><option value="progressive">Faixas progressivas por passageiros</option><option value="flat">Percentual único</option></select></label>
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Percentual único (%)<input id="programFlatRate" type="number" min="0" max="100" step="0.01"></label>
+          <label>Fim da faixa 1<input id="programTier1Max" type="number" min="1" step="1"></label>
+          <label>Faixa 1 (%)<input id="programTier1Rate" type="number" min="0" max="100" step="0.01"></label>
+          <label>Fim da faixa 2<input id="programTier2Max" type="number" min="2" step="1"></label>
+          <label>Faixa 2 (%)<input id="programTier2Rate" type="number" min="0" max="100" step="0.01"></label>
+          <label>Fim da faixa 3<input id="programTier3Max" type="number" min="3" step="1"></label>
+          <label>Faixa 3 (%)<input id="programTier3Rate" type="number" min="0" max="100" step="0.01"></label>
+          <label>Faixa final (%)<input id="programTier4Rate" type="number" min="0" max="100" step="0.01"></label>
+        </div>
+        <button type="submit">Salvar regra para todos</button>
+        <p class="status" id="partnerProgramStatus" aria-live="polite"></p>
+      </form>
+    </section>
+    <section class="panel">
       <div class="section-head">
         <div><h2>Central de Propostas</h2><p class="muted">Pedidos de passagens recebidos pelo site. Somente usuários master podem acessar.</p></div>
         <label>Filtrar por status<select id="leadFilter"><option value="">Todas</option><option value="new">Novas</option><option value="reviewing">Em análise</option><option value="awaiting_customer">Aguardando cliente</option><option value="ready">Proposta pronta</option><option value="sent">Enviadas</option><option value="converted">Convertidas</option><option value="lost">Não convertidas</option><option value="canceled">Canceladas</option><option value="closed">Encerradas</option></select></label>
@@ -19,7 +38,7 @@
       <div id="leads" class="lead-list"><p class="muted">Carregando propostas...</p></div>
     </section>
     <section class="panel">
-      <div class="section-head"><div><h2>Solicitações de parceria</h2><p class="muted">Candidaturas recebidas pela página pública. Revise os dados antes de criar o parceiro e definir a comissão.</p></div></div>
+      <div class="section-head"><div><h2>Solicitações de parceria</h2><p class="muted">Candidaturas recebidas pela página pública. Revise os dados antes de criar o parceiro; a regra global será aplicada automaticamente.</p></div></div>
       <div id="partnerApplications" class="lead-list"><p class="muted">Carregando solicitações...</p></div>
       <p class="status" id="partnerApplicationsStatus" aria-live="polite"></p>
     </section>
@@ -42,9 +61,6 @@
           <label>Moeda<input id="partnerCurrency" value="EUR" maxlength="3"></label>
         </div>
         <div class="section-head" style="flex-wrap:wrap">
-          <label>Tipo de comissão<select id="partnerCommissionType"><option value="fixed">Valor fixo</option><option value="percentage">Percentual</option></select></label>
-          <label>Valor fixo (em unidades, ex: 50.00)<input id="partnerCommissionFixed" type="number" min="0" step="0.01"></label>
-          <label>Percentual (%, ex: 8)<input id="partnerCommissionPercentage" type="number" min="0" max="100" step="0.01"></label>
           <label>Janela de atribuição (dias)<input id="partnerWindow" type="number" min="1" max="365" value="30"></label>
         </div>
         <button type="submit">Criar parceiro e enviar convite</button>
