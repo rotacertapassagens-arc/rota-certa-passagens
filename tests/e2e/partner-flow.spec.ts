@@ -102,8 +102,6 @@ test.describe.serial('partner referral program — real browser smoke chain', ()
     await expect(page.locator('#partnerDisplayName')).toHaveValue(PARTNER_DISPLAY_NAME);
     await expect(page.locator('#partnerEmail')).toHaveValue(PARTNER_EMAIL);
     await page.locator('#partnerCurrency').fill('EUR');
-    await page.locator('#partnerCommissionType').selectOption('fixed');
-    await page.locator('#partnerCommissionFixed').fill('50');
     await page.locator('#partnerForm button[type=submit]').click();
     await expect(page.locator('#partnerFormStatus')).toContainText(/criado e convite enviado/i, { timeout: 10_000 });
     await expect(page.locator(`#partners:has-text("${PARTNER_CODE}")`)).toBeVisible();
@@ -211,8 +209,6 @@ test.describe.serial('partner referral program — real browser smoke chain', ()
     await page.locator('#partnerDisplayName').fill('Outro Parceiro');
     await page.locator('#partnerEmail').fill('e2e-outro-parceiro@example.com');
     await page.locator('#partnerCurrency').fill('EUR');
-    await page.locator('#partnerCommissionType').selectOption('fixed');
-    await page.locator('#partnerCommissionFixed').fill('30');
     await page.locator('#partnerForm button[type=submit]').click();
     await expect(page.locator('#partnerFormStatus')).toContainText('Já existe um parceiro com esse código.', { timeout: 10_000 });
   });

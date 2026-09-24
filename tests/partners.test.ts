@@ -58,6 +58,7 @@ describe('Partner referral program', () => {
         instagram: '@criadorateste',
         whatsapp: '+351 912 345 678',
         privacyConsent: true,
+        privacyPolicyVersion: '2026-09-24',
       },
     });
     expect(application.statusCode, application.body).toBe(201);
@@ -71,6 +72,7 @@ describe('Partner referral program', () => {
         instagram: '@criadorateste',
         whatsapp: '+351 912 345 678',
         privacyConsent: true,
+        privacyPolicyVersion: '2026-09-24',
       },
     });
     expect(duplicate.statusCode).toBe(409);
@@ -82,7 +84,7 @@ describe('Partner referral program', () => {
     const list = await app.inject({ method: 'GET', url: '/api/admin/partner-applications', headers: { cookie: master.cookie } });
     expect(list.statusCode, list.body).toBe(200);
     const stored = list.json().applications[0];
-    expect(stored).toEqual(expect.objectContaining({ displayName: 'Criadora Teste', email: 'criadora@example.com', status: 'pending' }));
+    expect(stored).toEqual(expect.objectContaining({ displayName: 'Criadora Teste', email: 'criadora@example.com', status: 'pending', privacyPolicyVersion: '2026-09-24' }));
 
     const created = await app.inject({
       method: 'POST',
@@ -122,6 +124,25 @@ describe('Partner referral program', () => {
 
     const percentage = await app.inject({ method: 'POST', url: '/api/admin/partners', headers: mutationHeaders(master), payload: { code: 'joao', displayName: 'João', email: 'joao@example.com', commissionType: 'percentage', commissionPercentageBps: 800 } });
     expect(percentage.statusCode, percentage.body).toBe(201);
+  });
+
+  it('lets only a master change the global flat/progressive policy used by every partner', async () => {
+    const publicSettings = await app.inject({ method: 'GET', url: '/api/partner-program/settings' });
+    expect(publicSettings.statusCode).toBe(200);
+    expect(publicSettings.json().settings).toEqual(expect.objectContaining({ mode: 'progressive', tier1Bps: 200, tier2Bps: 300 }));
+    const forbidden = await app.inject({ method: 'PATCH', url: '/api/admin/partner-program/settings', payload: {} });
+    expect(forbidden.statusCode).toBe(401);
+    const master = await createMaster(app, email, 'master-program-settings@example.com');
+    const settings = { mode: 'flat', flatBps: 250, tier1MaxPassengers: 20, tier1Bps: 200, tier2MaxPassengers: 50, tier2Bps: 300, tier3MaxPassengers: 100, tier3Bps: 350, tier4Bps: 400 };
+    const updated = await app.inject({ method: 'PATCH', url: '/api/admin/partner-program/settings', headers: mutationHeaders(master), payload: settings });
+    expect(updated.statusCode, updated.body).toBe(200);
+    await createPartner(app, master, { code: 'global-flat', commissionType: 'fixed', commissionFixedCents: 9999 });
+    const leadId = await submitAndGetLeadId(app, db, 'global-flat', 'global-flat-buyer@example.com');
+    const converted = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
+    expect(converted.statusCode, converted.body).toBe(200);
+    expect(converted.json().commissionPreview).toEqual({ amountCents: 2500, currency: 'EUR' });
+    const snapshot = await db.query<{ commission_rate_snapshot: number; passenger_count_snapshot: number }>('SELECT commission_rate_snapshot,passenger_count_snapshot FROM partner_commissions WHERE lead_request_id=$1', [leadId]);
+    expect(snapshot.rows[0]).toEqual({ commission_rate_snapshot: 250, passenger_count_snapshot: 2 });
   });
 
   it('redirects valid active codes with a click and cookie, and inactive/invalid codes without one', async () => {
@@ -184,15 +205,15 @@ describe('Partner referral program', () => {
     expect(tamperedStored.rows[0]?.referral_source).toBe('none');
   });
 
-  it('computes fixed and percentage commissions, requires a sale amount for percentage, and never creates duplicates', async () => {
+  it('applies the same global commission policy to every partner and never creates duplicates', async () => {
     const master = await createMaster(app, email, 'master5@example.com');
     const fixedPartner = await createPartner(app, master, { code: 'fixedpartner', commissionType: 'fixed', commissionFixedCents: 5000 });
     const pctPartner = await createPartner(app, master, { code: 'pctpartner', commissionType: 'percentage', commissionPercentageBps: 800 });
 
     const fixedLeadId = await submitAndGetLeadId(app, db, 'fixedpartner', 'fixedbuyer@example.com');
-    const converted = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${fixedLeadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    const converted = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${fixedLeadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
     expect(converted.statusCode, converted.body).toBe(200);
-    expect(converted.json().commissionPreview).toEqual({ amountCents: 5000, currency: 'EUR' });
+    expect(converted.json().commissionPreview).toEqual({ amountCents: 2000, currency: 'EUR' });
 
     const repeat = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${fixedLeadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
     expect(repeat.statusCode, repeat.body).toBe(200);
@@ -204,7 +225,7 @@ describe('Partner referral program', () => {
     expect(missingSale.statusCode).toBe(422);
     const withSale = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${pctLeadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
     expect(withSale.statusCode, withSale.body).toBe(200);
-    expect(withSale.json().commissionPreview).toEqual({ amountCents: 8000, currency: 'EUR' });
+    expect(withSale.json().commissionPreview).toEqual({ amountCents: 2000, currency: 'EUR' });
     void pctPartner; void fixedPartner;
   });
 
@@ -212,7 +233,7 @@ describe('Partner referral program', () => {
     const master = await createMaster(app, email, 'master6@example.com');
     await createPartner(app, master, { code: 'voidtest', commissionType: 'fixed', commissionFixedCents: 4000 });
     const leadId = await submitAndGetLeadId(app, db, 'voidtest', 'voidbuyer@example.com');
-    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
 
     const blocked = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'lost' } });
     expect(blocked.statusCode).toBe(409);
@@ -228,7 +249,7 @@ describe('Partner referral program', () => {
     const master = await createMaster(app, email, 'master7@example.com');
     await createPartner(app, master, { code: 'lifecycle', commissionType: 'fixed', commissionFixedCents: 6000 });
     const leadId = await submitAndGetLeadId(app, db, 'lifecycle', 'lifecyclebuyer@example.com');
-    const convertRes = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    const convertRes = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
     expect(convertRes.statusCode, convertRes.body).toBe(200);
     const commissionId = (await db.query<{ id: string }>('SELECT id FROM partner_commissions WHERE lead_request_id=$1', [leadId])).rows[0]!.id;
 
@@ -266,7 +287,7 @@ describe('Partner referral program', () => {
     const master = await createMaster(app, email, 'master-void@example.com');
     await createPartner(app, master, { code: 'voidnormal', commissionType: 'fixed', commissionFixedCents: 2000 });
     const leadId = await submitAndGetLeadId(app, db, 'voidnormal', 'voidnormalbuyer@example.com');
-    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
     const commissionId = (await db.query<{ id: string }>('SELECT id FROM partner_commissions WHERE lead_request_id=$1', [leadId])).rows[0]!.id;
 
     const missing = await app.inject({ method: 'POST', url: '/api/admin/commissions/00000000-0000-4000-8000-000000000000/void', headers: mutationHeaders(master), payload: { reason: 'não existe' } });
@@ -373,21 +394,21 @@ describe('Partner referral program', () => {
     // 5. master converte com valor
     const convert = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadRow.rows[0]!.id}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 200000, saleCurrency: 'EUR' } });
     expect(convert.statusCode, convert.body).toBe(200);
-    expect(convert.json().commissionPreview).toEqual({ amountCents: 20000, currency: 'EUR' });
+    expect(convert.json().commissionPreview).toEqual({ amountCents: 4000, currency: 'EUR' });
 
     // 6. comissão aparece (para o master, no extrato do parceiro)
     const partnerDetail = await app.inject({ method: 'GET', url: `/api/admin/partners/${partnerId}`, headers: { cookie: master.cookie } });
-    expect(partnerDetail.json().commissions).toEqual(expect.arrayContaining([expect.objectContaining({ amount_cents: 20000, currency: 'EUR', status: 'pending' })]));
+    expect(partnerDetail.json().commissions).toEqual(expect.arrayContaining([expect.objectContaining({ amount_cents: 4000, currency: 'EUR', status: 'pending' })]));
 
     // 7. parceiro vê apenas os próprios totais (sem PII do comprador)
     const summary = await app.inject({ method: 'GET', url: '/api/partner/summary', headers: { cookie: partnerAuth.cookie } });
     expect(summary.json()).toEqual(expect.objectContaining({
       stats: { clicks: 1, proposals: 1, conversions: 1 },
-      commissionTotalsCents: { pending: 20000, approved: 0, paid: 0, void: 0 },
+      commissionTotalsCents: { pending: 4000, approved: 0, paid: 0, void: 0 },
     }));
     const ledger = await app.inject({ method: 'GET', url: '/api/partner/ledger', headers: { cookie: partnerAuth.cookie } });
     expect(ledger.json().entries).toHaveLength(1);
-    expect(ledger.json().entries[0]).toEqual(expect.objectContaining({ status: 'converted', commission: { amountCents: 20000, currency: 'EUR', status: 'pending' } }));
+    expect(ledger.json().entries[0]).toEqual(expect.objectContaining({ status: 'converted', commission: { amountCents: 4000, currency: 'EUR', status: 'pending' } }));
     expect(JSON.stringify(ledger.json())).not.toContain('smoke-buyer@example.com');
 
     // A second, unrelated partner never sees any of this.
@@ -508,7 +529,7 @@ describe('Partner referral program', () => {
     await createPartner(app, master, { code: 'reconvert', commissionType: 'fixed', commissionFixedCents: 4000 });
     const leadId = await submitAndGetLeadId(app, db, 'reconvert', 'reconvertbuyer@example.com');
 
-    const firstConvert = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    const firstConvert = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
     expect(firstConvert.statusCode, firstConvert.body).toBe(200);
     const firstCommissionId = (await db.query<{ id: string }>("SELECT id FROM partner_commissions WHERE lead_request_id=$1 AND status<>'void'", [leadId])).rows[0]!.id;
 
@@ -570,7 +591,7 @@ describe('Partner referral program', () => {
     const master = await createMaster(app, email, 'master-currency-lock@example.com');
     const partnerId = await createPartner(app, master, { code: 'currencylock', commissionType: 'fixed', commissionFixedCents: 3000, currency: 'EUR' });
     const leadId = await submitAndGetLeadId(app, db, 'currencylock', 'currencylockbuyer@example.com');
-    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${leadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
 
     const changeCurrency = await app.inject({ method: 'PATCH', url: `/api/admin/partners/${partnerId}`, headers: mutationHeaders(master), payload: { currency: 'USD' } });
     expect(changeCurrency.statusCode).toBe(409);

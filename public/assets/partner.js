@@ -33,6 +33,13 @@ try {
 
   const totals=summary.commissionTotalsCents;
   const currency=summary.partner.currency;
+  const program=summary.programCommission;
+  const rate=(bps)=>`${(Number(bps||0)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})}%`;
+  document.getElementById('programProgress').textContent=program.mode==='flat'
+    ?`Regra vigente: ${rate(program.currentRateBps)} para todos. Passageiros fechados neste mês: ${program.currentMonthPassengers}.`
+    :program.nextTierAt
+      ?`Passageiros fechados neste mês: ${program.currentMonthPassengers}. Faixa atual: ${rate(program.currentRateBps)}. Faltam ${program.passengersToNextTier} passageiro(s) para a faixa de ${rate(program.nextRateBps)}.`
+      :`Passageiros fechados neste mês: ${program.currentMonthPassengers}. Faixa máxima atingida: ${rate(program.currentRateBps)}.`;
   document.getElementById('commissionMetrics').innerHTML=`
     <div class="metric"><small>Pendente</small><strong>${fmtMoney(totals.pending,currency)}</strong></div>
     <div class="metric"><small>Aprovada</small><strong>${fmtMoney(totals.approved,currency)}</strong></div>

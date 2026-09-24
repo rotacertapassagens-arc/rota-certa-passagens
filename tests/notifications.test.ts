@@ -62,8 +62,8 @@ describe('Notification outbox: payload contract and lease semantics', () => {
 
     const eurLeadId = await submitAndGetLeadId(app, db, 'weekly-eur', 'weekly-eur-buyer@example.com');
     const brlLeadId = await submitAndGetLeadId(app, db, 'weekly-brl', 'weekly-brl-buyer@example.com');
-    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${eurLeadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
-    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${brlLeadId}`, headers: mutationHeaders(master), payload: { status: 'converted' } });
+    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${eurLeadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
+    await app.inject({ method: 'PATCH', url: `/api/admin/leads/${brlLeadId}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'BRL' } });
 
     const weekly = await app.inject({ method: 'POST', url: '/api/admin/notifications/weekly-summary', headers: mutationHeaders(master) });
     expect(weekly.statusCode, weekly.body).toBe(200);
@@ -85,10 +85,10 @@ describe('Notification outbox: payload contract and lease semantics', () => {
 
     const eurMessage = email.messages.find((m) => m.template === 'partner_weekly_summary' && m.to === 'weekly-eur@example.com');
     const brlMessage = email.messages.find((m) => m.template === 'partner_weekly_summary' && m.to === 'weekly-brl@example.com');
-    expect(eurMessage?.html).toContain('30.00 EUR');
+    expect(eurMessage?.html).toContain('20.00 EUR');
     expect(eurMessage?.html).not.toContain('BRL');
-    expect(brlMessage?.html).toContain('40.00 BRL');
-    expect(brlMessage?.html).not.toContain('30.00 EUR');
+    expect(brlMessage?.html).toContain('20.00 BRL');
+    expect(brlMessage?.html).not.toContain('20.00 EUR');
   });
 
   it('fails (and retries) a weekly_summary or commission_paid outbox row with a malformed payload instead of rendering a wrong amount', async () => {

@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { parseCommissionPaidPayload, parseWeeklySummaryPayload } from '../shared/notificationPayloads.js';
+import { calculateProgramCommission, lisbonMonthStartUtc, nextProgressiveTier, PARTNER_PRIVACY_POLICY_VERSION, type PartnerCommissionPolicy } from '../shared/partnerCommission.js';
 
 type Row = Record<string, unknown>;
 type Auth = { userId: string; sessionId: string; email: string; name: string; roles: string[] };
@@ -51,6 +52,9 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const referralRedirect = p.match(/^\/i\/([^/]+)$/);
   if (req.method === 'GET' && referralRedirect) return referralClick(req, env, referralRedirect[1]!);
   if (req.method === 'GET' && p === '/api/partners/attribution') return partnerAttribution(req, env, url);
+  if (req.method === 'GET' && p === '/api/partner-program/settings') return publicPartnerProgramSettings(env);
+  if (req.method === 'GET' && p === '/api/admin/partner-program/settings') return adminPartnerProgramSettings(req, env);
+  if (req.method === 'PATCH' && p === '/api/admin/partner-program/settings') return adminPartnerProgramSettingsUpdate(req, env);
   if (req.method === 'GET' && p === '/api/admin/partners') return adminPartners(req, env, url);
   if (req.method === 'POST' && p === '/api/admin/partners') return adminPartnerCreate(req, env);
   const partnerId = p.match(/^\/api\/admin\/partners\/([0-9a-f-]+)$/i);
@@ -469,22 +473,24 @@ async function createCommissionForLead(env:Env,actorUserId:string,leadId:string,
     if(amountChanged||currencyChanged)return{error:'sale_amount_locked',statusCode:409};
     return{amountCents:active.amount_cents,currency:active.currency};
   }
-  const rule=await env.DB.prepare('SELECT commission_type,commission_fixed_cents,commission_percentage_bps,currency FROM partners WHERE id=?').bind(partnerId).first<{commission_type:string;commission_fixed_cents:number|null;commission_percentage_bps:number|null;currency:string}>();
+  const rule=await env.DB.prepare('SELECT currency FROM partners WHERE id=?').bind(partnerId).first<{currency:string}>();
   if(!rule)return{error:'partner_not_found',statusCode:404};
-  let amountCents:number,currency:string,rateSnapshot:number,effectiveSaleAmountCents:number|null=null;
-  if(rule.commission_type==='percentage'){
-    const effectiveAmount=saleAmountCents??currentSaleAmountCents;
-    const effectiveCurrency=(saleCurrency??currentSaleCurrency)?.toUpperCase();
-    if(effectiveAmount===null||effectiveAmount===undefined||!effectiveCurrency)return{error:'sale_amount_required',statusCode:422};
-    if(!validCurrency(effectiveCurrency))return{error:'invalid_currency',statusCode:422};
-    if(effectiveCurrency!==rule.currency)return{error:'sale_currency_must_match_partner_currency',statusCode:409};
-    amountCents=Math.round((effectiveAmount*(rule.commission_percentage_bps||0))/10000);currency=effectiveCurrency;rateSnapshot=rule.commission_percentage_bps||0;
-    effectiveSaleAmountCents=effectiveAmount;
-  }else{amountCents=rule.commission_fixed_cents||0;currency=rule.currency;rateSnapshot=rule.commission_fixed_cents||0;}
+  const effectiveAmount=saleAmountCents??currentSaleAmountCents;
+  const effectiveCurrency=(saleCurrency??currentSaleCurrency)?.toUpperCase();
+  if(effectiveAmount===null||effectiveAmount===undefined||!effectiveCurrency)return{error:'sale_amount_required',statusCode:422};
+  if(!validCurrency(effectiveCurrency))return{error:'invalid_currency',statusCode:422};
+  if(effectiveCurrency!==rule.currency)return{error:'sale_currency_must_match_partner_currency',statusCode:409};
+  const leadPassengers=await env.DB.prepare('SELECT adults+children+infants count FROM lead_requests WHERE id=?').bind(leadId).first<{count:number}>();
+  const passengerCount=Number(leadPassengers?.count||0);if(passengerCount<1)return{error:'invalid_passenger_count',statusCode:422};
+  const monthStart=lisbonMonthStartUtc(new Date()).toISOString();
+  const monthPassengers=await env.DB.prepare("SELECT COALESCE(sum(l.adults+l.children+l.infants),0) count FROM partner_commissions pc JOIN lead_requests l ON l.id=pc.lead_request_id WHERE pc.partner_id=? AND pc.status<>'void' AND pc.created_at>=?").bind(partnerId,monthStart).first<{count:number}>();
+  const policy=await getWorkerPartnerProgramPolicy(env);
+  const calculated=calculateProgramCommission(effectiveAmount,passengerCount,Number(monthPassengers?.count||0),policy);
+  const amountCents=calculated.amountCents,currency=effectiveCurrency,rateSnapshot=calculated.effectiveRateBps,effectiveSaleAmountCents=effectiveAmount;
   const id=crypto.randomUUID();
   try {
-    await env.DB.prepare(`INSERT INTO partner_commissions (id,partner_id,lead_request_id,amount_cents,currency,status,commission_type_snapshot,commission_rate_snapshot,sale_amount_cents_snapshot,created_by) VALUES (?,?,?,?,?,'pending',?,?,?,?)`)
-      .bind(id,partnerId,leadId,amountCents,currency,rule.commission_type,rateSnapshot,effectiveSaleAmountCents,actorUserId).run();
+    await env.DB.prepare(`INSERT INTO partner_commissions (id,partner_id,lead_request_id,amount_cents,currency,status,commission_type_snapshot,commission_rate_snapshot,sale_amount_cents_snapshot,created_by,commission_policy_snapshot,passenger_count_snapshot,month_passenger_start_snapshot) VALUES (?,?,?,?,?,'pending','percentage',?,?,?,?,?,?)`)
+      .bind(id,partnerId,leadId,amountCents,currency,rateSnapshot,effectiveSaleAmountCents,actorUserId,JSON.stringify(policy),passengerCount,calculated.startPosition).run();
   } catch (error) {
     // Lost a race against a concurrent conversion request enforced by the partial unique index;
     // fall back to whatever the winner created.
@@ -599,7 +605,7 @@ async function flightQuoteLead(req:Request,env:Env){
   return reply({ok:true,protocol,responseDeadlineHours:48,confirmationEmailSent:customer[0]?.status==='fulfilled',mastersNotified:masterResults.filter(x=>x.status==='fulfilled').length},201);
 }
 
-async function audit(env:Env,actor:string|null,action:string,targetType:string,targetId:string){await env.DB.prepare('INSERT INTO audit_events(id,actor_user_id,action,target_type,target_id) VALUES(?,?,?,?,?)').bind(crypto.randomUUID(),actor,action,targetType,targetId).run();}
+async function audit(env:Env,actor:string|null,action:string,targetType:string,targetId:string|null){await env.DB.prepare('INSERT INTO audit_events(id,actor_user_id,action,target_type,target_id) VALUES(?,?,?,?,?)').bind(crypto.randomUUID(),actor,action,targetType,targetId).run();}
 
 async function plannerGet(req:Request,env:Env,url:URL){const a=await getAuth(req,env);if(!a)return reply({error:'unauthorized'},401);const access=await requirePlannerAccess(a,env);if(!access)return reply({error:'free_trial_expired',upgrade_required:true},402);const id=url.searchParams.get('tripId');const trip=id?await env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,source,travelers,archived_at FROM trips WHERE id=? AND owner_user_id=?').bind(id,a.userId).first<Row>():await env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,source,travelers,archived_at FROM trips WHERE owner_user_id=? ORDER BY (archived_at IS NOT NULL),updated_at DESC LIMIT 1').bind(a.userId).first<Row>();if(!trip)return reply({error:'trip_not_found'},404);const tripId=String(trip.id);const [it,places,expenses,budget,checklist,trips]=await Promise.all([env.DB.prepare('SELECT id,day_number day,starts_at time,title,kind,notes FROM itinerary_items WHERE owner_user_id=? AND trip_id=? ORDER BY day_number,sort_order,starts_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,name,category,address,notes,latitude,longitude FROM places WHERE owner_user_id=? AND trip_id=? ORDER BY created_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,category,description,amount_cents,currency,spent_on FROM expenses WHERE owner_user_id=? AND trip_id=? ORDER BY created_at DESC').bind(a.userId,tripId).all(),env.DB.prepare('SELECT amount_cents,currency FROM budgets WHERE owner_user_id=? AND trip_id=?').bind(a.userId,tripId).first(),env.DB.prepare('SELECT id,text,completed,sort_order FROM checklist_items WHERE owner_user_id=? AND trip_id=? ORDER BY sort_order,created_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,travelers,archived_at,updated_at FROM trips WHERE owner_user_id=? ORDER BY (archived_at IS NOT NULL),updated_at DESC').bind(a.userId).all()]);return reply({trip,trips:trips.results,entitlement:access,itinerary:it.results,places:places.results,expenses:expenses.results,budget:budget||{amount_cents:0,currency:'EUR'},checklist:checklist.results.map((x:Row)=>({...x,completed:Boolean(x.completed)}))});}
 async function plannerTrip(req:Request,env:Env){const a=await mutationAuth(req,env);if(!a)return reply({error:'unauthorized'},401);const access=await requirePlannerAccess(a,env);if(!access)return reply({error:'free_trial_expired',upgrade_required:true},402);if(!(await canCreateActiveTrip(a,env,access)))return reply({error:'free_active_trip_limit',upgrade_required:true},403);const b=await body(req);const name=text(b?.name,120,1);if(!name)return reply({error:'invalid_trip'},400);const id=crypto.randomUUID();const travelers=Number.isInteger(b?.travelers)?Number(b?.travelers):1;await env.DB.batch([env.DB.prepare('INSERT INTO trips(id,owner_user_id,name,destination,starts_on,ends_on,travelers) VALUES(?,?,?,?,?,?,?)').bind(id,a.userId,name,text(b?.destination,180),text(b?.startsOn,10),text(b?.endsOn,10),travelers),env.DB.prepare("INSERT INTO budgets(trip_id,owner_user_id,amount_cents,currency) VALUES(?,?,0,'EUR')").bind(id,a.userId)]);return reply({id},201);}
@@ -685,13 +691,13 @@ async function partnerApplicationCreate(req:Request,env:Env){
   const instagram=text(b?.instagram,120,2);
   const whatsapp=phoneOf(b?.whatsapp);
   if(b?.website)return reply({ok:true},202);
-  if(!displayName||!email||!instagram||!whatsapp||b?.privacyConsent!==true)return reply({error:'invalid_partner_application'},400);
+  if(!displayName||!email||!instagram||!whatsapp||b?.privacyConsent!==true||b?.privacyPolicyVersion!==PARTNER_PRIVACY_POLICY_VERSION)return reply({error:'invalid_partner_application'},400);
   if(!(await rateLimit(req,env,'partner-application',email,3,3600)))return reply({error:'too_many_attempts'},429);
   const pending=await env.DB.prepare("SELECT 1 FROM partner_applications WHERE lower(email)=lower(?) AND status='pending'").bind(email).first();
   if(pending)return reply({error:'partner_application_already_pending'},409);
   const id=crypto.randomUUID();
   try{
-    await env.DB.prepare("INSERT INTO partner_applications(id,display_name,email,instagram,whatsapp,privacy_consent) VALUES(?,?,?,?,?,1)").bind(id,displayName,email,instagram,whatsapp).run();
+    await env.DB.prepare("INSERT INTO partner_applications(id,display_name,email,instagram,whatsapp,privacy_consent,privacy_policy_version,privacy_consent_at) VALUES(?,?,?,?,?,1,?,CURRENT_TIMESTAMP)").bind(id,displayName,email,instagram,whatsapp,PARTNER_PRIVACY_POLICY_VERSION).run();
   }catch(error){return reply({error:'partner_application_already_pending'},409);}
   await audit(env,null,'public.partner_application_created','partner_application',id);
   return reply({ok:true},201);
@@ -699,8 +705,27 @@ async function partnerApplicationCreate(req:Request,env:Env){
 
 async function adminPartnerApplications(req:Request,env:Env){
   if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);
-  const rows=await env.DB.prepare("SELECT id,display_name,email,instagram,whatsapp,status,partner_id,created_at,reviewed_at FROM partner_applications ORDER BY CASE WHEN status='pending' THEN 0 ELSE 1 END,created_at DESC LIMIT 200").all<Row>();
-  return reply({applications:rows.results.map((row)=>({id:row.id,displayName:row.display_name,email:row.email,instagram:row.instagram,whatsapp:row.whatsapp,status:row.status,partnerId:row.partner_id,createdAt:row.created_at,reviewedAt:row.reviewed_at}))});
+  const rows=await env.DB.prepare("SELECT id,display_name,email,instagram,whatsapp,status,partner_id,created_at,reviewed_at,privacy_policy_version,privacy_consent_at FROM partner_applications ORDER BY CASE WHEN status='pending' THEN 0 ELSE 1 END,created_at DESC LIMIT 200").all<Row>();
+  return reply({applications:rows.results.map((row)=>({id:row.id,displayName:row.display_name,email:row.email,instagram:row.instagram,whatsapp:row.whatsapp,status:row.status,partnerId:row.partner_id,createdAt:row.created_at,reviewedAt:row.reviewed_at,privacyPolicyVersion:row.privacy_policy_version,privacyConsentAt:row.privacy_consent_at}))});
+}
+
+async function getWorkerPartnerProgramPolicy(env:Env):Promise<PartnerCommissionPolicy>{
+  const row=await env.DB.prepare('SELECT * FROM partner_program_settings WHERE id=1').first<Row>();
+  if(!row)throw new Error('partner_program_settings_missing');
+  return {mode:String(row.mode) as 'flat'|'progressive',flatBps:Number(row.flat_bps),tier1MaxPassengers:Number(row.tier1_max_passengers),tier1Bps:Number(row.tier1_bps),tier2MaxPassengers:Number(row.tier2_max_passengers),tier2Bps:Number(row.tier2_bps),tier3MaxPassengers:Number(row.tier3_max_passengers),tier3Bps:Number(row.tier3_bps),tier4Bps:Number(row.tier4_bps)};
+}
+async function publicPartnerProgramSettings(env:Env){return reply({settings:await getWorkerPartnerProgramPolicy(env)},200,{'cache-control':'public, max-age=300'});}
+async function adminPartnerProgramSettings(req:Request,env:Env){if(!(await requireMaster(req,env)))return reply({error:'forbidden'},403);return reply({settings:await getWorkerPartnerProgramPolicy(env)});}
+async function adminPartnerProgramSettingsUpdate(req:Request,env:Env){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const b=await body(req);const mode=b?.mode==='flat'||b?.mode==='progressive'?b.mode:null;
+  const values=['flatBps','tier1MaxPassengers','tier1Bps','tier2MaxPassengers','tier2Bps','tier3MaxPassengers','tier3Bps','tier4Bps'] as const;
+  if(!mode||values.some((key)=>!Number.isInteger(b?.[key])))return reply({error:'invalid_partner_program_settings'},400);
+  const p={mode,flatBps:Number(b!.flatBps),tier1MaxPassengers:Number(b!.tier1MaxPassengers),tier1Bps:Number(b!.tier1Bps),tier2MaxPassengers:Number(b!.tier2MaxPassengers),tier2Bps:Number(b!.tier2Bps),tier3MaxPassengers:Number(b!.tier3MaxPassengers),tier3Bps:Number(b!.tier3Bps),tier4Bps:Number(b!.tier4Bps)};
+  const bps=[p.flatBps,p.tier1Bps,p.tier2Bps,p.tier3Bps,p.tier4Bps];
+  if(bps.some((value)=>value<0||value>10000)||p.tier1MaxPassengers<1||p.tier1MaxPassengers>=p.tier2MaxPassengers||p.tier2MaxPassengers>=p.tier3MaxPassengers)return reply({error:'invalid_partner_program_settings'},400);
+  await env.DB.prepare('UPDATE partner_program_settings SET mode=?,flat_bps=?,tier1_max_passengers=?,tier1_bps=?,tier2_max_passengers=?,tier2_bps=?,tier3_max_passengers=?,tier3_bps=?,tier4_bps=?,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=1').bind(p.mode,p.flatBps,p.tier1MaxPassengers,p.tier1Bps,p.tier2MaxPassengers,p.tier2Bps,p.tier3MaxPassengers,p.tier3Bps,p.tier4Bps,auth.userId).run();
+  await audit(env,auth.userId,'admin.partner_program_settings_updated','partner_program_settings',null);return reply({settings:p});
 }
 
 async function adminPartnerApplicationReject(req:Request,env:Env,id:string){
@@ -859,10 +884,15 @@ async function partnerSummary(req:Request,env:Env){
   const commissionRows=await env.DB.prepare('SELECT status,COALESCE(sum(amount_cents),0) total FROM partner_commissions WHERE partner_id=? GROUP BY status').bind(partner.id).all<{status:string;total:number}>();
   const totals:Record<string,number>={pending:0,approved:0,paid:0,void:0};
   for(const row of commissionRows.results)totals[row.status]=row.total;
+  const monthStart=lisbonMonthStartUtc(new Date()).toISOString();
+  const monthPassengers=await env.DB.prepare("SELECT COALESCE(sum(l.adults+l.children+l.infants),0) count FROM partner_commissions pc JOIN lead_requests l ON l.id=pc.lead_request_id WHERE pc.partner_id=? AND pc.status<>'void' AND pc.created_at>=?").bind(partner.id,monthStart).first<{count:number}>();
+  const currentMonthPassengers=Number(monthPassengers?.count||0),policy=await getWorkerPartnerProgramPolicy(env);
+  const rateForPosition=(position:number)=>position<=policy.tier1MaxPassengers?policy.tier1Bps:position<=policy.tier2MaxPassengers?policy.tier2Bps:position<=policy.tier3MaxPassengers?policy.tier3Bps:policy.tier4Bps;
   return reply({
     partner:{code:partner.code,displayName:partner.display_name,active:Boolean(partner.active),commissionType:partner.commission_type,commissionFixedCents:partner.commission_fixed_cents,commissionPercentageBps:partner.commission_percentage_bps,currency:partner.currency,attributionWindowDays:partner.attribution_window_days,link:`${env.APP_ORIGIN.replace(/\/$/,'')}/i/${partner.code}`},
     stats:{clicks:clicks?.n||0,proposals:proposals?.n||0,conversions:conversions?.n||0},
     commissionTotalsCents:totals,
+    programCommission:{mode:policy.mode,currentMonthPassengers,currentRateBps:policy.mode==='flat'?policy.flatBps:rateForPosition(currentMonthPassengers+1),...nextProgressiveTier(currentMonthPassengers,policy)},
   },200,{'cache-control':'no-store'});
 }
 
