@@ -8,12 +8,50 @@ const wideRoute = () => matchMedia('(min-width: 1000px)').matches;
 const route = document.querySelector('[data-route]');
 if (route) initRoute(route);
 if (!reduce && canObserve) initReveal();
+const showcase = document.querySelector('.pl-showcase');
+if (showcase) initShowcase(showcase);
+
+// Vitrine do Planner: o notebook troca de tela sozinho enquanto está visível; se a pessoa
+// escolhe uma aba, a troca automática para e fica na tela escolhida.
+function initShowcase(box) {
+  const shots = [...box.querySelectorAll('.pl-shot')];
+  const tabs = [...box.querySelectorAll('.pl-tab')];
+  let current = 0;
+  let timer = 0;
+  let visible = false;
+  let picked = false;
+  function show(i) {
+    current = i;
+    shots.forEach((shot, k) => shot.classList.toggle('is-on', k === i));
+    tabs.forEach((tab, k) => tab.setAttribute('aria-pressed', String(k === i)));
+  }
+  function loop() {
+    clearTimeout(timer);
+    if (!visible || reduce || picked) return;
+    timer = setTimeout(() => {
+      show((current + 1) % shots.length);
+      loop();
+    }, 3800);
+  }
+  tabs.forEach((tab, k) => tab.addEventListener('click', () => {
+    picked = true;
+    clearTimeout(timer);
+    show(k);
+  }));
+  if (!canObserve) return;
+  new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting;
+    loop();
+  }, { threshold: 0.3 }).observe(box);
+}
 
 function initReveal() {
   const targets = [];
   document.querySelectorAll('[data-reveal]').forEach((el) => targets.push([el, 0]));
   document.querySelectorAll('[data-reveal-group]').forEach((group) => {
     if (group.matches('.route-stops') && wideRoute()) return; // no computador a rota tem a animação própria
+    // carrossel de arrastar (destinos no celular): entra inteiro, senão o cartão fora da tela ficaria escondido
+    if (/auto|scroll/.test(getComputedStyle(group).overflowX)) { targets.push([group, 0]); return; }
     [...group.children].forEach((el, i) => targets.push([el, Math.min(i, 6) * 0.09]));
   });
   const io = new IntersectionObserver((entries) => {
