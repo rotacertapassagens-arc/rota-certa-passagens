@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Programa de parceiros Rota Certa Passagens: indique, acompanhe e receba sua comissão.">
+  <meta name="description" content="Programa de parceiros Rota Certa Passagens: indique, acompanhe cliques e propostas e receba sua comissão com transparência.">
   <title>Programa de parceiros | Rota Certa Passagens</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,94 +11,319 @@
   <link rel="stylesheet" href="/assets/portal.css">
   <link rel="icon" href="/assets/logo.png">
   <style>
-    .shell{max-width:820px}
-    h1{font-family:"Playfair Display",Georgia,serif}
-    .panel h2{font-size:1.15rem}
-    .panel p,.panel li{color:#37424f;line-height:1.7}
-    .panel ul{padding-left:22px;margin:0}
-    .cta{margin-top:8px}
-    .application-form{margin-top:20px}
-    .consent{display:flex;grid-template-columns:auto 1fr;align-items:flex-start;gap:10px;font-weight:500}
-    .consent input{width:18px;margin-top:3px}
+    .panel h2{font-size:1.35rem}
+    .preview-window{border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;background:var(--off)}
+    .preview-bar{background:var(--navy);color:var(--white);padding:8px 14px;font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;display:flex;justify-content:space-between}
+    .preview-body{padding:18px;display:grid;gap:14px}
+    .preview-body .grid{grid-template-columns:repeat(4,1fr)}
+    .preview-body .metric strong{filter:blur(0)}
+    .preview-caption{font-size:.8rem;color:var(--muted);text-align:center;padding:0 14px 14px}
+    @media(max-width:700px){.preview-body .grid{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body>
-<main class="shell">
-  <div class="top">
-    <div class="brand">Rota Certa <span>Passagens</span></div>
-    <a class="button" href="/">Voltar ao site</a>
+<a class="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
+
+<header class="pm-header">
+  <div class="pm-wrap">
+    <a class="brand-lg" href="/" style="text-decoration:none;color:inherit"><img src="/assets/logo.png" alt="">Rota Certa <span>Passagens</span></a>
+    <div class="pm-header-actions">
+      <a class="btn-secondary" href="/painel-parceiro.html">Acesso do Parceiro</a>
+      <a class="button" href="/">Voltar ao site</a>
+    </div>
   </div>
+</header>
 
-  <section class="panel">
-    <h1>Programa de parceiros</h1>
-    <p>Indique a Rota Certa Passagens para quem você confia e acompanhe, em tempo real, cada clique, proposta e conversão gerada pelo seu link — com comissão registrada e rastreável, sem depender de planilha ou da nossa palavra.</p>
+<main id="conteudo-principal">
+  <!-- Foto: Pexels, ArtHouse Studio, licença gratuita Pexels (pexels.com/license), sem atribuição obrigatória -->
+  <section class="pm-hero" style="--hero-img:url('/assets/parceiros/hero-aviao.jpg')">
+    <div class="pm-wrap">
+      <h1>Comece a ganhar dinheiro com o programa de afiliados da Rota Certa Passagens!</h1>
+      <p>Compartilhe o seu link, acompanhe cada clique e proposta em tempo real no seu painel e receba comissão registrada por venda confirmada — sem depender de planilha.</p>
+      <div class="hero-actions">
+        <a class="btn-primary" href="#solicitar-cadastro">Solicitar participação</a>
+      </div>
+      <p class="hero-note">Toda candidatura passa por análise humana da nossa equipe antes da ativação — não há aprovação automática.</p>
+    </div>
   </section>
 
-  <section class="panel">
-    <h2>Como funciona</h2>
-    <ul>
-      <li>Você recebe um link único, no formato <code>rotacertapassagens.com/i/seu-codigo</code>.</li>
-      <li>Cada clique nesse link é registrado e o visitante é direcionado ao formulário de proposta de voo, já identificado como indicação sua.</li>
-      <li>Se o cliente preferir falar por WhatsApp, Stories ou comentário em vez de clicar no link, ele também pode informar seu código ou @ diretamente no formulário, no campo "Como você conheceu a Rota Certa?".</li>
-      <li>Quando o link identifica a indicação corretamente (via clique ou digitação manual), ela fica registrada e vinculada a você — o cliente nunca vê nem pode alterar esse vínculo interno.</li>
-    </ul>
+  <nav class="pm-nav toc" aria-label="Navegação da página">
+    <div class="pm-wrap">
+      <span class="toc-title">Nesta página</span>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#vantagens">Vantagens</a>
+      <a href="#para-quem">Para quem é</a>
+      <a href="#comissao">Comissão</a>
+      <a href="#pagamento">Pagamento</a>
+      <a href="#privacidade">Privacidade</a>
+      <a href="#painel-preview">O painel</a>
+      <a href="#faq">Perguntas frequentes</a>
+      <a href="#solicitar-cadastro">Quero participar</a>
+    </div>
+  </nav>
+
+  <section class="pm-section pm-bg-off section-anchor" id="como-funciona">
+    <div class="pm-wrap">
+      <h2>Como funciona</h2>
+      <div class="steps">
+        <div class="step">
+          <h3>1. Link ou código</h3>
+          <p>Você recebe um link único, no formato <code>rotacertapassagens.com/i/seu-codigo</code>, ou pode passar seu código/@ diretamente.</p>
+        </div>
+        <div class="step">
+          <h3>2. Clique ou identificação</h3>
+          <p>Cada clique é registrado. Se o cliente preferir falar por WhatsApp ou Stories, ele informa seu código no formulário de proposta.</p>
+        </div>
+        <div class="step">
+          <h3>3. Proposta e venda elegível</h3>
+          <p>O pedido de viagem fica vinculado a você durante a sua janela de atribuição (padrão de 30 dias, combinada individualmente).</p>
+        </div>
+        <div class="step">
+          <h3>4. Comissão registrada</h3>
+          <p>Quando a venda é confirmada, a comissão é calculada pela regra vigente no momento da conversão e aparece no seu painel.</p>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section class="panel">
-    <h2>Janela de atribuição</h2>
-    <p>Cada parceiro tem uma janela de atribuição própria, combinada individualmente (o padrão é de 30 dias). Se o cliente pedir a proposta dentro dessa janela a partir do clique no seu link, a indicação continua sendo sua mesmo que ele volte ao site depois de navegar por outras páginas.</p>
+  <section class="pm-section pm-bg-off section-anchor" id="vantagens" style="padding-top:0">
+    <div class="pm-wrap">
+      <h2>Vantagens do programa</h2>
+      <div class="benefits">
+        <div class="benefit-card">
+          <span class="benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+          <h3>Comissão por faixa</h3>
+          <p>Regra única para todos os parceiros, sem depender do número de seguidores.</p>
+        </div>
+        <div class="benefit-card">
+          <span class="benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg></span>
+          <h3>Painel em tempo real</h3>
+          <p>Cliques, propostas e conversões atualizados assim que acontecem — sem esperar planilha.</p>
+        </div>
+        <div class="benefit-card">
+          <span class="benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 6.5 17.5 2.5 21.5 6.5 17.5 10.5zM2.5 17.5l4-4 4 4-4 4zM8.5 11.5l7 7"/></svg></span>
+          <h3>Link com rastreamento</h3>
+          <p>Link único que identifica automaticamente cada indicação sua, sem trabalho manual.</p>
+        </div>
+        <div class="benefit-card">
+          <span class="benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></span>
+          <h3>Pagamento via Pix</h3>
+          <p>Comissão aprovada é paga via Pix, com confirmação registrada no seu extrato.</p>
+        </div>
+        <div class="benefit-card">
+          <span class="benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 6v6c0 5 4 8.5 9 10 5-1.5 9-5 9-10V6z"/></svg></span>
+          <h3>Cliente sempre protegido</h3>
+          <p>Seu painel nunca mostra nome, e-mail ou telefone do cliente que você indicou.</p>
+        </div>
+        <div class="benefit-card">
+          <span class="benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span>
+          <h3>Análise humana</h3>
+          <p>Toda candidatura é avaliada por uma pessoa da nossa equipe, não por um robô.</p>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section class="panel">
-    <h2>O que conta como indicação válida</h2>
-    <p>Uma indicação é considerada válida quando o cliente pede a proposta de voo pelo seu link rastreado ou informa corretamente seu código/@ no formulário, e o código corresponde a um parceiro ativo no momento do pedido. Um código inválido, digitado errado ou de um parceiro inativo nunca gera atribuição — o pedido segue normalmente, sem indicação vinculada.</p>
+  <section class="pm-cta-band">
+    <div class="pm-wrap">
+      <p>Já deu pra ver como funciona. Bora se cadastrar?</p>
+      <a class="btn-primary" href="#solicitar-cadastro">Quero ser parceiro(a)</a>
+    </div>
   </section>
 
-  <section class="panel">
-    <h2>Comissão</h2>
-    <p>A mesma regra vale para todos os parceiros, independentemente do número de seguidores. O que conta é a quantidade de passageiros de vendas elegíveis efetivamente fechadas no mês.</p>
-    <div id="partnerProgramRule"><p>Carregando a regra vigente do programa…</p></div>
-    <p>Quando uma venda com vários passageiros atravessa uma faixa, o valor elegível é rateado proporcionalmente entre os passageiros e cada parte recebe o percentual da sua faixa. A comissão fica registrada com a regra vigente no momento da conversão; mudanças futuras não alteram o histórico.</p>
+  <section class="pm-section pm-bg-white section-anchor" id="para-quem">
+    <div class="pm-wrap">
+      <h2>Para quem é</h2>
+      <div class="split">
+        <div class="prose">
+          <p>O programa é aberto a criadores, comunidades e pessoas que já recomendam viagens para quem confia nelas — Instagram, WhatsApp, blog ou boca a boca. Não exigimos um número mínimo de seguidores: a comissão é calculada pela quantidade de passageiros em vendas elegíveis fechadas no mês, igual para todos os parceiros.</p>
+          <p>A candidatura não garante aprovação automática. Nossa equipe analisa cada solicitação individualmente antes de liberar o acesso.</p>
+        </div>
+        <!-- Foto: Pexels, MART PRODUCTION, licença gratuita Pexels (pexels.com/license), sem atribuição obrigatória -->
+        <div class="split-photo">
+          <img src="/assets/parceiros/criadora-conteudo.jpg" alt="Criadora de conteúdo gravando um vídeo com o celular, ilustrando o perfil de parceiro do programa" loading="lazy">
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section class="panel">
-    <h2>Pagamento</h2>
-    <p>Comissões aprovadas seguem o prazo de pagamento combinado individualmente com você e são pagas via Pix, com confirmação registrada no seu extrato.</p>
+  <section class="pm-section pm-bg-off section-anchor" id="atribuicao">
+    <div class="pm-wrap">
+      <h2>Fluxo de atribuição</h2>
+      <div class="flow">
+        <span class="flow-node">Seu link</span>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <span class="flow-node">Clique registrado</span>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <span class="flow-node">Proposta identificada</span>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <span class="flow-node">Venda confirmada</span>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <span class="flow-node">Comissão registrada</span>
+      </div>
+      <div class="prose">
+        <p>Uma indicação é válida quando o cliente pede a proposta pelo seu link rastreado ou informa corretamente seu código/@ no formulário, e o código corresponde a um parceiro ativo no momento do pedido. Código inválido, digitado errado ou de um parceiro inativo nunca gera atribuição — o pedido segue normalmente, sem indicação vinculada. O cliente nunca vê nem pode alterar esse vínculo interno.</p>
+      </div>
+    </div>
   </section>
 
-  <section class="panel">
-    <h2>Privacidade</h2>
-    <p>O seu painel de parceiro mostra apenas o necessário para acompanhar suas indicações: protocolo parcialmente mascarado, data, rota resumida, estado da proposta e valores de comissão. Nós nunca exibimos nome, e-mail, telefone ou qualquer outro dado pessoal do cliente indicado no seu painel.</p>
-    <p>Para fins de segurança e prevenção de fraude, registramos metadados mínimos de cada clique (nunca o IP puro — apenas uma versão protegida por hash), com política de retenção documentada internamente pela nossa equipe de segurança.</p>
+  <section class="pm-section pm-bg-white section-anchor" id="comissao">
+    <div class="pm-wrap">
+      <h2>Comissão</h2>
+      <div class="split">
+        <div>
+          <p class="prose">A mesma regra vale para todos os parceiros, independentemente do número de seguidores. O que conta é a quantidade de passageiros de vendas elegíveis efetivamente fechadas no mês.</p>
+          <div id="partnerProgramRule" aria-live="polite"><p class="muted">Carregando a regra vigente do programa…</p></div>
+        </div>
+        <!-- Foto: Pexels, licença gratuita Pexels (pexels.com/license), sem atribuição obrigatória -->
+        <div class="split-photo">
+          <img src="/assets/parceiros/passageiro-aeroporto.jpg" alt="Passageiro caminhando com mala no aeroporto, ilustrando a viagem gerada pela sua indicação" loading="lazy">
+        </div>
+      </div>
+      <p class="prose">Quando uma venda com vários passageiros atravessa uma faixa, o valor elegível é rateado proporcionalmente entre os passageiros e cada parte recebe o percentual da sua faixa. A comissão fica registrada com a regra vigente no momento da conversão; mudanças futuras não alteram o histórico.</p>
+    </div>
   </section>
 
-  <section class="panel">
-    <h2>Duração e encerramento</h2>
-    <p>A parceria não tem prazo de validade fixo e pode ser encerrada por qualquer uma das partes, avisando com alguns dias de antecedência. Encerrar a parceria desativa a geração de novas atribuições pelo seu link, mas preserva o histórico e as comissões já registradas.</p>
+  <section class="pm-section pm-bg-off section-anchor" id="pagamento">
+    <div class="pm-wrap">
+      <h2>Pagamento e estados da comissão</h2>
+      <div class="split">
+        <div>
+          <p class="prose">Comissões aprovadas seguem o prazo de pagamento combinado individualmente com você e são pagas via Pix, com confirmação registrada no seu extrato. Cada comissão passa por até três estados:</p>
+          <p>
+            <span class="tag tag-pending">Pendente</span> aguardando confirmação da venda ·
+            <span class="tag tag-approved">Aprovada</span> confirmada, aguardando pagamento ·
+            <span class="tag tag-paid">Paga</span> já transferida a você.
+          </p>
+        </div>
+        <!-- Foto: Pexels, Pavel Danilyuk, licença gratuita Pexels (pexels.com/license), sem atribuição obrigatória -->
+        <div class="split-photo">
+          <img src="/assets/parceiros/pagamento-pix.jpg" alt="Pagamento aproximando o celular de uma maquininha, ilustrando o recebimento da comissão via Pix" loading="lazy">
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section class="panel">
-    <h2>Contato</h2>
-    <p>Interessado(a) em participar ou já é parceiro(a) e quer tirar uma dúvida? Fale com a nossa equipe pelos canais já disponíveis no site. Se você já tem uma conta ativa, acesse o <a href="/painel-parceiro.html">painel do parceiro</a> para ver seus números em tempo real.</p>
-    <a class="button cta" href="/painel-parceiro.html">Ir para o painel do parceiro</a>
+  <section class="pm-cta-band">
+    <div class="pm-wrap">
+      <p>Regra clara, pagamento via Pix. Faltam só os seus links no ar.</p>
+      <a class="btn-primary" href="#solicitar-cadastro">Solicitar participação</a>
+    </div>
   </section>
 
-  <section class="panel" id="solicitar-cadastro">
-    <h2>Quer ser parceiro(a)?</h2>
-    <p>Envie seus dados para análise. A solicitação não cria acesso automaticamente: se a parceria for aprovada, nossa equipe cadastrará as condições combinadas e você receberá o convite de ativação por e-mail.</p>
-    <button type="button" id="partnerApplicationToggle">Solicitar cadastro de parceiro</button>
-    <form id="partnerApplicationForm" class="application-form hidden">
-      <label>Nome público<input id="applicationDisplayName" required maxlength="120" autocomplete="name"></label>
-      <label>E-mail de acesso<input id="applicationEmail" type="email" required maxlength="254" autocomplete="email"></label>
-      <label>Instagram<input id="applicationInstagram" required maxlength="120" placeholder="@seuinstagram" autocomplete="off"></label>
-      <label>WhatsApp<input id="applicationWhatsapp" type="tel" required maxlength="30" placeholder="+351 900 000 000" autocomplete="tel"></label>
-      <label class="hidden" aria-hidden="true">Site<input id="applicationWebsite" tabindex="-1" autocomplete="off"></label>
-      <label class="consent"><input id="applicationConsent" type="checkbox" required> <span>Li a <a href="/politica-privacidade-parceiros.html" target="_blank" rel="noopener">Política de Privacidade do Parceiro</a> e autorizo o uso destes dados para analisar e responder à solicitação de parceria.</span></label>
-      <button type="submit">Enviar solicitação</button>
-      <p class="status" id="partnerApplicationStatus" aria-live="polite"></p>
-    </form>
+  <section class="pm-section pm-bg-white section-anchor" id="privacidade">
+    <div class="pm-wrap">
+      <h2>Privacidade e proteção do cliente indicado</h2>
+      <div class="prose">
+        <p>O seu painel de parceiro mostra apenas o necessário para acompanhar suas indicações: protocolo parcialmente mascarado, data, rota resumida, estado da proposta e valores de comissão. Nós nunca exibimos nome, e-mail, telefone ou qualquer outro dado pessoal do cliente indicado no seu painel.</p>
+        <p>Para fins de segurança e prevenção de fraude, registramos metadados mínimos de cada clique (nunca o IP puro — apenas uma versão protegida por hash). Veja os detalhes completos na <a href="/politica-privacidade-parceiros.html">Política de Privacidade do Parceiro</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pm-section pm-bg-white section-anchor" id="painel-preview" style="padding-top:0">
+    <div class="pm-wrap">
+      <h2>O que você vê no painel</h2>
+      <p class="prose">Estrutura demonstrativa do painel do parceiro — os números abaixo são apenas ilustrativos, não representam resultados reais.</p>
+      <div class="preview-window" aria-hidden="true">
+        <div class="preview-bar"><span>painel-parceiro.html</span><span>Prévia ilustrativa</span></div>
+        <div class="preview-body">
+          <div class="grid">
+            <div class="metric"><small>Cliques</small><strong>—</strong></div>
+            <div class="metric"><small>Propostas</small><strong>—</strong></div>
+            <div class="metric"><small>Convertidas</small><strong>—</strong></div>
+            <div class="metric"><small>Taxa de conversão</small><strong>—</strong></div>
+          </div>
+          <div class="grid">
+            <div class="metric"><small>Pendente</small><strong>—</strong></div>
+            <div class="metric"><small>Aprovada</small><strong>—</strong></div>
+            <div class="metric"><small>Paga</small><strong>—</strong></div>
+          </div>
+        </div>
+      </div>
+      <p class="preview-caption">Estrutura ilustrativa apenas — sem valores, dados de parceiros ou de clientes reais.</p>
+    </div>
+  </section>
+
+  <section class="pm-cta-band">
+    <div class="pm-wrap">
+      <p>Gostou do painel? Ele fica assim para você em poucos dias após a aprovação.</p>
+      <a class="btn-primary" href="#solicitar-cadastro">Quero ser parceiro(a)</a>
+    </div>
+  </section>
+
+  <section class="pm-section pm-bg-off section-anchor" id="faq">
+    <div class="pm-wrap">
+      <h2>Perguntas frequentes</h2>
+      <details class="faq-item">
+        <summary>Como é calculada a comissão quando a venda tem vários passageiros?<span class="faq-icon" aria-hidden="true">+</span><span class="faq-icon-close" aria-hidden="true">–</span></summary>
+        <p>O valor elegível é rateado proporcionalmente entre os passageiros e cada parte recebe o percentual da faixa correspondente, conforme a regra vigente no momento da conversão.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Por quanto tempo minha indicação fica válida?<span class="faq-icon" aria-hidden="true">+</span><span class="faq-icon-close" aria-hidden="true">–</span></summary>
+        <p>Pela sua janela de atribuição combinada individualmente (padrão de 30 dias) a partir do clique no seu link. O cliente pode navegar por outras páginas nesse período sem perder o vínculo.</p>
+      </details>
+      <details class="faq-item">
+        <summary>O painel mostra dados do cliente que indiquei?<span class="faq-icon" aria-hidden="true">+</span><span class="faq-icon-close" aria-hidden="true">–</span></summary>
+        <p>Não. Você vê apenas protocolo mascarado, rota resumida, estado da proposta e comissão — nunca nome, e-mail ou telefone do cliente.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Posso encerrar a parceria quando quiser?<span class="faq-icon" aria-hidden="true">+</span><span class="faq-icon-close" aria-hidden="true">–</span></summary>
+        <p>Sim. A parceria não tem prazo fixo e pode ser encerrada por qualquer uma das partes, avisando com alguns dias de antecedência. Encerrar desativa novas atribuições pelo seu link, mas preserva o histórico e as comissões já registradas.</p>
+      </details>
+      <details class="faq-item">
+        <summary>A candidatura garante minha entrada no programa?<span class="faq-icon" aria-hidden="true">+</span><span class="faq-icon-close" aria-hidden="true">–</span></summary>
+        <p>Não. Toda solicitação passa por análise humana da nossa equipe antes de qualquer ativação de conta.</p>
+      </details>
+    </div>
+  </section>
+
+  <section class="pm-section pm-bg-white">
+    <div class="pm-wrap">
+      <div class="panel" style="margin-bottom:0">
+        <h2>Já é parceiro(a)?</h2>
+        <p class="prose">Acesse o painel para ver seus cliques, propostas, conversões e comissões em tempo real.</p>
+        <a class="btn-primary" href="/painel-parceiro.html">Ir para o painel do parceiro</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="pm-section pm-bg-off section-anchor" id="solicitar-cadastro" style="padding-top:0">
+    <div class="pm-wrap">
+      <div class="panel" style="margin-bottom:0">
+        <h2>Quer ser parceiro(a)?</h2>
+        <p class="prose">Envie seus dados para análise. A solicitação não cria acesso automaticamente: se a parceria for aprovada, nossa equipe cadastrará as condições combinadas e você receberá o convite de ativação por e-mail.</p>
+        <button type="button" class="btn-primary" id="partnerApplicationToggle" aria-expanded="false" aria-controls="partnerApplicationForm">Solicitar cadastro de parceiro</button>
+        <form id="partnerApplicationForm" class="application-form hidden">
+          <p class="required-note">Todos os campos abaixo são obrigatórios.</p>
+          <label>Nome público<input id="applicationDisplayName" required maxlength="120" autocomplete="name"></label>
+          <label>E-mail de acesso<input id="applicationEmail" type="email" required maxlength="254" autocomplete="email"></label>
+          <label>Instagram<input id="applicationInstagram" required maxlength="120" placeholder="@seuinstagram" autocomplete="off"></label>
+          <label>WhatsApp<input id="applicationWhatsapp" type="tel" required maxlength="30" placeholder="+351 900 000 000" autocomplete="tel"></label>
+          <label class="hidden" aria-hidden="true">Site<input id="applicationWebsite" tabindex="-1" autocomplete="off"></label>
+          <label class="consent"><input id="applicationConsent" type="checkbox" required> <span>Li a <a href="/politica-privacidade-parceiros.html" target="_blank" rel="noopener">Política de Privacidade do Parceiro</a> e autorizo o uso destes dados para analisar e responder à solicitação de parceria.</span></label>
+          <button type="submit" class="btn-primary btn-block">Enviar solicitação</button>
+          <p class="field-hint">Depois do envio, nossa equipe analisa sua candidatura e, se aprovada, você recebe um convite de ativação por e-mail.</p>
+          <p class="status" id="partnerApplicationStatus" aria-live="polite" role="status"></p>
+        </form>
+      </div>
+    </div>
   </section>
 </main>
+
+<footer class="pm-footer">
+  <div class="pm-wrap">
+    <p>
+      <a href="/">Site</a> ·
+      <a href="/painel-parceiro.html">Painel do parceiro</a> ·
+      <a href="#comissao">Regras do programa</a> ·
+      <a href="/politica-privacidade-parceiros.html">Política de Privacidade</a> ·
+      <a href="mailto:rotacertapassagens@gmail.com">Contato</a>
+    </p>
+  </div>
+</footer>
+
 <script type="module" src="/assets/partner-application.js"></script>
+<script type="module" src="/assets/parceiros-nav.js"></script>
 </body>
 </html>
