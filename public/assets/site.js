@@ -213,9 +213,13 @@ function renderItinerary(element) {
   });
 }
 
+const placeQuery = (place) => [place.name, place.address].filter(Boolean).join(', ');
+const mapEmbedUrl = (query) => `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+const directionsUrl = (place) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(placeQuery(place))}`;
+
 function renderPlaces(element) {
-  const defaultMap = 'https://www.google.com/maps?q=Lisboa%2C%20Portugal&output=embed';
-  element.innerHTML = `<div class="places-grid"><div><div class="planner-toolbar"><strong>${data.places.length} lugares salvos</strong><button class="btn btn-gold" id="togglePlace">+ Adicionar</button></div><div class="planner-form hidden" id="placeForm"><div class="place-form-grid"><input class="full" id="pName" placeholder="Nome do lugar"><select id="pType"><option>Atrações</option><option>Restaurantes</option><option>Hospedagem</option><option>Transportes</option><option>Outro</option></select><input id="pAddress" placeholder="Endereço (opcional)"><textarea class="full" id="pNotes" placeholder="Notas (opcional)"></textarea></div><button class="btn btn-gold" id="addPlace">Adicionar lugar</button></div><div class="place-list">${data.places.length ? data.places.map((place) => `<div class="place-row"><div><strong>${esc(place.name)}</strong><small>${esc(place.type)}${place.address ? ` · ${esc(place.address)}` : ''}</small></div><button class="delete-item" data-del-place="${esc(place.id || '')}">Excluir</button></div>`).join('') : '<div class="planner-card"><p class="muted">Nenhum lugar salvo ainda.</p></div>'}</div></div><div><div class="planner-card"><h2>Mapa da viagem</h2><p class="muted">Pesquise um endereço para abrir no mapa.</p><div style="display:flex;gap:8px;margin:14px 0"><input class="inline-input" id="mapSearch" placeholder="Lisboa, Porto, Paris..."><button class="btn btn-outline-dark" id="mapGo">Ver no mapa</button></div><iframe id="mapFrame" class="map-frame" src="${defaultMap}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Google Maps"></iframe></div></div></div>`;
+  const defaultMap = data.places.length ? mapEmbedUrl(placeQuery(data.places[0])) : mapEmbedUrl('Lisboa, Portugal');
+  element.innerHTML = `<div class="places-grid"><div><div class="planner-toolbar"><strong>${data.places.length} lugares salvos</strong><button class="btn btn-gold" id="togglePlace">+ Adicionar</button></div><div class="planner-form hidden" id="placeForm"><div class="place-form-grid"><input class="full" id="pName" placeholder="Nome do lugar"><select id="pType"><option>Atrações</option><option>Restaurantes</option><option>Hospedagem</option><option>Transportes</option><option>Outro</option></select><input id="pAddress" placeholder="Endereço (opcional)"><textarea class="full" id="pNotes" placeholder="Notas (opcional)"></textarea></div><button class="btn btn-gold" id="addPlace">Adicionar lugar</button></div><div class="place-list">${data.places.length ? data.places.map((place, index) => `<div class="place-row${index === 0 ? ' active' : ''}"><div><strong>${esc(place.name)}</strong><small>${esc(place.type)}${place.address ? ` · ${esc(place.address)}` : ''}</small><div class="place-actions"><button type="button" class="place-map" data-map-place="${index}">Ver no mapa</button><a class="place-route" href="${esc(directionsUrl(place))}" target="_blank" rel="noopener">Como chegar</a></div></div><button class="delete-item" data-del-place="${esc(place.id || '')}">Excluir</button></div>`).join('') : '<div class="planner-card"><p class="muted">Nenhum lugar salvo ainda.</p></div>'}</div></div><div><div class="planner-card"><h2>Mapa da viagem</h2><p class="muted">Toque em "Ver no mapa" num lugar salvo, ou pesquise um endereço.</p><div style="display:flex;gap:8px;margin:14px 0"><input class="inline-input" id="mapSearch" placeholder="Lisboa, Porto, Paris..."><button class="btn btn-outline-dark" id="mapGo">Ver no mapa</button></div><iframe id="mapFrame" class="map-frame" src="${defaultMap}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Google Maps"></iframe></div></div></div>`;
   document.getElementById('togglePlace').onclick = () => { if (!requireAccount()) document.getElementById('placeForm').classList.toggle('hidden'); };
   document.getElementById('addPlace').onclick = async () => {
     if (requireAccount()) return;
@@ -224,7 +228,17 @@ function renderPlaces(element) {
     await api(`/api/planner/${data.trip.id}/places`, { method: 'POST', body: JSON.stringify(body) });
     await loadPlanner(); renderPlaces(element);
   };
-  document.getElementById('mapGo').onclick = () => { const query = document.getElementById('mapSearch').value.trim(); if (query) document.getElementById('mapFrame').src = `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`; };
+  document.getElementById('mapGo').onclick = () => { const query = document.getElementById('mapSearch').value.trim(); if (query) document.getElementById('mapFrame').src = mapEmbedUrl(query); };
+  element.querySelectorAll('[data-map-place]').forEach((button) => button.onclick = () => {
+    const place = data.places[Number(button.dataset.mapPlace)];
+    if (!place) return;
+    const frame = document.getElementById('mapFrame');
+    frame.src = mapEmbedUrl(placeQuery(place));
+    element.querySelectorAll('.place-row.active').forEach((row) => row.classList.remove('active'));
+    button.closest('.place-row')?.classList.add('active');
+    const box = frame.getBoundingClientRect();
+    if (box.top < 0 || box.bottom > innerHeight) frame.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
   element.querySelectorAll('[data-del-place]').forEach((button) => button.onclick = async () => {
     if (requireAccount()) return;
     await api(`/api/planner/${data.trip.id}/places/${button.dataset.delPlace}`, { method: 'DELETE' });
