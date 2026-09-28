@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Financeiro | Rota Certa Passagens</title>
+  <link rel="stylesheet" href="/assets/portal.css"><link rel="icon" href="/assets/logo.png">
+</head>
+<body><main class="shell">
+  <div class="top"><div><div class="brand">Rota Certa <span>Passagens</span></div><p class="muted">Financeiro — acesso restrito a usuários master</p></div><a class="button" href="/admin.html">Voltar ao painel administrativo</a></div>
+  <section class="panel" id="accessMessage"><h1>Acesso ao financeiro</h1><p>Entre primeiro pela Área do cliente com uma conta master.</p><a class="button" href="/#/cliente">Ir para a Área do cliente</a></section>
+  <div id="financeContent" class="hidden">
+    <section class="panel">
+      <div class="section-head"><div><h2>Visão geral</h2><p class="muted">Indicadores calculados no servidor, sempre por moeda. Escolha o período e o regime.</p></div></div>
+      <form id="dashboardForm">
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>De<input id="dashboardFrom" type="date" required></label>
+          <label>Até<input id="dashboardTo" type="date" required></label>
+          <label>Regime<select id="dashboardRegime"><option value="accrual">Competência</option><option value="cash">Caixa</option></select></label>
+        </div>
+        <button type="submit">Atualizar</button>
+        <p class="status" id="dashboardStatus" aria-live="polite"></p>
+      </form>
+      <div id="dashboardIndicators" class="grid"></div>
+      <div class="section-head" style="flex-wrap:wrap">
+        <a class="button" id="exportSalesCsv" href="#">Exportar vendas (CSV)</a>
+        <a class="button" id="exportObligationsCsv" href="#">Exportar contas a pagar (CSV)</a>
+        <a class="button" id="exportReceivablesCsv" href="#">Exportar contas a receber (CSV)</a>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Alertas</h2><p class="muted">Vencidos, próximos vencimentos, assinaturas, margem baixa e milhas.</p></div></div>
+      <div id="dashboardAlerts"></div>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Centros de custo</h2><p class="muted">Nunca é possível excluir — apenas ativar/desativar.</p></div></div>
+      <form id="costCenterForm"><label>Nome<input id="costCenterName" required minlength="2" maxlength="120"></label><button type="submit">Criar centro de custo</button><p class="status" id="costCenterStatus" aria-live="polite"></p></form>
+      <table><thead><tr><th>Nome</th><th>Ativo</th><th>Ações</th></tr></thead><tbody id="costCenters"></tbody></table>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Categorias</h2><p class="muted">Receita, custo direto ou despesa operacional. Subcategoria herda o mesmo tipo da categoria-pai.</p></div></div>
+      <form id="categoryForm">
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Tipo<select id="categoryKind"><option value="revenue">Receita</option><option value="direct_cost">Custo direto</option><option value="operating_expense">Despesa operacional</option></select></label>
+          <label>Nome<input id="categoryName" required minlength="2" maxlength="120"></label>
+          <label>Categoria-pai (opcional)<select id="categoryParent"><option value="">Nenhuma</option></select></label>
+          <label>Centro de custo padrão (opcional)<select id="categoryCostCenter"><option value="">Nenhum</option></select></label>
+        </div>
+        <button type="submit">Criar categoria</button>
+        <p class="status" id="categoryStatus" aria-live="polite"></p>
+      </form>
+      <table><thead><tr><th>Tipo</th><th>Nome</th><th>Categoria-pai</th><th>Ativo</th><th>Ações</th></tr></thead><tbody id="categories"></tbody></table>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Contas financeiras internas</h2><p class="muted">Sem integração bancária real nesta fase. Apenas os últimos 4 dígitos de cartão, nunca o número completo.</p></div></div>
+      <form id="accountForm">
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Nome<input id="accountName" required minlength="2" maxlength="120"></label>
+          <label>Tipo<select id="accountType"><option value="bank">Banco</option><option value="cash">Dinheiro</option><option value="card">Cartão</option><option value="digital_wallet">Carteira digital</option><option value="other">Outro</option></select></label>
+          <label>Moeda<input id="accountCurrency" value="EUR" maxlength="3" required></label>
+          <label>Instituição (opcional)<input id="accountInstitution" maxlength="160"></label>
+          <label>Últimos 4 dígitos (opcional)<input id="accountLast4" maxlength="4" pattern="\d{4}"></label>
+        </div>
+        <button type="submit">Criar conta</button>
+        <p class="status" id="accountStatus" aria-live="polite"></p>
+      </form>
+      <table><thead><tr><th>Nome</th><th>Tipo</th><th>Moeda</th><th>Ativo</th><th>Ações</th></tr></thead><tbody id="accounts"></tbody></table>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Contrapartes</h2><p class="muted">Fornecedor, companhia aérea, consolidadora ou fornecedor de milhas — distinto de parceiro de indicação.</p></div></div>
+      <form id="counterpartyForm">
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Nome<input id="counterpartyName" required minlength="2" maxlength="160"></label>
+          <label>Tipo<select id="counterpartyKind"><option value="supplier">Fornecedor</option><option value="airline">Companhia aérea</option><option value="consolidator">Consolidadora</option><option value="mileage_provider">Fornecedor de milhas</option><option value="other">Outro</option></select></label>
+          <label>Moeda preferida (opcional)<input id="counterpartyCurrency" maxlength="3"></label>
+        </div>
+        <button type="submit">Criar contraparte</button>
+        <p class="status" id="counterpartyStatus" aria-live="polite"></p>
+      </form>
+      <table><thead><tr><th>Nome</th><th>Tipo</th><th>Moeda</th><th>Ativo</th><th>Ações</th></tr></thead><tbody id="counterparties"></tbody></table>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Assinaturas</h2><p class="muted">Despesas recorrentes da empresa. Reajuste preserva o histórico de preço; cancelamento nunca apaga cobranças já geradas.</p></div>
+        <button type="button" id="generateChargesButton">Gerar cobranças vencidas</button>
+      </div>
+      <p class="status" id="generateChargesStatus" aria-live="polite"></p>
+      <form id="subscriptionForm">
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Fornecedor<select id="subscriptionCounterparty" required></select></label>
+          <label>Serviço<input id="subscriptionService" required minlength="2" maxlength="160"></label>
+          <label>Categoria (despesa operacional)<select id="subscriptionCategory" required></select></label>
+          <label>Valor (centavos)<input id="subscriptionAmount" type="number" min="1" required></label>
+          <label>Moeda<input id="subscriptionCurrency" value="EUR" maxlength="3" required></label>
+          <label>Periodicidade<select id="subscriptionPeriodicity"><option value="monthly">Mensal</option><option value="quarterly">Trimestral</option><option value="semiannual">Semestral</option><option value="annual">Anual</option><option value="custom">Personalizada (dias)</option></select></label>
+          <label>Intervalo em dias (só personalizada)<input id="subscriptionCustomDays" type="number" min="1"></label>
+          <label>Início<input id="subscriptionStartedAt" type="date" required></label>
+        </div>
+        <button type="submit">Criar assinatura</button>
+        <p class="status" id="subscriptionStatus" aria-live="polite"></p>
+      </form>
+      <table><thead><tr><th>Serviço</th><th>Valor</th><th>Periodicidade</th><th>Próxima cobrança</th><th>Status</th><th>Ações</th></tr></thead><tbody id="subscriptions"></tbody></table>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Contas a pagar e despesas</h2><p class="muted">Custo direto ou despesa operacional. Pagamento parcial/total; estorno sempre como novo lançamento.</p></div></div>
+      <form id="obligationForm">
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Tipo<select id="obligationKind"><option value="operating_expense">Despesa operacional</option><option value="direct_cost">Custo direto</option></select></label>
+          <label>Categoria<select id="obligationCategory" required></select></label>
+          <label>Contraparte (opcional)<select id="obligationCounterparty"><option value="">Nenhuma</option></select></label>
+          <label>Competência<input id="obligationCompetencyDate" type="date" required></label>
+          <label>Vencimento<input id="obligationDueDate" type="date" required></label>
+          <label>Valor (centavos)<input id="obligationAmount" type="number" min="1" required></label>
+          <label>Moeda<input id="obligationCurrency" value="EUR" maxlength="3" required></label>
+        </div>
+        <button type="submit">Criar obrigação</button>
+        <p class="status" id="obligationStatus" aria-live="polite"></p>
+      </form>
+      <table><thead><tr><th>Categoria</th><th>Vencimento</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead><tbody id="obligations"></tbody></table>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Vendas</h2><p class="muted">Toda venda nasce de uma proposta já convertida no painel (Central de Propostas, acima). Informe o id da proposta convertida para gerar a venda financeira — nunca duplica, nunca recria a comissão do parceiro.</p></div></div>
+      <form id="saleFromLeadForm">
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>ID da proposta convertida<input id="saleLeadId" required placeholder="uuid da proposta"></label>
+          <label>Desconto (centavos, opcional)<input id="saleDiscount" type="number" min="0" value="0"></label>
+        </div>
+        <button type="submit">Gerar venda a partir da proposta</button>
+        <p class="status" id="saleFromLeadStatus" aria-live="polite"></p>
+      </form>
+      <table><thead><tr><th>Protocolo</th><th>Data</th><th>Valor líquido</th><th>Status</th><th>Situação financeira</th><th>Ações</th></tr></thead><tbody id="sales"></tbody></table>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Milhas e fornecedores</h2><p class="muted">Compra de lote gera automaticamente a obrigação de pagamento ao fornecedor. Alocar milhas para uma emissão acontece na seção Vendas → "Emissões e lucro".</p></div></div>
+      <form id="mileageLotForm">
+        <div class="section-head" style="flex-wrap:wrap">
+          <label>Fornecedor de milhas<select id="mileageLotCounterparty" required></select></label>
+          <label>Programa<input id="mileageLotProgram" required minlength="2" maxlength="120" placeholder="ex: Smiles, LATAM Pass"></label>
+          <label>Categoria (custo direto)<select id="mileageLotCategory" required></select></label>
+          <label>Quantidade comprada<input id="mileageLotQuantity" type="number" min="1" required></label>
+          <label>Custo total (centavos)<input id="mileageLotCost" type="number" min="1" required></label>
+          <label>Moeda<input id="mileageLotCurrency" value="EUR" maxlength="3" required></label>
+          <label>Data da compra<input id="mileageLotPurchasedAt" type="date" required></label>
+          <label>Vencimento do pagamento<input id="mileageLotDueDate" type="date" required></label>
+          <label>Validade (opcional)<input id="mileageLotExpiresAt" type="date"></label>
+        </div>
+        <button type="submit">Comprar lote</button>
+        <p class="status" id="mileageLotStatus" aria-live="polite"></p>
+      </form>
+      <table><thead><tr><th>Fornecedor</th><th>Programa</th><th>Saldo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="mileageLots"></tbody></table>
+    </section>
+    <section class="panel"><p class="muted">Relatórios consolidados (dashboard) chegam na próxima fase (ver docs/financeiro/PLANO_IMPLEMENTACAO.md).</p></section>
+  </div>
+</main><script type="module" src="/assets/financeiro.js"></script></body>
+</html>
