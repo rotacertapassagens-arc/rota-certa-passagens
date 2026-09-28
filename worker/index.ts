@@ -1,6 +1,10 @@
 import { timingSafeEqual } from 'node:crypto';
 import { parseCommissionPaidPayload, parseWeeklySummaryPayload } from '../shared/notificationPayloads.js';
 import { calculateProgramCommission, lisbonMonthStartUtc, nextProgressiveTier, PARTNER_PRIVACY_POLICY_VERSION, type PartnerCommissionPolicy } from '../shared/partnerCommission.js';
+import { isValidSubscriptionTransition, nextChargeDate, subscriptionChargeIdempotencyKey, type SubscriptionPeriodicity } from '../shared/subscriptionSchedule.js';
+import { calculateSaleProfit, isValidIssuanceTransition, sumIssuanceDirectCostCents } from '../shared/salesProfit.js';
+import { allocationCostCents, unitCostMicros } from '../shared/mileageCost.js';
+import { buildCsv } from '../shared/financeCsv.js';
 
 type Row = Record<string, unknown>;
 type Auth = { userId: string; sessionId: string; email: string; name: string; roles: string[] };
@@ -69,6 +73,87 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   if (req.method === 'POST' && commissionAction) return commissionTransition(req, env, commissionAction[1]!, commissionAction[2]! as 'approve' | 'pay' | 'void');
   if (req.method === 'POST' && p === '/api/admin/notifications/process') return notificationsProcess(req, env);
   if (req.method === 'POST' && p === '/api/admin/notifications/weekly-summary') return notificationsWeeklySummary(req, env);
+  if (req.method === 'GET' && p === '/api/admin/finance/cost-centers') return financeCostCenters(req, env);
+  if (req.method === 'POST' && p === '/api/admin/finance/cost-centers') return financeCostCenterCreate(req, env);
+  const costCenterId = p.match(/^\/api\/admin\/finance\/cost-centers\/([0-9a-f-]+)$/i);
+  if (req.method === 'PATCH' && costCenterId) return financeCostCenterUpdate(req, env, costCenterId[1]!);
+  if (req.method === 'GET' && p === '/api/admin/finance/categories') return financeCategories(req, env);
+  if (req.method === 'POST' && p === '/api/admin/finance/categories') return financeCategoryCreate(req, env);
+  const categoryId = p.match(/^\/api\/admin\/finance\/categories\/([0-9a-f-]+)$/i);
+  if (req.method === 'PATCH' && categoryId) return financeCategoryUpdate(req, env, categoryId[1]!);
+  if (req.method === 'GET' && p === '/api/admin/finance/accounts') return financeAccounts(req, env);
+  if (req.method === 'POST' && p === '/api/admin/finance/accounts') return financeAccountCreate(req, env);
+  const financeAccountId = p.match(/^\/api\/admin\/finance\/accounts\/([0-9a-f-]+)$/i);
+  if (req.method === 'PATCH' && financeAccountId) return financeAccountUpdate(req, env, financeAccountId[1]!);
+  if (req.method === 'GET' && p === '/api/admin/finance/counterparties') return financeCounterparties(req, env);
+  if (req.method === 'POST' && p === '/api/admin/finance/counterparties') return financeCounterpartyCreate(req, env);
+  const counterpartyId = p.match(/^\/api\/admin\/finance\/counterparties\/([0-9a-f-]+)$/i);
+  if (req.method === 'PATCH' && counterpartyId) return financeCounterpartyUpdate(req, env, counterpartyId[1]!);
+  if (req.method === 'GET' && p === '/api/admin/finance/subscriptions') return financeSubscriptions(req, env, url);
+  if (req.method === 'POST' && p === '/api/admin/finance/subscriptions') return financeSubscriptionCreate(req, env);
+  if (req.method === 'POST' && p === '/api/admin/finance/subscriptions/generate-charges') return financeSubscriptionGenerateCharges(req, env);
+  const subscriptionId = p.match(/^\/api\/admin\/finance\/subscriptions\/([0-9a-f-]+)$/i);
+  if (req.method === 'PATCH' && subscriptionId) return financeSubscriptionUpdate(req, env, subscriptionId[1]!);
+  const subscriptionReprice = p.match(/^\/api\/admin\/finance\/subscriptions\/([0-9a-f-]+)\/reprice$/i);
+  if (req.method === 'POST' && subscriptionReprice) return financeSubscriptionReprice(req, env, subscriptionReprice[1]!);
+  const subscriptionPriceHistory = p.match(/^\/api\/admin\/finance\/subscriptions\/([0-9a-f-]+)\/price-history$/i);
+  if (req.method === 'GET' && subscriptionPriceHistory) return financeSubscriptionPriceHistory(req, env, subscriptionPriceHistory[1]!);
+  const subscriptionStatus = p.match(/^\/api\/admin\/finance\/subscriptions\/([0-9a-f-]+)\/status$/i);
+  if (req.method === 'POST' && subscriptionStatus) return financeSubscriptionStatus(req, env, subscriptionStatus[1]!);
+  if (req.method === 'GET' && p === '/api/admin/finance/obligations') return financeObligations(req, env, url);
+  if (req.method === 'POST' && p === '/api/admin/finance/obligations') return financeObligationCreate(req, env);
+  const obligationId = p.match(/^\/api\/admin\/finance\/obligations\/([0-9a-f-]+)$/i);
+  if (req.method === 'PATCH' && obligationId) return financeObligationUpdate(req, env, obligationId[1]!);
+  const obligationCancel = p.match(/^\/api\/admin\/finance\/obligations\/([0-9a-f-]+)\/cancel$/i);
+  if (req.method === 'POST' && obligationCancel) return financeObligationCancel(req, env, obligationCancel[1]!);
+  const obligationPayments = p.match(/^\/api\/admin\/finance\/obligations\/([0-9a-f-]+)\/payments$/i);
+  if (req.method === 'GET' && obligationPayments) return financeObligationPayments(req, env, obligationPayments[1]!);
+  if (req.method === 'POST' && obligationPayments) return financeObligationPaymentCreate(req, env, obligationPayments[1]!);
+  const obligationPaymentReverse = p.match(/^\/api\/admin\/finance\/obligation-payments\/([0-9a-f-]+)\/reverse$/i);
+  if (req.method === 'POST' && obligationPaymentReverse) return financeObligationPaymentReverse(req, env, obligationPaymentReverse[1]!);
+  if (req.method === 'GET' && p === '/api/admin/finance/sales') return financeSales(req, env, url);
+  const salesFromLead = p.match(/^\/api\/admin\/finance\/sales\/from-lead\/([0-9a-f-]+)$/i);
+  if (req.method === 'POST' && salesFromLead) return financeSaleFromLead(req, env, salesFromLead[1]!);
+  const saleId = p.match(/^\/api\/admin\/finance\/sales\/([0-9a-f-]+)$/i);
+  if (req.method === 'GET' && saleId) return financeSaleDetail(req, env, saleId[1]!);
+  const saleCancel = p.match(/^\/api\/admin\/finance\/sales\/([0-9a-f-]+)\/cancel$/i);
+  if (req.method === 'POST' && saleCancel) return financeSaleCancel(req, env, saleCancel[1]!);
+  const saleRefund = p.match(/^\/api\/admin\/finance\/sales\/([0-9a-f-]+)\/refund$/i);
+  if (req.method === 'POST' && saleRefund) return financeSaleRefund(req, env, saleRefund[1]!);
+  const saleReceivables = p.match(/^\/api\/admin\/finance\/sales\/([0-9a-f-]+)\/receivables$/i);
+  if (req.method === 'GET' && saleReceivables) return financeSaleReceivables(req, env, saleReceivables[1]!);
+  if (req.method === 'POST' && saleReceivables) return financeSaleReceivablesCreate(req, env, saleReceivables[1]!);
+  const receivablePayments = p.match(/^\/api\/admin\/finance\/receivables\/([0-9a-f-]+)\/payments$/i);
+  if (req.method === 'GET' && receivablePayments) return financeReceivablePayments(req, env, receivablePayments[1]!);
+  if (req.method === 'POST' && receivablePayments) return financeReceivablePaymentCreate(req, env, receivablePayments[1]!);
+  const receivablePaymentReverse = p.match(/^\/api\/admin\/finance\/receivable-payments\/([0-9a-f-]+)\/reverse$/i);
+  if (req.method === 'POST' && receivablePaymentReverse) return financeReceivablePaymentReverse(req, env, receivablePaymentReverse[1]!);
+  const saleIssuances = p.match(/^\/api\/admin\/finance\/sales\/([0-9a-f-]+)\/issuances$/i);
+  if (req.method === 'GET' && saleIssuances) return financeSaleIssuances(req, env, saleIssuances[1]!);
+  if (req.method === 'POST' && saleIssuances) return financeSaleIssuanceCreate(req, env, saleIssuances[1]!);
+  const issuanceId = p.match(/^\/api\/admin\/finance\/issuances\/([0-9a-f-]+)$/i);
+  if (req.method === 'PATCH' && issuanceId) return financeIssuanceUpdate(req, env, issuanceId[1]!);
+  const issuanceIssue = p.match(/^\/api\/admin\/finance\/issuances\/([0-9a-f-]+)\/issue$/i);
+  if (req.method === 'POST' && issuanceIssue) return financeIssuanceIssue(req, env, issuanceIssue[1]!);
+  const issuanceCancel = p.match(/^\/api\/admin\/finance\/issuances\/([0-9a-f-]+)\/cancel$/i);
+  if (req.method === 'POST' && issuanceCancel) return financeIssuanceCancel(req, env, issuanceCancel[1]!);
+  const issuanceRefund = p.match(/^\/api\/admin\/finance\/issuances\/([0-9a-f-]+)\/refund$/i);
+  if (req.method === 'POST' && issuanceRefund) return financeIssuanceRefund(req, env, issuanceRefund[1]!);
+  if (req.method === 'GET' && p === '/api/admin/finance/mileage-lots') return financeMileageLots(req, env, url);
+  if (req.method === 'POST' && p === '/api/admin/finance/mileage-lots') return financeMileageLotCreate(req, env);
+  const mileageLotId = p.match(/^\/api\/admin\/finance\/mileage-lots\/([0-9a-f-]+)$/i);
+  if (req.method === 'GET' && mileageLotId) return financeMileageLotDetail(req, env, mileageLotId[1]!);
+  const mileageLotCancel = p.match(/^\/api\/admin\/finance\/mileage-lots\/([0-9a-f-]+)\/cancel$/i);
+  if (req.method === 'POST' && mileageLotCancel) return financeMileageLotCancel(req, env, mileageLotCancel[1]!);
+  const issuanceMileageAllocations = p.match(/^\/api\/admin\/finance\/issuances\/([0-9a-f-]+)\/mileage-allocations$/i);
+  if (req.method === 'GET' && issuanceMileageAllocations) return financeMileageAllocations(req, env, issuanceMileageAllocations[1]!);
+  if (req.method === 'POST' && issuanceMileageAllocations) return financeMileageAllocationCreate(req, env, issuanceMileageAllocations[1]!);
+  const mileageAllocationVoid = p.match(/^\/api\/admin\/finance\/mileage-allocations\/([0-9a-f-]+)\/void$/i);
+  if (req.method === 'POST' && mileageAllocationVoid) return financeMileageAllocationVoid(req, env, mileageAllocationVoid[1]!);
+  if (req.method === 'GET' && p === '/api/admin/finance/dashboard/overview') return financeDashboardOverview(req, env, url);
+  if (req.method === 'GET' && p === '/api/admin/finance/dashboard/alerts') return financeDashboardAlerts(req, env, url);
+  if (req.method === 'GET' && p === '/api/admin/finance/dashboard/expenses-by-category') return financeDashboardExpensesByCategory(req, env, url);
+  if (req.method === 'GET' && p === '/api/admin/finance/dashboard/export.csv') return financeDashboardExportCsv(req, env, url);
   if (req.method === 'GET' && p === '/api/health') return reply({ ok: true, runtime: 'cloudflare-workers' });
   if (req.method === 'GET' && p === '/api/geo') return reply({ country: req.headers.get('cf-ipcountry') || 'PT' });
   if (req.method === 'POST' && p === '/api/lead') return flightQuoteLead(req, env);
@@ -535,14 +620,19 @@ async function adminLeadUpdate(req:Request,env:Env,id:string){
   let commissionPreview:{amountCents:number;currency:string}|{error:string}|null=null;
   let finalSaleAmountCents=existing.sale_amount_cents as number|null;
   let finalSaleCurrency=existing.sale_currency as string|null;
-  if(status==='converted'&&existing.partner_id){
-    const created=await createCommissionForLead(env,auth.userId,id,String(existing.partner_id),saleAmountCents,saleCurrencyRaw,existing.sale_amount_cents as number|null,existing.sale_currency as string|null);
-    if('error'in created)return reply({error:created.error},created.statusCode);
-    commissionPreview=created;
-    // A repeated/idempotent conversion call that omits saleAmountCents/saleCurrency must never
-    // null out financial data that already exists on the proposal.
+  if(status==='converted'){
+    // Must persist for every converted lead, not only ones with a referring partner — a lead
+    // with no partner_id has no commission to compute, but its sale amount is still the source
+    // of truth the finance module (fin_sales) reads from. A repeated/idempotent conversion call
+    // that omits saleAmountCents/saleCurrency must never null out financial data that already
+    // exists on the proposal.
     finalSaleAmountCents=saleAmountCents??(existing.sale_amount_cents as number|null);
     finalSaleCurrency=saleCurrencyRaw??(existing.sale_currency as string|null);
+    if(existing.partner_id){
+      const created=await createCommissionForLead(env,auth.userId,id,String(existing.partner_id),saleAmountCents,saleCurrencyRaw,existing.sale_amount_cents as number|null,existing.sale_currency as string|null);
+      if('error'in created)return reply({error:created.error},created.statusCode);
+      commissionPreview=created;
+    }
   }
 
   statements.push(
@@ -1087,4 +1177,1412 @@ async function notificationsWeeklySummary(req:Request,env:Env){
     if(result.meta.changes)created++;
   }
   return reply({partnersConsidered:partners.results.length,summariesCreated:created});
+}
+
+// --- Financeiro (Fase 1 — fundação) ---------------------------------------------------------
+// Mirrors src/routes/finance.ts exactly: same tables (fin_*), same authorization gate
+// (requireMaster for GET, mutationAuth + master role for POST/PATCH), same audit actions, same
+// camelCase response contract. Kept in this same file because every other Worker route lives
+// here too (see worker/env.d.ts / wrangler.jsonc — one Worker script, no sub-modules).
+const FINANCE_CATEGORY_KINDS = ['revenue', 'direct_cost', 'operating_expense'];
+const FINANCE_ACCOUNT_TYPES = ['bank', 'cash', 'card', 'digital_wallet', 'other'];
+const FINANCE_COUNTERPARTY_KINDS = ['supplier', 'airline', 'consolidator', 'mileage_provider', 'other'];
+
+function serializeCostCenter(row: Row) { return { id: row.id, name: row.name, active: Boolean(row.active), createdAt: row.created_at, updatedAt: row.updated_at }; }
+function serializeCategory(row: Row) { return { id: row.id, parentId: row.parent_id, kind: row.kind, name: row.name, defaultCostCenterId: row.default_cost_center_id, active: Boolean(row.active), createdAt: row.created_at, updatedAt: row.updated_at }; }
+function serializeFinAccount(row: Row) { return { id: row.id, name: row.name, type: row.type, institution: row.institution, last4: row.last4, currency: row.currency, openingBalanceCents: row.opening_balance_cents, openingBalanceAt: row.opening_balance_at, active: Boolean(row.active), notes: row.notes, createdAt: row.created_at, updatedAt: row.updated_at }; }
+function serializeCounterparty(row: Row) { return { id: row.id, displayName: row.display_name, kind: row.kind, taxId: row.tax_id, contact: row.contact, preferredCurrency: row.preferred_currency, active: Boolean(row.active), notes: row.notes, createdAt: row.created_at, updatedAt: row.updated_at }; }
+
+async function financeCostCenters(req: Request, env: Env) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,name,active,created_at,updated_at FROM fin_cost_centers ORDER BY name').all<Row>();
+  return reply({ costCenters: rows.results.map(serializeCostCenter) });
+}
+async function financeCostCenterCreate(req: Request, env: Env) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req); const name = text(b?.name, 120, 2);
+  if (!name) return reply({ error: 'invalid_cost_center' }, 400);
+  const id = crypto.randomUUID();
+  try { await env.DB.prepare('INSERT INTO fin_cost_centers(id,name) VALUES(?,?)').bind(id, name).run(); }
+  catch (error) { return reply({ error: 'cost_center_name_taken' }, 409); }
+  await audit(env, auth.userId, 'finance.cost_center_created', 'fin_cost_center', id);
+  return reply({ id }, 201);
+}
+async function financeCostCenterUpdate(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const name = 'name' in (b || {}) ? text(b?.name, 120, 2) : undefined;
+  const active = typeof b?.active === 'boolean' ? b.active : undefined;
+  let result;
+  try {
+    result = await env.DB.prepare('UPDATE fin_cost_centers SET name=COALESCE(?,name),active=COALESCE(?,active),updated_at=CURRENT_TIMESTAMP WHERE id=?')
+      .bind(name ?? null, active === undefined ? null : (active ? 1 : 0), id).run();
+  } catch (error) { return reply({ error: 'cost_center_name_taken' }, 409); }
+  if (!result.meta.changes) return reply({ error: 'not_found' }, 404);
+  await audit(env, auth.userId, 'finance.cost_center_updated', 'fin_cost_center', id);
+  return reply({ ok: true });
+}
+
+async function financeCategories(req: Request, env: Env) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,parent_id,kind,name,default_cost_center_id,active,created_at,updated_at FROM fin_categories ORDER BY kind,name').all<Row>();
+  return reply({ categories: rows.results.map(serializeCategory) });
+}
+async function financeCategoryCreate(req: Request, env: Env) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const kind = typeof b?.kind === 'string' && FINANCE_CATEGORY_KINDS.includes(b.kind) ? b.kind : null;
+  const name = text(b?.name, 120, 2);
+  const parentId = typeof b?.parentId === 'string' && /^[0-9a-f-]{36}$/i.test(b.parentId) ? b.parentId : null;
+  const defaultCostCenterId = typeof b?.defaultCostCenterId === 'string' && /^[0-9a-f-]{36}$/i.test(b.defaultCostCenterId) ? b.defaultCostCenterId : null;
+  if (!kind || !name) return reply({ error: 'invalid_category' }, 400);
+  if (parentId) {
+    const parent = await env.DB.prepare('SELECT kind FROM fin_categories WHERE id=?').bind(parentId).first<{ kind: string }>();
+    if (!parent) return reply({ error: 'parent_not_found' }, 422);
+    if (parent.kind !== kind) return reply({ error: 'parent_kind_mismatch' }, 422);
+  }
+  if (defaultCostCenterId) {
+    const costCenter = await env.DB.prepare('SELECT 1 FROM fin_cost_centers WHERE id=?').bind(defaultCostCenterId).first();
+    if (!costCenter) return reply({ error: 'cost_center_not_found' }, 422);
+  }
+  const id = crypto.randomUUID();
+  await env.DB.prepare('INSERT INTO fin_categories(id,parent_id,kind,name,default_cost_center_id) VALUES(?,?,?,?,?)').bind(id, parentId, kind, name, defaultCostCenterId).run();
+  await audit(env, auth.userId, 'finance.category_created', 'fin_category', id);
+  return reply({ id }, 201);
+}
+async function financeCategoryUpdate(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const name = 'name' in (b || {}) ? text(b?.name, 120, 2) : undefined;
+  const active = typeof b?.active === 'boolean' ? b.active : undefined;
+  const hasDefaultCostCenterId = b != null && 'defaultCostCenterId' in b;
+  const defaultCostCenterId = hasDefaultCostCenterId && typeof b?.defaultCostCenterId === 'string' && /^[0-9a-f-]{36}$/i.test(b.defaultCostCenterId) ? b.defaultCostCenterId : null;
+  if (active === false) {
+    const referenced = await env.DB.prepare('SELECT 1 FROM fin_categories WHERE parent_id=? AND active=1 LIMIT 1').bind(id).first();
+    if (referenced) return reply({ error: 'category_has_active_children' }, 409);
+  }
+  if (hasDefaultCostCenterId && defaultCostCenterId) {
+    const costCenter = await env.DB.prepare('SELECT 1 FROM fin_cost_centers WHERE id=?').bind(defaultCostCenterId).first();
+    if (!costCenter) return reply({ error: 'cost_center_not_found' }, 422);
+  }
+  const result = await env.DB.prepare(
+    `UPDATE fin_categories SET name=COALESCE(?,name),
+       default_cost_center_id=CASE WHEN ?=1 THEN ? ELSE default_cost_center_id END,
+       active=COALESCE(?,active),updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+  ).bind(name ?? null, hasDefaultCostCenterId ? 1 : 0, defaultCostCenterId, active === undefined ? null : (active ? 1 : 0), id).run();
+  if (!result.meta.changes) return reply({ error: 'not_found' }, 404);
+  await audit(env, auth.userId, 'finance.category_updated', 'fin_category', id);
+  return reply({ ok: true });
+}
+
+async function financeAccounts(req: Request, env: Env) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,name,type,institution,last4,currency,opening_balance_cents,opening_balance_at,active,notes,created_at,updated_at FROM fin_accounts ORDER BY name').all<Row>();
+  return reply({ accounts: rows.results.map(serializeFinAccount) });
+}
+async function financeAccountCreate(req: Request, env: Env) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const name = text(b?.name, 120, 2);
+  const type = typeof b?.type === 'string' && FINANCE_ACCOUNT_TYPES.includes(b.type) ? b.type : null;
+  const currency = typeof b?.currency === 'string' && b.currency.length === 3 ? b.currency.toUpperCase() : null;
+  const institution = text(b?.institution, 160) || null;
+  const last4 = typeof b?.last4 === 'string' && /^\d{4}$/.test(b.last4) ? b.last4 : null;
+  const notes = text(b?.notes, 1000) || null;
+  const openingBalanceCents = Number.isInteger(b?.openingBalanceCents) ? Number(b?.openingBalanceCents) : null;
+  const openingBalanceAt = dateOf(b?.openingBalanceAt);
+  if (!name || !type || !currency || !validCurrency(currency)) return reply({ error: 'invalid_account' }, 400);
+  if ((openingBalanceCents === null) !== (openingBalanceAt === null)) return reply({ error: 'invalid_account' }, 400);
+  const id = crypto.randomUUID();
+  await env.DB.prepare('INSERT INTO fin_accounts(id,name,type,institution,last4,currency,opening_balance_cents,opening_balance_at,notes) VALUES(?,?,?,?,?,?,?,?,?)')
+    .bind(id, name, type, institution, last4, currency, openingBalanceCents, openingBalanceAt, notes).run();
+  await audit(env, auth.userId, 'finance.account_created', 'fin_account', id);
+  return reply({ id }, 201);
+}
+async function financeAccountUpdate(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const name = 'name' in (b || {}) ? text(b?.name, 120, 2) : undefined;
+  const hasInstitution = b != null && 'institution' in b; const institution = text(b?.institution, 160) || null;
+  const hasLast4 = b != null && 'last4' in b; const last4 = typeof b?.last4 === 'string' && /^\d{4}$/.test(b.last4) ? b.last4 : null;
+  const hasNotes = b != null && 'notes' in b; const notes = text(b?.notes, 1000) || null;
+  const active = typeof b?.active === 'boolean' ? b.active : undefined;
+  const result = await env.DB.prepare(
+    `UPDATE fin_accounts SET name=COALESCE(?,name),
+       institution=CASE WHEN ?=1 THEN ? ELSE institution END,
+       last4=CASE WHEN ?=1 THEN ? ELSE last4 END,
+       notes=CASE WHEN ?=1 THEN ? ELSE notes END,
+       active=COALESCE(?,active),updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+  ).bind(name ?? null, hasInstitution ? 1 : 0, institution, hasLast4 ? 1 : 0, last4, hasNotes ? 1 : 0, notes, active === undefined ? null : (active ? 1 : 0), id).run();
+  if (!result.meta.changes) return reply({ error: 'not_found' }, 404);
+  await audit(env, auth.userId, 'finance.account_updated', 'fin_account', id);
+  return reply({ ok: true });
+}
+
+async function financeCounterparties(req: Request, env: Env) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,display_name,kind,tax_id,contact,preferred_currency,active,notes,created_at,updated_at FROM fin_counterparties ORDER BY display_name').all<Row>();
+  return reply({ counterparties: rows.results.map(serializeCounterparty) });
+}
+async function financeCounterpartyCreate(req: Request, env: Env) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const displayName = text(b?.displayName, 160, 2);
+  const kind = typeof b?.kind === 'string' && FINANCE_COUNTERPARTY_KINDS.includes(b.kind) ? b.kind : null;
+  const taxId = text(b?.taxId, 60) || null;
+  const contact = text(b?.contact, 200) || null;
+  const preferredCurrency = typeof b?.preferredCurrency === 'string' && b.preferredCurrency.length === 3 ? b.preferredCurrency.toUpperCase() : null;
+  const notes = text(b?.notes, 1000) || null;
+  if (!displayName || !kind) return reply({ error: 'invalid_counterparty' }, 400);
+  if (preferredCurrency && !validCurrency(preferredCurrency)) return reply({ error: 'invalid_currency' }, 422);
+  const id = crypto.randomUUID();
+  await env.DB.prepare('INSERT INTO fin_counterparties(id,display_name,kind,tax_id,contact,preferred_currency,notes) VALUES(?,?,?,?,?,?,?)')
+    .bind(id, displayName, kind, taxId, contact, preferredCurrency, notes).run();
+  await audit(env, auth.userId, 'finance.counterparty_created', 'fin_counterparty', id);
+  return reply({ id }, 201);
+}
+async function financeCounterpartyUpdate(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const displayName = 'displayName' in (b || {}) ? text(b?.displayName, 160, 2) : undefined;
+  const hasContact = b != null && 'contact' in b; const contact = text(b?.contact, 200) || null;
+  const hasTaxId = b != null && 'taxId' in b; const taxId = text(b?.taxId, 60) || null;
+  const preferredCurrency = typeof b?.preferredCurrency === 'string' && b.preferredCurrency.length === 3 ? b.preferredCurrency.toUpperCase() : undefined;
+  const hasNotes = b != null && 'notes' in b; const notes = text(b?.notes, 1000) || null;
+  const active = typeof b?.active === 'boolean' ? b.active : undefined;
+  if (preferredCurrency && !validCurrency(preferredCurrency)) return reply({ error: 'invalid_currency' }, 422);
+  const result = await env.DB.prepare(
+    `UPDATE fin_counterparties SET display_name=COALESCE(?,display_name),
+       contact=CASE WHEN ?=1 THEN ? ELSE contact END,
+       tax_id=CASE WHEN ?=1 THEN ? ELSE tax_id END,
+       preferred_currency=COALESCE(?,preferred_currency),
+       notes=CASE WHEN ?=1 THEN ? ELSE notes END,
+       active=COALESCE(?,active),updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+  ).bind(displayName ?? null, hasContact ? 1 : 0, contact, hasTaxId ? 1 : 0, taxId, preferredCurrency ?? null, hasNotes ? 1 : 0, notes, active === undefined ? null : (active ? 1 : 0), id).run();
+  if (!result.meta.changes) return reply({ error: 'not_found' }, 404);
+  await audit(env, auth.userId, 'finance.counterparty_updated', 'fin_counterparty', id);
+  return reply({ ok: true });
+}
+
+// --- Financeiro (Fase 2 — assinaturas, despesas e contas a pagar) ---------------------------
+// Mirrors src/routes/finance-subscriptions.ts and src/routes/finance-obligations.ts. D1/SQLite
+// has no interactive multi-statement transaction the way Postgres does (env.DB.batch() runs
+// several prepared statements atomically but cannot branch on a read in between), so — exactly
+// like the existing commissionTransition() above — state changes here are sequential awaited
+// calls guarded by conditional WHERE clauses and unique constraints, not a wrapping BEGIN/COMMIT.
+const UUID_RE = /^[0-9a-f-]{36}$/i;
+const FINANCE_SUBSCRIPTION_PERIODICITIES = ['monthly', 'quarterly', 'semiannual', 'annual', 'custom'];
+const FINANCE_SUBSCRIPTION_STATUSES = ['trial', 'active', 'suspended', 'canceled', 'ended'];
+const FINANCE_OBLIGATION_KINDS = ['direct_cost', 'operating_expense'];
+const FINANCE_OBLIGATION_STATUSES = ['open', 'partial', 'paid', 'canceled', 'reversed'];
+
+function serializeFinSubscription(row: Row) {
+  return {
+    id: row.id, counterpartyId: row.counterparty_id, service: row.service, description: row.description, plan: row.plan,
+    amountCents: row.amount_cents, currency: row.currency, periodicity: row.periodicity, customIntervalDays: row.custom_interval_days,
+    nextChargeAt: row.next_charge_at, billingDay: row.billing_day, autoRenew: Boolean(row.auto_renew), accountId: row.account_id,
+    categoryId: row.category_id, costCenterId: row.cost_center_id, status: row.status, startedAt: row.started_at, endedAt: row.ended_at,
+    adminUrl: row.admin_url, responsibleUserId: row.responsible_user_id, noticeDays: row.notice_days, notes: row.notes,
+    createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+function serializeFinObligation(row: Row) {
+  return {
+    id: row.id, kind: row.kind, counterpartyId: row.counterparty_id, categoryId: row.category_id, costCenterId: row.cost_center_id,
+    competencyDate: row.competency_date, dueDate: row.due_date, amountCents: row.amount_cents, currency: row.currency,
+    accountId: row.account_id, status: row.status, subscriptionId: row.subscription_id, source: row.source, notes: row.notes,
+    canceledAt: row.canceled_at, cancelReason: row.cancel_reason, isOverdue: Boolean(row.is_overdue),
+    createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+function serializeFinPayment(row: Row) {
+  return {
+    id: row.id, paidAmountCents: row.paid_amount_cents, currency: row.currency, paidAt: row.paid_at, accountId: row.account_id,
+    reference: row.reference, reversalOf: row.reversal_of, reversalReason: row.reversal_reason, createdAt: row.created_at,
+  };
+}
+
+async function financeSubscriptions(req: Request, env: Env, url: URL) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const status = url.searchParams.get('status');
+  if (status && !FINANCE_SUBSCRIPTION_STATUSES.includes(status)) return reply({ error: 'invalid_filter' }, 400);
+  const rows = await env.DB.prepare(
+    `SELECT id,counterparty_id,service,description,plan,amount_cents,currency,periodicity,custom_interval_days,
+            next_charge_at,billing_day,auto_renew,account_id,category_id,cost_center_id,status,started_at,ended_at,
+            admin_url,responsible_user_id,notice_days,notes,created_at,updated_at
+       FROM fin_subscriptions WHERE (?1 IS NULL OR status=?1) ORDER BY next_charge_at`,
+  ).bind(status).all<Row>();
+  return reply({ subscriptions: rows.results.map(serializeFinSubscription) });
+}
+
+async function financeSubscriptionCreate(req: Request, env: Env) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const counterpartyId = typeof b?.counterpartyId === 'string' && UUID_RE.test(b.counterpartyId) ? b.counterpartyId : null;
+  const service = text(b?.service, 160, 2);
+  const description = text(b?.description, 1000) || null;
+  const plan = text(b?.plan, 120) || null;
+  const amountCents = intOf(b?.amountCents, 1, 100_000_000_00);
+  const currency = typeof b?.currency === 'string' && b.currency.length === 3 ? b.currency.toUpperCase() : null;
+  const periodicity = typeof b?.periodicity === 'string' && FINANCE_SUBSCRIPTION_PERIODICITIES.includes(b.periodicity) ? b.periodicity as SubscriptionPeriodicity : null;
+  const customIntervalDays = intOf(b?.customIntervalDays, 1, 3650);
+  const startedAt = dateOf(b?.startedAt);
+  const billingDay = intOf(b?.billingDay, 1, 31);
+  const autoRenew = typeof b?.autoRenew === 'boolean' ? b.autoRenew : true;
+  const accountId = typeof b?.accountId === 'string' && UUID_RE.test(b.accountId) ? b.accountId : null;
+  const categoryId = typeof b?.categoryId === 'string' && UUID_RE.test(b.categoryId) ? b.categoryId : null;
+  const costCenterIdInput = typeof b?.costCenterId === 'string' && UUID_RE.test(b.costCenterId) ? b.costCenterId : null;
+  const status = b?.status === 'trial' ? 'trial' : 'active';
+  const adminUrl = typeof b?.adminUrl === 'string' && b.adminUrl.length <= 500 ? b.adminUrl : null;
+  const responsibleUserId = typeof b?.responsibleUserId === 'string' && UUID_RE.test(b.responsibleUserId) ? b.responsibleUserId : null;
+  const noticeDays = Number.isInteger(b?.noticeDays) ? intOf(b?.noticeDays, 0, 365) : 7;
+  const notes = text(b?.notes, 1000) || null;
+  if (!counterpartyId || !service || !amountCents || !currency || !validCurrency(currency) || !periodicity || !startedAt || !categoryId) return reply({ error: 'invalid_subscription' }, 400);
+  if ((periodicity === 'custom') !== (customIntervalDays !== null)) return reply({ error: 'invalid_subscription' }, 400);
+
+  const category = await env.DB.prepare('SELECT kind FROM fin_categories WHERE id=? AND active=1').bind(categoryId).first<{ kind: string }>();
+  if (!category) return reply({ error: 'category_not_found' }, 422);
+  if (category.kind !== 'operating_expense') return reply({ error: 'category_must_be_operating_expense' }, 422);
+  const counterparty = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(counterpartyId).first();
+  if (!counterparty) return reply({ error: 'counterparty_not_found' }, 422);
+  if (accountId) { const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first(); if (!account) return reply({ error: 'account_not_found' }, 422); }
+  if (costCenterIdInput) { const costCenter = await env.DB.prepare('SELECT 1 FROM fin_cost_centers WHERE id=?').bind(costCenterIdInput).first(); if (!costCenter) return reply({ error: 'cost_center_not_found' }, 422); }
+
+  const id = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO fin_subscriptions
+        (id,counterparty_id,service,description,plan,amount_cents,currency,periodicity,custom_interval_days,
+         next_charge_at,billing_day,auto_renew,account_id,category_id,cost_center_id,status,started_at,
+         admin_url,responsible_user_id,notice_days,notes,created_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(id, counterpartyId, service, description, plan, amountCents, currency, periodicity, customIntervalDays, startedAt, billingDay, autoRenew ? 1 : 0, accountId, categoryId, costCenterIdInput, status, startedAt, adminUrl, responsibleUserId, noticeDays, notes, auth.userId),
+    env.DB.prepare('INSERT INTO fin_subscription_price_history (id,subscription_id,amount_cents,currency,effective_at,created_by) VALUES (?,?,?,?,?,?)')
+      .bind(crypto.randomUUID(), id, amountCents, currency, startedAt, auth.userId),
+  ]);
+  await audit(env, auth.userId, 'finance.subscription_created', 'fin_subscription', id);
+  return reply({ id }, 201);
+}
+
+async function financeSubscriptionUpdate(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const has = (key: string) => b != null && key in b;
+  const description = text(b?.description, 1000) || null;
+  const plan = text(b?.plan, 120) || null;
+  const billingDay = intOf(b?.billingDay, 1, 31);
+  const autoRenew = typeof b?.autoRenew === 'boolean' ? b.autoRenew : undefined;
+  const accountId = typeof b?.accountId === 'string' && UUID_RE.test(b.accountId) ? b.accountId : null;
+  const costCenterId = typeof b?.costCenterId === 'string' && UUID_RE.test(b.costCenterId) ? b.costCenterId : null;
+  const adminUrl = typeof b?.adminUrl === 'string' && b.adminUrl.length <= 500 ? b.adminUrl : null;
+  const responsibleUserId = typeof b?.responsibleUserId === 'string' && UUID_RE.test(b.responsibleUserId) ? b.responsibleUserId : null;
+  const noticeDays = Number.isInteger(b?.noticeDays) ? intOf(b?.noticeDays, 0, 365) : undefined;
+  const notes = text(b?.notes, 1000) || null;
+  if (has('accountId') && accountId) { const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first(); if (!account) return reply({ error: 'account_not_found' }, 422); }
+  if (has('costCenterId') && costCenterId) { const costCenter = await env.DB.prepare('SELECT 1 FROM fin_cost_centers WHERE id=?').bind(costCenterId).first(); if (!costCenter) return reply({ error: 'cost_center_not_found' }, 422); }
+  const result = await env.DB.prepare(
+    `UPDATE fin_subscriptions SET
+        description=CASE WHEN ?=1 THEN ? ELSE description END,
+        plan=CASE WHEN ?=1 THEN ? ELSE plan END,
+        billing_day=CASE WHEN ?=1 THEN ? ELSE billing_day END,
+        auto_renew=COALESCE(?,auto_renew),
+        account_id=CASE WHEN ?=1 THEN ? ELSE account_id END,
+        cost_center_id=CASE WHEN ?=1 THEN ? ELSE cost_center_id END,
+        admin_url=CASE WHEN ?=1 THEN ? ELSE admin_url END,
+        responsible_user_id=CASE WHEN ?=1 THEN ? ELSE responsible_user_id END,
+        notice_days=COALESCE(?,notice_days),
+        notes=CASE WHEN ?=1 THEN ? ELSE notes END,
+        updated_at=CURRENT_TIMESTAMP
+      WHERE id=?`,
+  ).bind(
+    has('description') ? 1 : 0, description, has('plan') ? 1 : 0, plan, has('billingDay') ? 1 : 0, billingDay,
+    autoRenew === undefined ? null : (autoRenew ? 1 : 0), has('accountId') ? 1 : 0, accountId, has('costCenterId') ? 1 : 0, costCenterId,
+    has('adminUrl') ? 1 : 0, adminUrl, has('responsibleUserId') ? 1 : 0, responsibleUserId, noticeDays ?? null,
+    has('notes') ? 1 : 0, notes, id,
+  ).run();
+  if (!result.meta.changes) return reply({ error: 'not_found' }, 404);
+  await audit(env, auth.userId, 'finance.subscription_updated', 'fin_subscription', id);
+  return reply({ ok: true });
+}
+
+async function financeSubscriptionReprice(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const amountCents = intOf(b?.amountCents, 1, 100_000_000_00);
+  const currency = typeof b?.currency === 'string' && b.currency.length === 3 ? b.currency.toUpperCase() : null;
+  const effectiveAt = dateOf(b?.effectiveAt);
+  if (!amountCents || !currency || !validCurrency(currency) || !effectiveAt) return reply({ error: 'invalid_reprice' }, 400);
+  const existing = await env.DB.prepare('SELECT status FROM fin_subscriptions WHERE id=?').bind(id).first<{ status: string }>();
+  if (!existing) return reply({ error: 'not_found' }, 404);
+  if (existing.status === 'canceled' || existing.status === 'ended') return reply({ error: 'subscription_terminal' }, 409);
+  await env.DB.batch([
+    env.DB.prepare('UPDATE fin_subscriptions SET amount_cents=?,currency=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(amountCents, currency, id),
+    env.DB.prepare('INSERT INTO fin_subscription_price_history (id,subscription_id,amount_cents,currency,effective_at,created_by) VALUES (?,?,?,?,?,?)')
+      .bind(crypto.randomUUID(), id, amountCents, currency, effectiveAt, auth.userId),
+  ]);
+  await audit(env, auth.userId, 'finance.subscription_repriced', 'fin_subscription', id);
+  return reply({ ok: true });
+}
+
+async function financeSubscriptionPriceHistory(req: Request, env: Env, id: string) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,amount_cents,currency,effective_at,created_at FROM fin_subscription_price_history WHERE subscription_id=? ORDER BY effective_at DESC,created_at DESC').bind(id).all<Row>();
+  return reply({ priceHistory: rows.results.map((row) => ({ id: row.id, amountCents: row.amount_cents, currency: row.currency, effectiveAt: row.effective_at, createdAt: row.created_at })) });
+}
+
+async function financeSubscriptionStatus(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const status = typeof b?.status === 'string' && FINANCE_SUBSCRIPTION_STATUSES.includes(b.status) ? b.status : null;
+  const reason = text(b?.reason, 500);
+  if (!status) return reply({ error: 'invalid_request' }, 400);
+  const existing = await env.DB.prepare('SELECT status FROM fin_subscriptions WHERE id=?').bind(id).first<{ status: string }>();
+  if (!existing) return reply({ error: 'not_found' }, 404);
+  if (!isValidSubscriptionTransition(existing.status, status)) return reply({ error: 'invalid_transition' }, 409);
+  const endedAt = status === 'ended' || status === 'canceled' ? new Date().toISOString().slice(0, 10) : null;
+  await env.DB.prepare('UPDATE fin_subscriptions SET status=?,ended_at=COALESCE(?,ended_at),updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(status, endedAt, id).run();
+  await audit(env, auth.userId, 'finance.subscription_status_changed', 'fin_subscription', id);
+  return reply({ ok: true });
+}
+
+async function financeSubscriptionGenerateCharges(req: Request, env: Env) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const today = new Date().toISOString().slice(0, 10);
+  const due = await env.DB.prepare(
+    "SELECT id,counterparty_id,amount_cents,currency,periodicity,custom_interval_days,next_charge_at,category_id,cost_center_id,account_id FROM fin_subscriptions WHERE status='active' AND next_charge_at<=?",
+  ).bind(today).all<Row>();
+  let created = 0; let skipped = 0;
+  for (const subscription of due.results) {
+    const periodDates: string[] = [];
+    let cursor = String(subscription.next_charge_at).slice(0, 10);
+    let iterations = 0;
+    while (cursor <= today && iterations < 36) {
+      periodDates.push(cursor);
+      cursor = nextChargeDate(cursor, subscription.periodicity as SubscriptionPeriodicity, (subscription.custom_interval_days as number | null) ?? undefined);
+      iterations += 1;
+    }
+    for (const periodDate of periodDates) {
+      const idempotencyKey = subscriptionChargeIdempotencyKey(String(subscription.id), periodDate);
+      const result = await env.DB.prepare(
+        `INSERT INTO fin_obligations
+          (id,kind,counterparty_id,category_id,cost_center_id,competency_date,due_date,amount_cents,currency,account_id,subscription_id,source,idempotency_key,created_by)
+         VALUES (?,'operating_expense',?,?,?,?,?,?,?,?,?,'subscription_charge',?,?)
+         ON CONFLICT(idempotency_key) DO NOTHING`,
+      ).bind(crypto.randomUUID(), subscription.counterparty_id, subscription.category_id, subscription.cost_center_id, periodDate, periodDate,
+        subscription.amount_cents, subscription.currency, subscription.account_id, subscription.id, idempotencyKey, auth.userId).run();
+      if (result.meta.changes) created += 1; else skipped += 1;
+    }
+    await env.DB.prepare('UPDATE fin_subscriptions SET next_charge_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(cursor, subscription.id).run();
+  }
+  await audit(env, auth.userId, 'finance.subscription_charges_generated', 'fin_subscription', null);
+  return reply({ subscriptionsDue: due.results.length, created, skipped });
+}
+
+async function financeObligations(req: Request, env: Env, url: URL) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const status = url.searchParams.get('status');
+  const kind = url.searchParams.get('kind');
+  const dueBefore = url.searchParams.get('dueBefore');
+  const counterpartyId = url.searchParams.get('counterpartyId');
+  const currency = url.searchParams.get('currency');
+  if (status && !FINANCE_OBLIGATION_STATUSES.includes(status)) return reply({ error: 'invalid_filter' }, 400);
+  if (kind && !FINANCE_OBLIGATION_KINDS.includes(kind)) return reply({ error: 'invalid_filter' }, 400);
+  if (counterpartyId && !UUID_RE.test(counterpartyId)) return reply({ error: 'invalid_filter' }, 400);
+  const rows = await env.DB.prepare(
+    `SELECT id,kind,counterparty_id,category_id,cost_center_id,competency_date,due_date,amount_cents,currency,
+            account_id,status,subscription_id,source,notes,canceled_at,cancel_reason,created_at,updated_at,
+            (status IN ('open','partial') AND due_date < ?6) AS is_overdue
+       FROM fin_obligations
+      WHERE (?1 IS NULL OR status=?1) AND (?2 IS NULL OR kind=?2) AND (?3 IS NULL OR due_date<=?3)
+        AND (?4 IS NULL OR counterparty_id=?4) AND (?5 IS NULL OR currency=?5)
+      ORDER BY due_date,created_at LIMIT 500`,
+  ).bind(status, kind, dueBefore, counterpartyId, currency, new Date().toISOString().slice(0, 10)).all<Row>();
+  return reply({ obligations: rows.results.map(serializeFinObligation) });
+}
+
+async function financeObligationCreate(req: Request, env: Env) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const kind = typeof b?.kind === 'string' && FINANCE_OBLIGATION_KINDS.includes(b.kind) ? b.kind : null;
+  const counterpartyId = typeof b?.counterpartyId === 'string' && UUID_RE.test(b.counterpartyId) ? b.counterpartyId : null;
+  const categoryId = typeof b?.categoryId === 'string' && UUID_RE.test(b.categoryId) ? b.categoryId : null;
+  const costCenterIdInput = typeof b?.costCenterId === 'string' && UUID_RE.test(b.costCenterId) ? b.costCenterId : null;
+  const competencyDate = dateOf(b?.competencyDate);
+  const dueDate = dateOf(b?.dueDate);
+  const amountCents = intOf(b?.amountCents, 1, 100_000_000_00);
+  const currency = typeof b?.currency === 'string' && b.currency.length === 3 ? b.currency.toUpperCase() : null;
+  const accountId = typeof b?.accountId === 'string' && UUID_RE.test(b.accountId) ? b.accountId : null;
+  const notes = text(b?.notes, 1000) || null;
+  if (!kind || !categoryId || !competencyDate || !dueDate || !amountCents || !currency || !validCurrency(currency)) return reply({ error: 'invalid_obligation' }, 400);
+
+  const category = await env.DB.prepare('SELECT kind,default_cost_center_id FROM fin_categories WHERE id=? AND active=1').bind(categoryId).first<{ kind: string; default_cost_center_id: string | null }>();
+  if (!category) return reply({ error: 'category_not_found' }, 422);
+  if (category.kind !== kind) return reply({ error: 'category_kind_mismatch' }, 422);
+  if (counterpartyId) { const counterparty = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(counterpartyId).first(); if (!counterparty) return reply({ error: 'counterparty_not_found' }, 422); }
+  const costCenterId = costCenterIdInput ?? category.default_cost_center_id ?? null;
+  if (costCenterIdInput) { const costCenter = await env.DB.prepare('SELECT 1 FROM fin_cost_centers WHERE id=?').bind(costCenterIdInput).first(); if (!costCenter) return reply({ error: 'cost_center_not_found' }, 422); }
+  if (accountId) { const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first(); if (!account) return reply({ error: 'account_not_found' }, 422); }
+
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO fin_obligations (id,kind,counterparty_id,category_id,cost_center_id,competency_date,due_date,amount_cents,currency,account_id,notes,created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+  ).bind(id, kind, counterpartyId, categoryId, costCenterId, competencyDate, dueDate, amountCents, currency, accountId, notes, auth.userId).run();
+  await audit(env, auth.userId, 'finance.obligation_created', 'fin_obligation', id);
+  return reply({ id }, 201);
+}
+
+async function financeObligationUpdate(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const has = (key: string) => b != null && key in b;
+  const existing = await env.DB.prepare('SELECT status,kind FROM fin_obligations WHERE id=?').bind(id).first<{ status: string; kind: string }>();
+  if (!existing) return reply({ error: 'not_found' }, 404);
+  if (existing.status === 'canceled' || existing.status === 'reversed') return reply({ error: 'obligation_terminal' }, 409);
+  const categoryId = typeof b?.categoryId === 'string' && UUID_RE.test(b.categoryId) ? b.categoryId : null;
+  const costCenterId = typeof b?.costCenterId === 'string' && UUID_RE.test(b.costCenterId) ? b.costCenterId : null;
+  const dueDate = dateOf(b?.dueDate);
+  const accountId = typeof b?.accountId === 'string' && UUID_RE.test(b.accountId) ? b.accountId : null;
+  const notes = text(b?.notes, 1000) || null;
+  if (categoryId) {
+    const category = await env.DB.prepare('SELECT kind FROM fin_categories WHERE id=? AND active=1').bind(categoryId).first<{ kind: string }>();
+    if (!category) return reply({ error: 'category_not_found' }, 422);
+    if (category.kind !== existing.kind) return reply({ error: 'category_kind_mismatch' }, 422);
+  }
+  if (has('costCenterId') && costCenterId) { const costCenter = await env.DB.prepare('SELECT 1 FROM fin_cost_centers WHERE id=?').bind(costCenterId).first(); if (!costCenter) return reply({ error: 'cost_center_not_found' }, 422); }
+  if (has('accountId') && accountId) { const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first(); if (!account) return reply({ error: 'account_not_found' }, 422); }
+  const result = await env.DB.prepare(
+    `UPDATE fin_obligations SET
+        category_id=COALESCE(?,category_id),
+        cost_center_id=CASE WHEN ?=1 THEN ? ELSE cost_center_id END,
+        due_date=COALESCE(?,due_date),
+        account_id=CASE WHEN ?=1 THEN ? ELSE account_id END,
+        notes=CASE WHEN ?=1 THEN ? ELSE notes END,
+        updated_at=CURRENT_TIMESTAMP
+      WHERE id=?`,
+  ).bind(categoryId, has('costCenterId') ? 1 : 0, costCenterId, dueDate, has('accountId') ? 1 : 0, accountId, has('notes') ? 1 : 0, notes, id).run();
+  if (!result.meta.changes) return reply({ error: 'not_found' }, 404);
+  await audit(env, auth.userId, 'finance.obligation_updated', 'fin_obligation', id);
+  return reply({ ok: true });
+}
+
+async function financeObligationCancel(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const reasonValue = text(b?.reason, 500, 3);
+  if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
+  const existing = await env.DB.prepare('SELECT status FROM fin_obligations WHERE id=?').bind(id).first<{ status: string }>();
+  if (!existing) return reply({ error: 'not_found' }, 404);
+  if (existing.status !== 'open') return reply({ error: 'obligation_has_payments_or_terminal' }, 409);
+  const result = await env.DB.prepare("UPDATE fin_obligations SET status='canceled',canceled_at=CURRENT_TIMESTAMP,canceled_by=?,cancel_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='open'")
+    .bind(auth.userId, reasonValue, id).run();
+  if (!result.meta.changes) return reply({ error: 'obligation_has_payments_or_terminal' }, 409);
+  await audit(env, auth.userId, 'finance.obligation_canceled', 'fin_obligation', id);
+  return reply({ ok: true });
+}
+
+async function financeObligationPayments(req: Request, env: Env, id: string) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,paid_amount_cents,currency,paid_at,account_id,reference,reversal_of,reversal_reason,created_at FROM fin_obligation_payments WHERE obligation_id=? ORDER BY created_at').bind(id).all<Row>();
+  return reply({ payments: rows.results.map(serializeFinPayment) });
+}
+
+async function financeObligationPaymentCreate(req: Request, env: Env, obligationId: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const paidAmountCents = intOf(b?.paidAmountCents, 1, 100_000_000_00);
+  const currency = typeof b?.currency === 'string' && b.currency.length === 3 ? b.currency.toUpperCase() : null;
+  const paidAt = typeof b?.paidAt === 'string' && !Number.isNaN(Date.parse(b.paidAt)) ? b.paidAt : null;
+  const accountId = typeof b?.accountId === 'string' && UUID_RE.test(b.accountId) ? b.accountId : null;
+  const reference = text(b?.reference, 120) || null;
+  if (!paidAmountCents || !currency || !validCurrency(currency) || !accountId) return reply({ error: 'invalid_payment' }, 400);
+
+  const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first();
+  if (!account) return reply({ error: 'account_not_found' }, 422);
+  const obligation = await env.DB.prepare('SELECT status,currency,amount_cents FROM fin_obligations WHERE id=?').bind(obligationId).first<{ status: string; currency: string; amount_cents: number }>();
+  if (!obligation) return reply({ error: 'not_found' }, 404);
+  if (obligation.status === 'canceled' || obligation.status === 'reversed' || obligation.status === 'paid') return reply({ error: 'obligation_not_payable' }, 409);
+  if (currency !== obligation.currency) return reply({ error: 'payment_currency_must_match_obligation' }, 422);
+
+  const paymentId = crypto.randomUUID();
+  await env.DB.prepare('INSERT INTO fin_obligation_payments (id,obligation_id,paid_amount_cents,currency,paid_at,account_id,reference,created_by) VALUES (?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP),?,?,?)')
+    .bind(paymentId, obligationId, paidAmountCents, currency, paidAt, accountId, reference, auth.userId).run();
+  const total = await env.DB.prepare('SELECT COALESCE(sum(paid_amount_cents),0) n FROM fin_obligation_payments WHERE obligation_id=?').bind(obligationId).first<{ n: number }>();
+  const totalPaid = total?.n ?? 0;
+  const newStatus = totalPaid >= obligation.amount_cents ? 'paid' : totalPaid > 0 ? 'partial' : 'open';
+  await env.DB.prepare('UPDATE fin_obligations SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(newStatus, obligationId).run();
+  await audit(env, auth.userId, 'finance.obligation_payment_created', 'fin_obligation', obligationId);
+  return reply({ id: paymentId }, 201);
+}
+
+async function financeObligationPaymentReverse(req: Request, env: Env, paymentId: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const reasonValue = text(b?.reason, 500, 3);
+  if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
+  const payment = await env.DB.prepare('SELECT obligation_id,paid_amount_cents,currency,account_id FROM fin_obligation_payments WHERE id=?').bind(paymentId).first<{ obligation_id: string; paid_amount_cents: number; currency: string; account_id: string }>();
+  if (!payment) return reply({ error: 'not_found' }, 404);
+  if (payment.paid_amount_cents < 0) return reply({ error: 'cannot_reverse_a_reversal' }, 409);
+  const obligation = await env.DB.prepare('SELECT amount_cents FROM fin_obligations WHERE id=?').bind(payment.obligation_id).first<{ amount_cents: number }>();
+  if (!obligation) return reply({ error: 'not_found' }, 404);
+
+  const reversalId = crypto.randomUUID();
+  try {
+    await env.DB.prepare('INSERT INTO fin_obligation_payments (id,obligation_id,paid_amount_cents,currency,account_id,reversal_of,reversal_reason,created_by) VALUES (?,?,?,?,?,?,?,?)')
+      .bind(reversalId, payment.obligation_id, -payment.paid_amount_cents, payment.currency, payment.account_id, paymentId, reasonValue, auth.userId).run();
+  } catch (error) {
+    return reply({ error: 'payment_already_reversed' }, 409);
+  }
+  const total = await env.DB.prepare('SELECT COALESCE(sum(paid_amount_cents),0) n FROM fin_obligation_payments WHERE obligation_id=?').bind(payment.obligation_id).first<{ n: number }>();
+  const totalPaid = total?.n ?? 0;
+  const newStatus = totalPaid >= obligation.amount_cents ? 'paid' : totalPaid > 0 ? 'partial' : 'open';
+  await env.DB.prepare('UPDATE fin_obligations SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(newStatus, payment.obligation_id).run();
+  await audit(env, auth.userId, 'finance.obligation_payment_reversed', 'fin_obligation_payment', paymentId);
+  return reply({ id: reversalId }, 201);
+}
+
+// --- Financeiro (Fase 3 — vendas e contas a receber) ----------------------------------------
+// Mirrors src/routes/finance-sales.ts. A fin_sales row always originates from an already
+// "converted" lead_requests row (the existing, unmodified conversion/commission flow above) —
+// this section never recreates or touches partner_commissions, it only reads lead_requests.
+const FINANCE_SALE_STATUSES = ['confirmed', 'canceled', 'refunded'];
+const FINANCE_RECEIVABLE_METHODS = ['pix', 'transfer', 'card', 'cash', 'boleto', 'other'];
+
+interface SaleTotalsRow { expectedTotal: number; receivedTotal: number; receivableCount: number }
+
+/** Same application-code aggregation as src/routes/finance-sales.ts's receivableTotalsBySale — avoids a SQL FILTER (WHERE ...) / correlated subquery whose D1/SQLite support is not something this repo relies on elsewhere. */
+async function financeReceivableTotalsBySale(env: Env, saleId?: string): Promise<Map<string, SaleTotalsRow>> {
+  const receivables = saleId
+    ? await env.DB.prepare('SELECT sale_id,status,expected_amount_cents FROM fin_receivables WHERE sale_id=?').bind(saleId).all<Row>()
+    : await env.DB.prepare('SELECT sale_id,status,expected_amount_cents FROM fin_receivables').all<Row>();
+  const payments = saleId
+    ? await env.DB.prepare('SELECT r.sale_id sale_id,p.received_amount_cents received_amount_cents FROM fin_receivable_payments p JOIN fin_receivables r ON r.id=p.receivable_id WHERE r.sale_id=?').bind(saleId).all<Row>()
+    : await env.DB.prepare('SELECT r.sale_id sale_id,p.received_amount_cents received_amount_cents FROM fin_receivable_payments p JOIN fin_receivables r ON r.id=p.receivable_id').all<Row>();
+  const totals = new Map<string, SaleTotalsRow>();
+  for (const row of receivables.results) {
+    const key = String(row.sale_id);
+    const entry = totals.get(key) ?? { expectedTotal: 0, receivedTotal: 0, receivableCount: 0 };
+    if (row.status !== 'canceled') { entry.expectedTotal += Number(row.expected_amount_cents); entry.receivableCount += 1; }
+    totals.set(key, entry);
+  }
+  for (const row of payments.results) {
+    const key = String(row.sale_id);
+    const entry = totals.get(key) ?? { expectedTotal: 0, receivedTotal: 0, receivableCount: 0 };
+    entry.receivedTotal += Number(row.received_amount_cents);
+    totals.set(key, entry);
+  }
+  return totals;
+}
+
+function serializeFinSale(row: Row, totals?: SaleTotalsRow) {
+  const expectedTotal = totals?.expectedTotal ?? 0;
+  const receivedTotal = totals?.receivedTotal ?? 0;
+  const receivableCount = totals?.receivableCount ?? 0;
+  let financialStatus: string;
+  if (row.status === 'canceled') financialStatus = 'canceled';
+  else if (row.status === 'refunded') financialStatus = 'refunded';
+  else if (receivableCount === 0) financialStatus = 'no_receivables';
+  else if (receivedTotal >= expectedTotal && expectedTotal > 0) financialStatus = 'paid';
+  else if (receivedTotal > 0) financialStatus = 'partial';
+  else financialStatus = 'open';
+  return {
+    id: row.id, leadRequestId: row.lead_request_id, protocol: row.protocol, saleDate: row.sale_date, currency: row.currency,
+    grossAmountCents: row.gross_amount_cents, discountCents: row.discount_cents, netAmountCents: row.net_amount_cents,
+    passengerCount: row.passenger_count, ownerUserId: row.owner_user_id, partnerId: row.partner_id, status: row.status, financialStatus,
+    internalNotes: row.internal_notes, terminatedAt: row.terminated_at, terminationReason: row.termination_reason,
+    createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+function serializeFinReceivable(row: Row) {
+  return {
+    id: row.id, installmentNumber: row.installment_number, dueDate: row.due_date, expectedAmountCents: row.expected_amount_cents,
+    currency: row.currency, accountId: row.account_id, method: row.method, status: row.status,
+    canceledAt: row.canceled_at, cancelReason: row.cancel_reason, createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+function serializeFinReceivablePayment(row: Row) {
+  return {
+    id: row.id, receivedAmountCents: row.received_amount_cents, currency: row.currency, receivedAt: row.received_at,
+    accountId: row.account_id, gatewayFeeCents: row.gateway_fee_cents, reference: row.reference,
+    reversalOf: row.reversal_of, reversalReason: row.reversal_reason, createdAt: row.created_at,
+  };
+}
+
+const financeSalesSelectColumns = 'id,lead_request_id,protocol,sale_date,currency,gross_amount_cents,discount_cents,net_amount_cents,passenger_count,owner_user_id,partner_id,status,internal_notes,terminated_at,termination_reason,created_at,updated_at';
+
+async function financeSales(req: Request, env: Env, url: URL) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const status = url.searchParams.get('status');
+  const partnerId = url.searchParams.get('partnerId');
+  const currency = url.searchParams.get('currency');
+  if (status && !FINANCE_SALE_STATUSES.includes(status)) return reply({ error: 'invalid_filter' }, 400);
+  if (partnerId && !UUID_RE.test(partnerId)) return reply({ error: 'invalid_filter' }, 400);
+  const rows = await env.DB.prepare(
+    `SELECT ${financeSalesSelectColumns} FROM fin_sales
+      WHERE (?1 IS NULL OR status=?1) AND (?2 IS NULL OR partner_id=?2) AND (?3 IS NULL OR currency=?3)
+      ORDER BY sale_date DESC,created_at DESC LIMIT 500`,
+  ).bind(status, partnerId, currency).all<Row>();
+  const totals = await financeReceivableTotalsBySale(env);
+  return reply({ sales: rows.results.map((row) => serializeFinSale(row, totals.get(String(row.id)))) });
+}
+
+async function financeSaleDetail(req: Request, env: Env, id: string) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const row = await env.DB.prepare(`SELECT ${financeSalesSelectColumns} FROM fin_sales WHERE id=?`).bind(id).first<Row>();
+  if (!row) return reply({ error: 'not_found' }, 404);
+  const receivables = await env.DB.prepare('SELECT id,installment_number,due_date,expected_amount_cents,currency,account_id,method,status,canceled_at,cancel_reason,created_at,updated_at FROM fin_receivables WHERE sale_id=? ORDER BY installment_number').bind(id).all<Row>();
+  const totals = await financeReceivableTotalsBySale(env, id);
+  const issuances = await env.DB.prepare(`SELECT ${financeIssuancesSelectColumns} FROM fin_issuances WHERE sale_id=? ORDER BY created_at`).bind(id).all<Row>();
+  const profit = calculateFinSaleProfitSummary(Number(row.net_amount_cents), issuances.results);
+  return reply({
+    sale: serializeFinSale(row, totals.get(id)),
+    receivables: receivables.results.map(serializeFinReceivable),
+    issuances: issuances.results.map(serializeFinIssuance),
+    profit,
+  });
+}
+
+async function financeSaleFromLead(req: Request, env: Env, leadRequestId: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const discountCents = Number.isInteger(b?.discountCents) ? Number(b?.discountCents) : 0;
+  const saleDateInput = typeof b?.saleDate === 'string' ? dateOf(b.saleDate) : null;
+  if (discountCents < 0) return reply({ error: 'invalid_request' }, 400);
+
+  const existing = await env.DB.prepare('SELECT id FROM fin_sales WHERE lead_request_id=?').bind(leadRequestId).first<{ id: string }>();
+  if (existing) return reply({ id: existing.id, alreadyExisted: true });
+
+  const lead = await env.DB.prepare("SELECT id,status,protocol,sale_amount_cents,sale_currency,partner_id,adults,children,infants FROM lead_requests WHERE id=? AND kind='flight_quote'").bind(leadRequestId).first<Row>();
+  if (!lead) return reply({ error: 'lead_not_found' }, 404);
+  if (lead.status !== 'converted') return reply({ error: 'lead_not_converted' }, 409);
+  if (lead.sale_amount_cents === null || lead.sale_amount_cents === undefined || !lead.sale_currency) return reply({ error: 'sale_amount_missing' }, 422);
+  if (!lead.protocol) return reply({ error: 'lead_protocol_missing' }, 422);
+
+  const grossAmountCents = Number(lead.sale_amount_cents);
+  if (discountCents >= grossAmountCents) return reply({ error: 'discount_exceeds_gross_amount' }, 422);
+  const netAmountCents = grossAmountCents - discountCents;
+  const passengerCount = Number(lead.adults) + Number(lead.children) + Number(lead.infants);
+  const saleDate = saleDateInput ?? new Date().toISOString().slice(0, 10);
+
+  const id = crypto.randomUUID();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO fin_sales (id,lead_request_id,protocol,sale_date,currency,gross_amount_cents,discount_cents,net_amount_cents,passenger_count,owner_user_id,partner_id,created_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(id, lead.id, lead.protocol, saleDate, lead.sale_currency, grossAmountCents, discountCents, netAmountCents, passengerCount, auth.userId, lead.partner_id, auth.userId).run();
+  } catch (error) {
+    const raceExisting = await env.DB.prepare('SELECT id FROM fin_sales WHERE lead_request_id=?').bind(leadRequestId).first<{ id: string }>();
+    if (raceExisting) return reply({ id: raceExisting.id, alreadyExisted: true });
+    return reply({ error: 'sale_creation_failed' }, 500);
+  }
+  await audit(env, auth.userId, 'finance.sale_created', 'fin_sale', id);
+  return reply({ id, alreadyExisted: false }, 201);
+}
+
+async function financeSaleCancel(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const reasonValue = text(b?.reason, 500, 3);
+  if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
+  const sale = await env.DB.prepare('SELECT status FROM fin_sales WHERE id=?').bind(id).first<{ status: string }>();
+  if (!sale) return reply({ error: 'not_found' }, 404);
+  if (sale.status !== 'confirmed') return reply({ error: 'sale_not_cancelable' }, 409);
+  const received = await env.DB.prepare('SELECT COALESCE(sum(p.received_amount_cents),0) n FROM fin_receivable_payments p JOIN fin_receivables r ON r.id=p.receivable_id WHERE r.sale_id=?').bind(id).first<{ n: number }>();
+  if ((received?.n ?? 0) !== 0) return reply({ error: 'sale_has_payments_use_refund' }, 409);
+  const result = await env.DB.prepare("UPDATE fin_sales SET status='canceled',terminated_at=CURRENT_TIMESTAMP,terminated_by=?,termination_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='confirmed'")
+    .bind(auth.userId, reasonValue, id).run();
+  if (!result.meta.changes) return reply({ error: 'sale_not_cancelable' }, 409);
+  await audit(env, auth.userId, 'finance.sale_canceled', 'fin_sale', id);
+  return reply({ ok: true });
+}
+
+async function financeSaleRefund(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const reasonValue = text(b?.reason, 500, 3);
+  if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
+  const sale = await env.DB.prepare('SELECT status FROM fin_sales WHERE id=?').bind(id).first<{ status: string }>();
+  if (!sale) return reply({ error: 'not_found' }, 404);
+  if (sale.status !== 'confirmed') return reply({ error: 'sale_not_refundable' }, 409);
+  const received = await env.DB.prepare('SELECT COALESCE(sum(p.received_amount_cents),0) n FROM fin_receivable_payments p JOIN fin_receivables r ON r.id=p.receivable_id WHERE r.sale_id=?').bind(id).first<{ n: number }>();
+  if ((received?.n ?? 0) <= 0) return reply({ error: 'sale_has_no_payments_use_cancel' }, 409);
+  const result = await env.DB.prepare("UPDATE fin_sales SET status='refunded',terminated_at=CURRENT_TIMESTAMP,terminated_by=?,termination_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='confirmed'")
+    .bind(auth.userId, reasonValue, id).run();
+  if (!result.meta.changes) return reply({ error: 'sale_not_refundable' }, 409);
+  await audit(env, auth.userId, 'finance.sale_refunded', 'fin_sale', id);
+  return reply({ ok: true });
+}
+
+async function financeSaleReceivables(req: Request, env: Env, saleId: string) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,installment_number,due_date,expected_amount_cents,currency,account_id,method,status,canceled_at,cancel_reason,created_at,updated_at FROM fin_receivables WHERE sale_id=? ORDER BY installment_number').bind(saleId).all<Row>();
+  return reply({ receivables: rows.results.map(serializeFinReceivable) });
+}
+
+async function financeSaleReceivablesCreate(req: Request, env: Env, saleId: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const installmentsInput = Array.isArray(b?.installments) ? b.installments : null;
+  if (!installmentsInput || installmentsInput.length < 1 || installmentsInput.length > 24) return reply({ error: 'invalid_request' }, 400);
+  const installments: { dueDate: string; expectedAmountCents: number; method: string; accountId: string | null }[] = [];
+  for (const item of installmentsInput as Row[]) {
+    const dueDate = dateOf(item?.dueDate);
+    const expectedAmountCents = intOf(item?.expectedAmountCents, 1, 100_000_000_00);
+    const method = typeof item?.method === 'string' && FINANCE_RECEIVABLE_METHODS.includes(item.method) ? item.method : null;
+    const accountId = typeof item?.accountId === 'string' && UUID_RE.test(item.accountId) ? item.accountId : null;
+    if (!dueDate || !expectedAmountCents || !method) return reply({ error: 'invalid_request' }, 400);
+    installments.push({ dueDate, expectedAmountCents, method, accountId });
+  }
+  for (const installment of installments) {
+    if (installment.accountId) {
+      const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(installment.accountId).first();
+      if (!account) return reply({ error: 'account_not_found' }, 422);
+    }
+  }
+
+  const sale = await env.DB.prepare('SELECT status,currency,net_amount_cents FROM fin_sales WHERE id=?').bind(saleId).first<{ status: string; currency: string; net_amount_cents: number }>();
+  if (!sale) return reply({ error: 'not_found' }, 404);
+  if (sale.status !== 'confirmed') return reply({ error: 'sale_not_confirmed' }, 409);
+
+  const existingTotal = await env.DB.prepare("SELECT COALESCE(sum(expected_amount_cents),0) sum,COALESCE(max(installment_number),0) max_installment FROM fin_receivables WHERE sale_id=? AND status<>'canceled'").bind(saleId).first<{ sum: number; max_installment: number }>();
+  const alreadyCommitted = existingTotal?.sum ?? 0;
+  let nextNumber = (existingTotal?.max_installment ?? 0) + 1;
+  const newTotal = installments.reduce((sum, item) => sum + item.expectedAmountCents, 0);
+  if (alreadyCommitted + newTotal > sale.net_amount_cents) return reply({ error: 'installments_exceed_sale_amount' }, 409);
+
+  const createdIds: string[] = [];
+  const statements: D1PreparedStatement[] = [];
+  for (const installment of installments) {
+    const id = crypto.randomUUID();
+    statements.push(env.DB.prepare('INSERT INTO fin_receivables (id,sale_id,installment_number,due_date,expected_amount_cents,currency,account_id,method) VALUES (?,?,?,?,?,?,?,?)')
+      .bind(id, saleId, nextNumber, installment.dueDate, installment.expectedAmountCents, sale.currency, installment.accountId, installment.method));
+    createdIds.push(id);
+    nextNumber += 1;
+  }
+  await env.DB.batch(statements);
+  await audit(env, auth.userId, 'finance.receivables_created', 'fin_sale', saleId);
+  return reply({ ids: createdIds }, 201);
+}
+
+async function financeReceivablePayments(req: Request, env: Env, receivableId: string) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,received_amount_cents,currency,received_at,account_id,gateway_fee_cents,reference,reversal_of,reversal_reason,created_at FROM fin_receivable_payments WHERE receivable_id=? ORDER BY created_at').bind(receivableId).all<Row>();
+  return reply({ payments: rows.results.map(serializeFinReceivablePayment) });
+}
+
+async function financeReceivablePaymentCreate(req: Request, env: Env, receivableId: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const receivedAmountCents = intOf(b?.receivedAmountCents, 1, 100_000_000_00);
+  const currency = typeof b?.currency === 'string' && b.currency.length === 3 ? b.currency.toUpperCase() : null;
+  const receivedAt = typeof b?.receivedAt === 'string' && !Number.isNaN(Date.parse(b.receivedAt)) ? b.receivedAt : null;
+  const accountId = typeof b?.accountId === 'string' && UUID_RE.test(b.accountId) ? b.accountId : null;
+  const gatewayFeeCents = Number.isInteger(b?.gatewayFeeCents) ? Number(b?.gatewayFeeCents) : null;
+  const reference = text(b?.reference, 120) || null;
+  if (!receivedAmountCents || !currency || !validCurrency(currency) || !accountId) return reply({ error: 'invalid_payment' }, 400);
+
+  const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first();
+  if (!account) return reply({ error: 'account_not_found' }, 422);
+  const receivable = await env.DB.prepare('SELECT status,currency,expected_amount_cents FROM fin_receivables WHERE id=?').bind(receivableId).first<{ status: string; currency: string; expected_amount_cents: number }>();
+  if (!receivable) return reply({ error: 'not_found' }, 404);
+  if (receivable.status === 'canceled' || receivable.status === 'refunded' || receivable.status === 'paid') return reply({ error: 'receivable_not_payable' }, 409);
+  if (currency !== receivable.currency) return reply({ error: 'payment_currency_must_match_receivable' }, 422);
+
+  const paymentId = crypto.randomUUID();
+  await env.DB.prepare('INSERT INTO fin_receivable_payments (id,receivable_id,received_amount_cents,currency,received_at,account_id,gateway_fee_cents,reference,created_by) VALUES (?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP),?,?,?,?)')
+    .bind(paymentId, receivableId, receivedAmountCents, currency, receivedAt, accountId, gatewayFeeCents, reference, auth.userId).run();
+  const total = await env.DB.prepare('SELECT COALESCE(sum(received_amount_cents),0) n FROM fin_receivable_payments WHERE receivable_id=?').bind(receivableId).first<{ n: number }>();
+  const totalReceived = total?.n ?? 0;
+  const newStatus = totalReceived >= receivable.expected_amount_cents ? 'paid' : totalReceived > 0 ? 'partial' : 'open';
+  await env.DB.prepare('UPDATE fin_receivables SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(newStatus, receivableId).run();
+  await audit(env, auth.userId, 'finance.receivable_payment_created', 'fin_receivable', receivableId);
+  return reply({ id: paymentId }, 201);
+}
+
+async function financeReceivablePaymentReverse(req: Request, env: Env, paymentId: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const reasonValue = text(b?.reason, 500, 3);
+  if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
+  const payment = await env.DB.prepare('SELECT receivable_id,received_amount_cents,currency,account_id FROM fin_receivable_payments WHERE id=?').bind(paymentId).first<{ receivable_id: string; received_amount_cents: number; currency: string; account_id: string }>();
+  if (!payment) return reply({ error: 'not_found' }, 404);
+  if (payment.received_amount_cents < 0) return reply({ error: 'cannot_reverse_a_reversal' }, 409);
+  const receivable = await env.DB.prepare('SELECT expected_amount_cents FROM fin_receivables WHERE id=?').bind(payment.receivable_id).first<{ expected_amount_cents: number }>();
+  if (!receivable) return reply({ error: 'not_found' }, 404);
+
+  const reversalId = crypto.randomUUID();
+  try {
+    await env.DB.prepare('INSERT INTO fin_receivable_payments (id,receivable_id,received_amount_cents,currency,account_id,reversal_of,reversal_reason,created_by) VALUES (?,?,?,?,?,?,?,?)')
+      .bind(reversalId, payment.receivable_id, -payment.received_amount_cents, payment.currency, payment.account_id, paymentId, reasonValue, auth.userId).run();
+  } catch (error) {
+    return reply({ error: 'payment_already_reversed' }, 409);
+  }
+  const total = await env.DB.prepare('SELECT COALESCE(sum(received_amount_cents),0) n FROM fin_receivable_payments WHERE receivable_id=?').bind(payment.receivable_id).first<{ n: number }>();
+  const totalReceived = total?.n ?? 0;
+  const newStatus = totalReceived >= receivable.expected_amount_cents ? 'paid' : totalReceived > 0 ? 'partial' : 'open';
+  await env.DB.prepare('UPDATE fin_receivables SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(newStatus, payment.receivable_id).run();
+  await audit(env, auth.userId, 'finance.receivable_payment_reversed', 'fin_receivable_payment', paymentId);
+  return reply({ id: reversalId }, 201);
+}
+
+// --- Financeiro (Fase 4 — emissões, custos e lucro) ------------------------------------------
+// Mirrors src/routes/finance-issuances.ts and the profit-summary addition to GET /sales/{id} in
+// src/routes/finance-sales.ts.
+const FINANCE_ISSUANCE_MODES = ['cash', 'miles', 'hybrid', 'consolidator', 'airline', 'other'];
+const financeIssuancesSelectColumns = 'id,sale_id,mode,airline,loyalty_program,pnr,ticket_numbers,currency,cash_amount_cents,miles_quantity,miles_cost_cents,airport_fees_cents,issuance_fee_cents,consolidator_fee_cents,gateway_fee_cents,agent_commission_cents,other_costs_cents,mileage_provider_id,consolidator_id,status,issued_at,issued_by,terminated_at,terminated_by,termination_reason,notes,created_at,updated_at';
+
+function serializeFinIssuance(row: Row) {
+  return {
+    id: row.id, saleId: row.sale_id, mode: row.mode, airline: row.airline, loyaltyProgram: row.loyalty_program,
+    pnr: row.pnr, ticketNumbers: row.ticket_numbers, currency: row.currency, cashAmountCents: row.cash_amount_cents,
+    milesQuantity: row.miles_quantity, milesCostCents: row.miles_cost_cents, airportFeesCents: row.airport_fees_cents,
+    issuanceFeeCents: row.issuance_fee_cents, consolidatorFeeCents: row.consolidator_fee_cents, gatewayFeeCents: row.gateway_fee_cents,
+    agentCommissionCents: row.agent_commission_cents, otherCostsCents: row.other_costs_cents,
+    mileageProviderId: row.mileage_provider_id, consolidatorId: row.consolidator_id, status: row.status,
+    issuedAt: row.issued_at, issuedBy: row.issued_by, terminatedAt: row.terminated_at, terminationReason: row.termination_reason,
+    notes: row.notes, createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+
+/** Mirrors src/routes/finance-sales.ts's calculateSaleProfitSummary exactly. */
+function calculateFinSaleProfitSummary(netAmountCents: number, issuanceRows: Row[]) {
+  let realizedDirectCostCents = 0;
+  let projectedDirectCostCents = 0;
+  for (const row of issuanceRows) {
+    const directCost = sumIssuanceDirectCostCents({
+      cashAmountCents: Number(row.cash_amount_cents), milesCostCents: Number(row.miles_cost_cents),
+      airportFeesCents: Number(row.airport_fees_cents), issuanceFeeCents: Number(row.issuance_fee_cents),
+      consolidatorFeeCents: Number(row.consolidator_fee_cents), gatewayFeeCents: Number(row.gateway_fee_cents),
+      agentCommissionCents: Number(row.agent_commission_cents), otherCostsCents: Number(row.other_costs_cents),
+    });
+    if (row.status === 'issued' || row.status === 'refunded') realizedDirectCostCents += directCost;
+    else if (row.status === 'pending') projectedDirectCostCents += directCost;
+  }
+  const realized = calculateSaleProfit(netAmountCents, realizedDirectCostCents);
+  const projected = calculateSaleProfit(netAmountCents, realizedDirectCostCents + projectedDirectCostCents);
+  return {
+    realizedDirectCostCents, projectedDirectCostCents,
+    realizedGrossProfitCents: realized.grossProfitCents, realizedMarginBps: realized.marginBps,
+    projectedGrossProfitCents: projected.grossProfitCents, projectedMarginBps: projected.marginBps,
+  };
+}
+
+async function financeSaleIssuances(req: Request, env: Env, saleId: string) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare(`SELECT ${financeIssuancesSelectColumns} FROM fin_issuances WHERE sale_id=? ORDER BY created_at`).bind(saleId).all<Row>();
+  return reply({ issuances: rows.results.map(serializeFinIssuance) });
+}
+
+async function financeSaleIssuanceCreate(req: Request, env: Env, saleId: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const mode = typeof b?.mode === 'string' && FINANCE_ISSUANCE_MODES.includes(b.mode) ? b.mode : null;
+  const currency = typeof b?.currency === 'string' && b.currency.length === 3 ? b.currency.toUpperCase() : null;
+  if (!mode || !currency || !validCurrency(currency)) return reply({ error: 'invalid_issuance' }, 400);
+  const airline = text(b?.airline, 120) || null;
+  const loyaltyProgram = text(b?.loyaltyProgram, 120) || null;
+  const pnr = text(b?.pnr, 20) || null;
+  const ticketNumbers = text(b?.ticketNumbers, 500) || null;
+  const cashAmountCents = intOf(b?.cashAmountCents, 0, 100_000_000_00) ?? 0;
+  const milesQuantity = intOf(b?.milesQuantity, 0, 100_000_000) ?? 0;
+  const milesCostCents = intOf(b?.milesCostCents, 0, 100_000_000_00) ?? 0;
+  const airportFeesCents = intOf(b?.airportFeesCents, 0, 100_000_000_00) ?? 0;
+  const issuanceFeeCents = intOf(b?.issuanceFeeCents, 0, 100_000_000_00) ?? 0;
+  const consolidatorFeeCents = intOf(b?.consolidatorFeeCents, 0, 100_000_000_00) ?? 0;
+  const gatewayFeeCents = intOf(b?.gatewayFeeCents, 0, 100_000_000_00) ?? 0;
+  const agentCommissionCents = intOf(b?.agentCommissionCents, 0, 100_000_000_00) ?? 0;
+  const otherCostsCents = intOf(b?.otherCostsCents, 0, 100_000_000_00) ?? 0;
+  const mileageProviderId = typeof b?.mileageProviderId === 'string' && UUID_RE.test(b.mileageProviderId) ? b.mileageProviderId : null;
+  const consolidatorId = typeof b?.consolidatorId === 'string' && UUID_RE.test(b.consolidatorId) ? b.consolidatorId : null;
+  const notes = text(b?.notes, 1000) || null;
+
+  const sale = await env.DB.prepare('SELECT status,currency FROM fin_sales WHERE id=?').bind(saleId).first<{ status: string; currency: string }>();
+  if (!sale) return reply({ error: 'sale_not_found' }, 404);
+  if (sale.status !== 'confirmed') return reply({ error: 'sale_not_confirmed' }, 409);
+  if (currency !== sale.currency) return reply({ error: 'issuance_currency_must_match_sale' }, 422);
+  if (mileageProviderId) { const c = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(mileageProviderId).first(); if (!c) return reply({ error: 'mileage_provider_not_found' }, 422); }
+  if (consolidatorId) { const c = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(consolidatorId).first(); if (!c) return reply({ error: 'consolidator_not_found' }, 422); }
+
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO fin_issuances
+      (id,sale_id,mode,airline,loyalty_program,pnr,ticket_numbers,currency,cash_amount_cents,miles_quantity,miles_cost_cents,
+       airport_fees_cents,issuance_fee_cents,consolidator_fee_cents,gateway_fee_cents,agent_commission_cents,other_costs_cents,
+       mileage_provider_id,consolidator_id,notes,created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  ).bind(id, saleId, mode, airline, loyaltyProgram, pnr, ticketNumbers, currency, cashAmountCents, milesQuantity, milesCostCents,
+    airportFeesCents, issuanceFeeCents, consolidatorFeeCents, gatewayFeeCents, agentCommissionCents, otherCostsCents,
+    mileageProviderId, consolidatorId, notes, auth.userId).run();
+  await audit(env, auth.userId, 'finance.issuance_created', 'fin_issuance', id);
+  return reply({ id }, 201);
+}
+
+async function financeIssuanceUpdate(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const has = (key: string) => b != null && key in b;
+  const existing = await env.DB.prepare('SELECT status FROM fin_issuances WHERE id=?').bind(id).first<{ status: string }>();
+  if (!existing) return reply({ error: 'not_found' }, 404);
+  if (existing.status !== 'pending') return reply({ error: 'issuance_locked_after_issued' }, 409);
+
+  const mode = typeof b?.mode === 'string' && FINANCE_ISSUANCE_MODES.includes(b.mode) ? b.mode : null;
+  const airline = text(b?.airline, 120) || null;
+  const loyaltyProgram = text(b?.loyaltyProgram, 120) || null;
+  const pnr = text(b?.pnr, 20) || null;
+  const ticketNumbers = text(b?.ticketNumbers, 500) || null;
+  const cashAmountCents = intOf(b?.cashAmountCents, 0, 100_000_000_00);
+  const milesQuantity = intOf(b?.milesQuantity, 0, 100_000_000);
+  const milesCostCents = intOf(b?.milesCostCents, 0, 100_000_000_00);
+  const airportFeesCents = intOf(b?.airportFeesCents, 0, 100_000_000_00);
+  const issuanceFeeCents = intOf(b?.issuanceFeeCents, 0, 100_000_000_00);
+  const consolidatorFeeCents = intOf(b?.consolidatorFeeCents, 0, 100_000_000_00);
+  const gatewayFeeCents = intOf(b?.gatewayFeeCents, 0, 100_000_000_00);
+  const agentCommissionCents = intOf(b?.agentCommissionCents, 0, 100_000_000_00);
+  const otherCostsCents = intOf(b?.otherCostsCents, 0, 100_000_000_00);
+  const mileageProviderId = typeof b?.mileageProviderId === 'string' && UUID_RE.test(b.mileageProviderId) ? b.mileageProviderId : null;
+  const consolidatorId = typeof b?.consolidatorId === 'string' && UUID_RE.test(b.consolidatorId) ? b.consolidatorId : null;
+  const notes = text(b?.notes, 1000) || null;
+
+  if (mileageProviderId) { const c = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(mileageProviderId).first(); if (!c) return reply({ error: 'mileage_provider_not_found' }, 422); }
+  if (consolidatorId) { const c = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(consolidatorId).first(); if (!c) return reply({ error: 'consolidator_not_found' }, 422); }
+
+  const result = await env.DB.prepare(
+    `UPDATE fin_issuances SET
+        mode=COALESCE(?,mode),
+        airline=CASE WHEN ?=1 THEN ? ELSE airline END,
+        loyalty_program=CASE WHEN ?=1 THEN ? ELSE loyalty_program END,
+        pnr=CASE WHEN ?=1 THEN ? ELSE pnr END,
+        ticket_numbers=CASE WHEN ?=1 THEN ? ELSE ticket_numbers END,
+        cash_amount_cents=COALESCE(?,cash_amount_cents),
+        miles_quantity=COALESCE(?,miles_quantity),
+        miles_cost_cents=COALESCE(?,miles_cost_cents),
+        airport_fees_cents=COALESCE(?,airport_fees_cents),
+        issuance_fee_cents=COALESCE(?,issuance_fee_cents),
+        consolidator_fee_cents=COALESCE(?,consolidator_fee_cents),
+        gateway_fee_cents=COALESCE(?,gateway_fee_cents),
+        agent_commission_cents=COALESCE(?,agent_commission_cents),
+        other_costs_cents=COALESCE(?,other_costs_cents),
+        mileage_provider_id=CASE WHEN ?=1 THEN ? ELSE mileage_provider_id END,
+        consolidator_id=CASE WHEN ?=1 THEN ? ELSE consolidator_id END,
+        notes=CASE WHEN ?=1 THEN ? ELSE notes END,
+        updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND status='pending'`,
+  ).bind(
+    mode, has('airline') ? 1 : 0, airline, has('loyaltyProgram') ? 1 : 0, loyaltyProgram, has('pnr') ? 1 : 0, pnr,
+    has('ticketNumbers') ? 1 : 0, ticketNumbers, cashAmountCents, milesQuantity, milesCostCents, airportFeesCents,
+    issuanceFeeCents, consolidatorFeeCents, gatewayFeeCents, agentCommissionCents, otherCostsCents,
+    has('mileageProviderId') ? 1 : 0, mileageProviderId, has('consolidatorId') ? 1 : 0, consolidatorId,
+    has('notes') ? 1 : 0, notes, id,
+  ).run();
+  if (!result.meta.changes) return reply({ error: 'issuance_locked_after_issued' }, 409);
+  await audit(env, auth.userId, 'finance.issuance_updated', 'fin_issuance', id);
+  return reply({ ok: true });
+}
+
+async function financeIssuanceIssue(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const existing = await env.DB.prepare('SELECT status,pnr FROM fin_issuances WHERE id=?').bind(id).first<{ status: string; pnr: string | null }>();
+  if (!existing) return reply({ error: 'not_found' }, 404);
+  if (!isValidIssuanceTransition(existing.status, 'issued')) return reply({ error: 'invalid_transition' }, 409);
+  if (!existing.pnr) return reply({ error: 'pnr_required_to_issue' }, 422);
+  await env.DB.prepare("UPDATE fin_issuances SET status='issued',issued_at=CURRENT_TIMESTAMP,issued_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(auth.userId, id).run();
+  await audit(env, auth.userId, 'finance.issuance_issued', 'fin_issuance', id);
+  return reply({ ok: true });
+}
+
+async function financeIssuanceCancel(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const reasonValue = text(b?.reason, 500, 3);
+  if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
+  const existing = await env.DB.prepare('SELECT status FROM fin_issuances WHERE id=?').bind(id).first<{ status: string }>();
+  if (!existing) return reply({ error: 'not_found' }, 404);
+  if (!isValidIssuanceTransition(existing.status, 'canceled')) return reply({ error: 'invalid_transition' }, 409);
+  await env.DB.prepare("UPDATE fin_issuances SET status='canceled',terminated_at=CURRENT_TIMESTAMP,terminated_by=?,termination_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(auth.userId, reasonValue, id).run();
+  await audit(env, auth.userId, 'finance.issuance_canceled', 'fin_issuance', id);
+  return reply({ ok: true });
+}
+
+async function financeIssuanceRefund(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const reasonValue = text(b?.reason, 500, 3);
+  if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
+  const existing = await env.DB.prepare('SELECT status FROM fin_issuances WHERE id=?').bind(id).first<{ status: string }>();
+  if (!existing) return reply({ error: 'not_found' }, 404);
+  if (!isValidIssuanceTransition(existing.status, 'refunded')) return reply({ error: 'invalid_transition' }, 409);
+  await env.DB.prepare("UPDATE fin_issuances SET status='refunded',terminated_at=CURRENT_TIMESTAMP,terminated_by=?,termination_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(auth.userId, reasonValue, id).run();
+  await audit(env, auth.userId, 'finance.issuance_refunded', 'fin_issuance', id);
+  return reply({ ok: true });
+}
+
+// --- Financeiro (Fase 5 — milhas e fornecedores) ----------------------------------------------
+// Mirrors src/routes/finance-mileage.ts. D1/SQLite has no interactive multi-statement transaction
+// the way Postgres does (see the Fase 2/3 comment above commissionTransition for the same
+// limitation already documented in this file), so allocation here is sequential awaited calls
+// guarded by an application-level balance re-check immediately before the INSERT, not a real
+// `SELECT ... FOR UPDATE`. This is weaker than the Node/Postgres path under true concurrency —
+// exactly the gap that tests/mileage-allocation-concurrency.pg-real.test.ts exists to prove only
+// for the Postgres path. A Worker-side equivalent concurrency proof is not implemented in this
+// pass; treat D1 concurrent-allocation safety as unverified until a dedicated Miniflare/D1 proof
+// is written (tracked as a known gap in docs/financeiro/PLANO_IMPLEMENTACAO.md).
+function todayIso() { return new Date().toISOString().slice(0, 10); }
+
+function serializeFinMileageLot(row: Row, allocatedQuantity: number) {
+  const quantityPurchased = Number(row.quantity_purchased);
+  const isExpired = Boolean(row.expires_at) && String(row.expires_at) < todayIso();
+  return {
+    id: row.id, counterpartyId: row.counterparty_id, program: row.program, quantityPurchased,
+    totalCostCents: row.total_cost_cents, currency: row.currency, unitCostMicros: row.unit_cost_micros,
+    purchasedAt: row.purchased_at, expiresAt: row.expires_at, status: row.status, isExpired,
+    obligationId: row.obligation_id, notes: row.notes, balanceQuantity: quantityPurchased - allocatedQuantity,
+    createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+function serializeFinMileageAllocation(row: Row) {
+  return {
+    id: row.id, lotId: row.lot_id, issuanceId: row.issuance_id, quantity: row.quantity,
+    costCentsSnapshot: row.cost_cents_snapshot, voidedAt: row.voided_at, voidedBy: row.voided_by,
+    voidReason: row.void_reason, createdAt: row.created_at,
+  };
+}
+async function financeAllocatedQuantityByLot(env: Env): Promise<Map<string, number>> {
+  const rows = await env.DB.prepare('SELECT lot_id,quantity FROM fin_mileage_allocations WHERE voided_at IS NULL').all<Row>();
+  const totals = new Map<string, number>();
+  for (const row of rows.results) { const key = String(row.lot_id); totals.set(key, (totals.get(key) ?? 0) + Number(row.quantity)); }
+  return totals;
+}
+async function financeRecomputeIssuanceMiles(env: Env, issuanceId: string) {
+  const totals = await env.DB.prepare("SELECT COALESCE(sum(quantity),0) qty,COALESCE(sum(cost_cents_snapshot),0) cost FROM fin_mileage_allocations WHERE issuance_id=? AND voided_at IS NULL").bind(issuanceId).first<{ qty: number; cost: number }>();
+  await env.DB.prepare('UPDATE fin_issuances SET miles_quantity=?,miles_cost_cents=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(totals?.qty ?? 0, totals?.cost ?? 0, issuanceId).run();
+}
+
+async function financeMileageLots(req: Request, env: Env, url: URL) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const counterpartyId = url.searchParams.get('counterpartyId');
+  const program = url.searchParams.get('program');
+  const status = url.searchParams.get('status');
+  const currency = url.searchParams.get('currency');
+  if (counterpartyId && !UUID_RE.test(counterpartyId)) return reply({ error: 'invalid_filter' }, 400);
+  const rows = await env.DB.prepare(
+    `SELECT id,counterparty_id,program,quantity_purchased,total_cost_cents,currency,unit_cost_micros,purchased_at,expires_at,status,obligation_id,notes,created_at,updated_at
+       FROM fin_mileage_lots
+      WHERE (?1 IS NULL OR counterparty_id=?1) AND (?2 IS NULL OR program=?2) AND (?3 IS NULL OR status=?3) AND (?4 IS NULL OR currency=?4)
+      ORDER BY purchased_at DESC,created_at DESC LIMIT 500`,
+  ).bind(counterpartyId, program, status, currency).all<Row>();
+  const allocated = await financeAllocatedQuantityByLot(env);
+  return reply({ mileageLots: rows.results.map((row) => serializeFinMileageLot(row, allocated.get(String(row.id)) ?? 0)) });
+}
+
+async function financeMileageLotDetail(req: Request, env: Env, id: string) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const row = await env.DB.prepare('SELECT id,counterparty_id,program,quantity_purchased,total_cost_cents,currency,unit_cost_micros,purchased_at,expires_at,status,obligation_id,notes,created_at,updated_at FROM fin_mileage_lots WHERE id=?').bind(id).first<Row>();
+  if (!row) return reply({ error: 'not_found' }, 404);
+  const allocations = await env.DB.prepare('SELECT id,lot_id,issuance_id,quantity,cost_cents_snapshot,voided_at,voided_by,void_reason,created_at FROM fin_mileage_allocations WHERE lot_id=? ORDER BY created_at').bind(id).all<Row>();
+  const allocatedQuantity = allocations.results.filter((allocation) => !allocation.voided_at).reduce((sum, allocation) => sum + Number(allocation.quantity), 0);
+  return reply({ mileageLot: serializeFinMileageLot(row, allocatedQuantity), allocations: allocations.results.map(serializeFinMileageAllocation) });
+}
+
+async function financeMileageLotCreate(req: Request, env: Env) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const counterpartyId = typeof b?.counterpartyId === 'string' && UUID_RE.test(b.counterpartyId) ? b.counterpartyId : null;
+  const program = text(b?.program, 120, 2);
+  const quantityPurchased = intOf(b?.quantityPurchased, 1, 100_000_000);
+  const totalCostCents = intOf(b?.totalCostCents, 1, 100_000_000_00);
+  const currency = typeof b?.currency === 'string' && b.currency.length === 3 ? b.currency.toUpperCase() : null;
+  const purchasedAt = dateOf(b?.purchasedAt);
+  const expiresAt = typeof b?.expiresAt === 'string' ? dateOf(b.expiresAt) : null;
+  const categoryId = typeof b?.categoryId === 'string' && UUID_RE.test(b.categoryId) ? b.categoryId : null;
+  const dueDate = dateOf(b?.dueDate);
+  const accountId = typeof b?.accountId === 'string' && UUID_RE.test(b.accountId) ? b.accountId : null;
+  const costCenterIdInput = typeof b?.costCenterId === 'string' && UUID_RE.test(b.costCenterId) ? b.costCenterId : null;
+  const notes = text(b?.notes, 1000) || null;
+  if (!counterpartyId || !program || !quantityPurchased || !totalCostCents || !currency || !validCurrency(currency) || !purchasedAt || !categoryId || !dueDate) {
+    return reply({ error: 'invalid_mileage_lot' }, 400);
+  }
+
+  const counterparty = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(counterpartyId).first();
+  if (!counterparty) return reply({ error: 'counterparty_not_found' }, 422);
+  const category = await env.DB.prepare('SELECT kind,default_cost_center_id FROM fin_categories WHERE id=? AND active=1').bind(categoryId).first<{ kind: string; default_cost_center_id: string | null }>();
+  if (!category) return reply({ error: 'category_not_found' }, 422);
+  if (category.kind !== 'direct_cost') return reply({ error: 'category_must_be_direct_cost' }, 422);
+  if (accountId) { const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first(); if (!account) return reply({ error: 'account_not_found' }, 422); }
+  const costCenterId = costCenterIdInput ?? category.default_cost_center_id ?? null;
+  if (costCenterIdInput) { const costCenter = await env.DB.prepare('SELECT 1 FROM fin_cost_centers WHERE id=?').bind(costCenterIdInput).first(); if (!costCenter) return reply({ error: 'cost_center_not_found' }, 422); }
+
+  const lotId = crypto.randomUUID();
+  const obligationId = crypto.randomUUID();
+  const unitCost = unitCostMicros(totalCostCents, quantityPurchased);
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO fin_obligations (id,kind,counterparty_id,category_id,cost_center_id,competency_date,due_date,amount_cents,currency,account_id,notes,created_by)
+       VALUES (?,'direct_cost',?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(obligationId, counterpartyId, categoryId, costCenterId, purchasedAt, dueDate, totalCostCents, currency, accountId, `Compra de lote de milhas: ${program}`, auth.userId),
+    env.DB.prepare(
+      `INSERT INTO fin_mileage_lots (id,counterparty_id,program,quantity_purchased,total_cost_cents,currency,unit_cost_micros,purchased_at,expires_at,obligation_id,notes,created_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(lotId, counterpartyId, program, quantityPurchased, totalCostCents, currency, unitCost, purchasedAt, expiresAt, obligationId, notes, auth.userId),
+  ]);
+  await audit(env, auth.userId, 'finance.mileage_lot_created', 'fin_mileage_lot', lotId);
+  return reply({ id: lotId, obligationId }, 201);
+}
+
+async function financeMileageLotCancel(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const reasonValue = text(b?.reason, 500, 3);
+  if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
+  const lot = await env.DB.prepare('SELECT status FROM fin_mileage_lots WHERE id=?').bind(id).first<{ status: string }>();
+  if (!lot) return reply({ error: 'not_found' }, 404);
+  if (lot.status === 'canceled') return reply({ error: 'mileage_lot_already_canceled' }, 409);
+  const active = await env.DB.prepare('SELECT 1 FROM fin_mileage_allocations WHERE lot_id=? AND voided_at IS NULL LIMIT 1').bind(id).first();
+  if (active) return reply({ error: 'mileage_lot_has_active_allocations' }, 409);
+  await env.DB.prepare("UPDATE fin_mileage_lots SET status='canceled',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();
+  await audit(env, auth.userId, 'finance.mileage_lot_canceled', 'fin_mileage_lot', id);
+  return reply({ ok: true });
+}
+
+async function financeMileageAllocations(req: Request, env: Env, issuanceId: string) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,lot_id,issuance_id,quantity,cost_cents_snapshot,voided_at,voided_by,void_reason,created_at FROM fin_mileage_allocations WHERE issuance_id=? ORDER BY created_at').bind(issuanceId).all<Row>();
+  return reply({ allocations: rows.results.map(serializeFinMileageAllocation) });
+}
+
+async function financeMileageAllocationCreate(req: Request, env: Env, issuanceId: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const lotId = typeof b?.lotId === 'string' && UUID_RE.test(b.lotId) ? b.lotId : null;
+  const quantity = intOf(b?.quantity, 1, 100_000_000);
+  if (!lotId || !quantity) return reply({ error: 'invalid_allocation' }, 400);
+
+  const issuance = await env.DB.prepare('SELECT status,mode,currency FROM fin_issuances WHERE id=?').bind(issuanceId).first<{ status: string; mode: string; currency: string }>();
+  if (!issuance) return reply({ error: 'issuance_not_found' }, 404);
+  if (issuance.status !== 'pending') return reply({ error: 'issuance_locked_after_issued' }, 409);
+  if (issuance.mode !== 'miles' && issuance.mode !== 'hybrid') return reply({ error: 'issuance_mode_does_not_use_miles' }, 422);
+
+  const lot = await env.DB.prepare('SELECT status,currency,quantity_purchased,total_cost_cents,expires_at FROM fin_mileage_lots WHERE id=?').bind(lotId).first<{ status: string; currency: string; quantity_purchased: number; total_cost_cents: number; expires_at: string | null }>();
+  if (!lot) return reply({ error: 'mileage_lot_not_found' }, 404);
+  if (lot.status !== 'active' && lot.status !== 'depleted') return reply({ error: 'mileage_lot_not_active' }, 409);
+  if (lot.expires_at && lot.expires_at < todayIso()) return reply({ error: 'mileage_lot_expired' }, 409);
+  if (lot.currency !== issuance.currency) return reply({ error: 'mileage_lot_currency_must_match_issuance' }, 422);
+
+  const allocatedTotal = await env.DB.prepare('SELECT COALESCE(sum(quantity),0) n FROM fin_mileage_allocations WHERE lot_id=? AND voided_at IS NULL').bind(lotId).first<{ n: number }>();
+  const remaining = lot.quantity_purchased - (allocatedTotal?.n ?? 0);
+  if (quantity > remaining) return reply({ error: 'insufficient_mileage_balance' }, 409);
+
+  const costCentsSnapshot = allocationCostCents(lot.total_cost_cents, lot.quantity_purchased, quantity);
+  const allocationId = crypto.randomUUID();
+  // D1 não oferece SELECT ... FOR UPDATE nem transação interativa, então a checagem de saldo
+  // acima é só uma pré-validação (mensagem de erro rápida) — não é o que garante a ausência de
+  // saldo negativo. A garantia real vem daqui: um único INSERT ... SELECT ... WHERE, que o
+  // SQLite/D1 executa como uma instrução atômica só. Duas requisições concorrentes (ex.: duas
+  // abas) nunca podem as duas "ver" o mesmo saldo disponível e as duas inserirem — a segunda a
+  // chegar já vê o efeito da primeira dentro desta mesma instrução, porque a subquery de saldo
+  // roda como parte do INSERT, não como uma leitura separada e anterior a ele.
+  const insertResult = await env.DB.prepare(
+    `INSERT INTO fin_mileage_allocations (id,lot_id,issuance_id,quantity,cost_cents_snapshot,created_by)
+     SELECT ?,?,?,?,?,?
+      WHERE (SELECT quantity_purchased FROM fin_mileage_lots WHERE id = ?)
+          - (SELECT COALESCE(sum(quantity),0) FROM fin_mileage_allocations WHERE lot_id = ? AND voided_at IS NULL)
+         >= ?`,
+  ).bind(allocationId, lotId, issuanceId, quantity, costCentsSnapshot, auth.userId, lotId, lotId, quantity).run();
+  if (insertResult.meta.changes === 0) return reply({ error: 'insufficient_mileage_balance' }, 409);
+
+  const freshAllocatedTotal = await env.DB.prepare('SELECT COALESCE(sum(quantity),0) n FROM fin_mileage_allocations WHERE lot_id=? AND voided_at IS NULL').bind(lotId).first<{ n: number }>();
+  const newRemaining = lot.quantity_purchased - (freshAllocatedTotal?.n ?? 0);
+  await env.DB.prepare('UPDATE fin_mileage_lots SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(newRemaining === 0 ? 'depleted' : 'active', lotId).run();
+  await financeRecomputeIssuanceMiles(env, issuanceId);
+  await audit(env, auth.userId, 'finance.mileage_allocation_created', 'fin_mileage_allocation', allocationId);
+  return reply({ id: allocationId }, 201);
+}
+
+async function financeMileageAllocationVoid(req: Request, env: Env, id: string) {
+  const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
+  const b = await body(req);
+  const reasonValue = text(b?.reason, 500, 3);
+  if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
+  const allocation = await env.DB.prepare('SELECT lot_id,issuance_id,voided_at FROM fin_mileage_allocations WHERE id=?').bind(id).first<{ lot_id: string; issuance_id: string; voided_at: string | null }>();
+  if (!allocation) return reply({ error: 'not_found' }, 404);
+  if (allocation.voided_at) return reply({ error: 'allocation_already_voided' }, 409);
+  const issuance = await env.DB.prepare('SELECT status FROM fin_issuances WHERE id=?').bind(allocation.issuance_id).first<{ status: string }>();
+  if (issuance?.status !== 'pending') return reply({ error: 'issuance_locked_after_issued' }, 409);
+
+  await env.DB.prepare('UPDATE fin_mileage_allocations SET voided_at=CURRENT_TIMESTAMP,voided_by=?,void_reason=? WHERE id=?').bind(auth.userId, reasonValue, id).run();
+  await env.DB.prepare("UPDATE fin_mileage_lots SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='depleted'").bind(allocation.lot_id).run();
+  await financeRecomputeIssuanceMiles(env, allocation.issuance_id);
+  await audit(env, auth.userId, 'finance.mileage_allocation_voided', 'fin_mileage_allocation', id);
+  return reply({ ok: true });
+}
+
+// --- Financeiro (Fase 6 — dashboard e relatórios) --------------------------------------------
+// Mirrors src/routes/finance-dashboard.ts. All read-only (GET), so only requireMaster — no CSRF.
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function financeSumIssuanceDirectCostCents(row: Row): number {
+  return Number(row.cash_amount_cents) + Number(row.miles_cost_cents) + Number(row.airport_fees_cents) + Number(row.issuance_fee_cents)
+    + Number(row.consolidator_fee_cents) + Number(row.gateway_fee_cents) + Number(row.agent_commission_cents) + Number(row.other_costs_cents);
+}
+function financeSumByCurrency(rows: Row[], amountKey: string): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const row of rows) { const currency = String(row.currency); totals.set(currency, (totals.get(currency) ?? 0) + Number(row[amountKey])); }
+  return totals;
+}
+
+async function financeDashboardOverview(req: Request, env: Env, url: URL) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const from = url.searchParams.get('from'); const to = url.searchParams.get('to');
+  const regime = url.searchParams.get('regime') === 'cash' ? 'cash' : 'accrual';
+  if (!from || !DATE_RE.test(from) || !to || !DATE_RE.test(to)) return reply({ error: 'invalid_filter' }, 400);
+  if (from > to) return reply({ error: 'invalid_date_range' }, 400);
+
+  if (regime === 'accrual') {
+    const salesRows = await env.DB.prepare("SELECT currency,net_amount_cents amount FROM fin_sales WHERE status='confirmed' AND sale_date BETWEEN ? AND ?").bind(from, to).all<Row>();
+    const faturamento = financeSumByCurrency(salesRows.results, 'amount');
+    const expenseRows = await env.DB.prepare("SELECT currency,amount_cents amount FROM fin_obligations WHERE kind='operating_expense' AND status<>'canceled' AND competency_date BETWEEN ? AND ?").bind(from, to).all<Row>();
+    const despesas = financeSumByCurrency(expenseRows.results, 'amount');
+    const issuanceRows = await env.DB.prepare(
+      `SELECT fi.currency,fi.cash_amount_cents,fi.miles_cost_cents,fi.airport_fees_cents,fi.issuance_fee_cents,fi.consolidator_fee_cents,fi.gateway_fee_cents,fi.agent_commission_cents,fi.other_costs_cents
+         FROM fin_issuances fi JOIN fin_sales fs ON fs.id=fi.sale_id
+        WHERE fs.status='confirmed' AND fs.sale_date BETWEEN ? AND ? AND fi.status IN ('issued','refunded')`,
+    ).bind(from, to).all<Row>();
+    const custoDireto = new Map<string, number>();
+    for (const row of issuanceRows.results) { const currency = String(row.currency); custoDireto.set(currency, (custoDireto.get(currency) ?? 0) + financeSumIssuanceDirectCostCents(row)); }
+    const currencies = new Set([...faturamento.keys(), ...custoDireto.keys(), ...despesas.keys()]);
+    const indicators = [...currencies].sort().map((currency) => {
+      const faturamentoBrutoCents = faturamento.get(currency) ?? 0;
+      const custoDiretoCents = custoDireto.get(currency) ?? 0;
+      const despesasOperacionaisCents = despesas.get(currency) ?? 0;
+      const lucroBrutoCents = faturamentoBrutoCents - custoDiretoCents;
+      const margemBrutaBps = faturamentoBrutoCents > 0 ? Math.round((lucroBrutoCents * 10_000) / faturamentoBrutoCents) : null;
+      return { currency, faturamentoBrutoCents, custoDiretoCents, lucroBrutoCents, margemBrutaBps, despesasOperacionaisCents, resultadoOperacionalCents: lucroBrutoCents - despesasOperacionaisCents };
+    });
+    return reply({ regime: 'accrual', from, to, indicators });
+  }
+
+  const receivedRows = await env.DB.prepare("SELECT currency,received_amount_cents amount FROM fin_receivable_payments WHERE substr(received_at,1,10) BETWEEN ? AND ?").bind(from, to).all<Row>();
+  const recebido = financeSumByCurrency(receivedRows.results, 'amount');
+  const paidRows = await env.DB.prepare("SELECT currency,paid_amount_cents amount FROM fin_obligation_payments WHERE substr(paid_at,1,10) BETWEEN ? AND ?").bind(from, to).all<Row>();
+  const pago = financeSumByCurrency(paidRows.results, 'amount');
+  const currencies = new Set([...recebido.keys(), ...pago.keys()]);
+  const indicators = [...currencies].sort().map((currency) => {
+    const recebidoCents = recebido.get(currency) ?? 0; const pagoCents = pago.get(currency) ?? 0;
+    return { currency, recebidoCents, pagoCents, saldoCaixaCents: recebidoCents - pagoCents };
+  });
+  return reply({ regime: 'cash', from, to, indicators });
+}
+
+async function financeDashboardAlerts(req: Request, env: Env, url: URL) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const minMarginBps = intOf(url.searchParams.get('minMarginBps'), -10_000, 10_000) ?? 0;
+  const lowBalanceThreshold = intOf(url.searchParams.get('lowBalanceThreshold'), 0, 100_000_000) ?? 1000;
+  const expiringDays = intOf(url.searchParams.get('expiringDays'), 1, 365) ?? 30;
+
+  const overdueObligations = await env.DB.prepare("SELECT id,due_date,amount_cents,currency,counterparty_id FROM fin_obligations WHERE status IN ('open','partial') AND due_date < date('now') ORDER BY due_date LIMIT 200").all<Row>();
+  const overdueReceivables = await env.DB.prepare("SELECT id,sale_id,due_date,expected_amount_cents,currency FROM fin_receivables WHERE status IN ('open','partial') AND due_date < date('now') ORDER BY due_date LIMIT 200").all<Row>();
+  const upcoming7d = await env.DB.prepare("SELECT id,due_date,amount_cents,currency,counterparty_id FROM fin_obligations WHERE status IN ('open','partial') AND due_date BETWEEN date('now') AND date('now','+7 days') ORDER BY due_date LIMIT 200").all<Row>();
+  const upcoming30d = await env.DB.prepare("SELECT id,due_date,amount_cents,currency,counterparty_id FROM fin_obligations WHERE status IN ('open','partial') AND due_date BETWEEN date('now') AND date('now','+30 days') ORDER BY due_date LIMIT 200").all<Row>();
+  const activeSubscriptions = await env.DB.prepare("SELECT id,service,next_charge_at,notice_days,amount_cents,currency FROM fin_subscriptions WHERE status='active'").all<Row>();
+  const today = new Date().toISOString().slice(0, 10);
+  const subscriptionsDueSoon = activeSubscriptions.results.filter((row) => {
+    const daysUntil = Math.floor((Date.parse(`${row.next_charge_at}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+    return daysUntil <= Number(row.notice_days);
+  }).map((row) => ({ id: row.id, service: row.service, nextChargeAt: row.next_charge_at, amountCents: row.amount_cents, currency: row.currency }));
+
+  const saleIssuanceRows = await env.DB.prepare(
+    `SELECT fs.id sale_id,fs.protocol,fs.net_amount_cents,fs.currency,
+            fi.cash_amount_cents,fi.miles_cost_cents,fi.airport_fees_cents,fi.issuance_fee_cents,fi.consolidator_fee_cents,fi.gateway_fee_cents,fi.agent_commission_cents,fi.other_costs_cents
+       FROM fin_sales fs JOIN fin_issuances fi ON fi.sale_id=fs.id
+      WHERE fs.status='confirmed' AND fi.status IN ('issued','refunded')`,
+  ).all<Row>();
+  const costBySale = new Map<string, { protocol: string; netAmountCents: number; currency: string; costCents: number }>();
+  for (const row of saleIssuanceRows.results) {
+    const saleId = String(row.sale_id);
+    const entry = costBySale.get(saleId) ?? { protocol: String(row.protocol), netAmountCents: Number(row.net_amount_cents), currency: String(row.currency), costCents: 0 };
+    entry.costCents += financeSumIssuanceDirectCostCents(row);
+    costBySale.set(saleId, entry);
+  }
+  const salesBelowMarginThreshold = [...costBySale.entries()]
+    .map(([saleId, entry]) => ({ saleId, protocol: entry.protocol, currency: entry.currency, marginBps: entry.netAmountCents > 0 ? Math.round(((entry.netAmountCents - entry.costCents) * 10_000) / entry.netAmountCents) : null }))
+    .filter((item) => item.marginBps !== null && item.marginBps < minMarginBps);
+
+  const mileageLots = await env.DB.prepare("SELECT id,program,quantity_purchased,expires_at FROM fin_mileage_lots WHERE status IN ('active','depleted')").all<Row>();
+  const allocatedRows = await env.DB.prepare('SELECT lot_id,quantity FROM fin_mileage_allocations WHERE voided_at IS NULL').all<Row>();
+  const allocatedByLot = new Map<string, number>();
+  for (const row of allocatedRows.results) { const key = String(row.lot_id); allocatedByLot.set(key, (allocatedByLot.get(key) ?? 0) + Number(row.quantity)); }
+  const mileageLotsLowBalance: Array<{ id: unknown; program: unknown; balanceQuantity: number }> = [];
+  const mileageLotsExpiringSoon: Array<{ id: unknown; program: unknown; expiresAt: unknown }> = [];
+  for (const row of mileageLots.results) {
+    const balance = Number(row.quantity_purchased) - (allocatedByLot.get(String(row.id)) ?? 0);
+    if (balance <= lowBalanceThreshold) mileageLotsLowBalance.push({ id: row.id, program: row.program, balanceQuantity: balance });
+    if (row.expires_at) {
+      const daysUntil = Math.floor((Date.parse(`${row.expires_at}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+      if (daysUntil >= 0 && daysUntil <= expiringDays) mileageLotsExpiringSoon.push({ id: row.id, program: row.program, expiresAt: row.expires_at });
+    }
+  }
+
+  return reply({
+    overdueObligations: overdueObligations.results.map((row) => ({ id: row.id, dueDate: row.due_date, amountCents: row.amount_cents, currency: row.currency, counterpartyId: row.counterparty_id })),
+    overdueReceivables: overdueReceivables.results.map((row) => ({ id: row.id, saleId: row.sale_id, dueDate: row.due_date, expectedAmountCents: row.expected_amount_cents, currency: row.currency })),
+    upcomingObligations7d: upcoming7d.results.map((row) => ({ id: row.id, dueDate: row.due_date, amountCents: row.amount_cents, currency: row.currency, counterpartyId: row.counterparty_id })),
+    upcomingObligations30d: upcoming30d.results.map((row) => ({ id: row.id, dueDate: row.due_date, amountCents: row.amount_cents, currency: row.currency, counterpartyId: row.counterparty_id })),
+    subscriptionsDueSoon, salesBelowMarginThreshold, mileageLotsLowBalance, mileageLotsExpiringSoon,
+  });
+}
+
+async function financeDashboardExpensesByCategory(req: Request, env: Env, url: URL) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const from = url.searchParams.get('from'); const to = url.searchParams.get('to');
+  const regime = url.searchParams.get('regime') === 'cash' ? 'cash' : 'accrual';
+  if (!from || !DATE_RE.test(from) || !to || !DATE_RE.test(to)) return reply({ error: 'invalid_filter' }, 400);
+  if (from > to) return reply({ error: 'invalid_date_range' }, 400);
+
+  const rows = regime === 'accrual'
+    ? await env.DB.prepare("SELECT category_id,currency,amount_cents amount FROM fin_obligations WHERE status<>'canceled' AND competency_date BETWEEN ? AND ?").bind(from, to).all<Row>()
+    : await env.DB.prepare("SELECT o.category_id category_id,p.currency currency,p.paid_amount_cents amount FROM fin_obligation_payments p JOIN fin_obligations o ON o.id=p.obligation_id WHERE substr(p.paid_at,1,10) BETWEEN ? AND ?").bind(from, to).all<Row>();
+  const categories = await env.DB.prepare('SELECT id,name,kind FROM fin_categories').all<Row>();
+  const categoryById = new Map(categories.results.map((row) => [String(row.id), row]));
+  const totals = new Map<string, { categoryId: string; categoryName: string; kind: string; currency: string; amountCents: number }>();
+  for (const row of rows.results) {
+    const key = `${row.category_id}|${row.currency}`;
+    const category = categoryById.get(String(row.category_id));
+    const entry = totals.get(key) ?? { categoryId: String(row.category_id), categoryName: category ? String(category.name) : '(categoria removida)', kind: category ? String(category.kind) : 'unknown', currency: String(row.currency), amountCents: 0 };
+    entry.amountCents += Number(row.amount);
+    totals.set(key, entry);
+  }
+  return reply({ regime, from, to, categories: [...totals.values()].sort((a, b) => b.amountCents - a.amountCents) });
+}
+
+async function financeDashboardExportCsv(req: Request, env: Env, url: URL) {
+  if (!(await requireMaster(req, env))) return reply({ error: 'forbidden' }, 403);
+  const report = url.searchParams.get('report');
+  const from = url.searchParams.get('from'); const to = url.searchParams.get('to');
+  if (!report || !['sales', 'obligations', 'receivables'].includes(report)) return reply({ error: 'invalid_filter' }, 400);
+  if (!from || !DATE_RE.test(from) || !to || !DATE_RE.test(to)) return reply({ error: 'invalid_filter' }, 400);
+  if (from > to) return reply({ error: 'invalid_date_range' }, 400);
+  const maxRows = 5000;
+
+  let csv: string;
+  if (report === 'sales') {
+    const rows = await env.DB.prepare('SELECT protocol,sale_date,currency,gross_amount_cents,discount_cents,net_amount_cents,status FROM fin_sales WHERE sale_date BETWEEN ? AND ? ORDER BY sale_date LIMIT ?').bind(from, to, maxRows).all<Row>();
+    csv = buildCsv(['Protocolo', 'Data', 'Moeda', 'Valor bruto (centavos)', 'Desconto (centavos)', 'Valor líquido (centavos)', 'Status'],
+      rows.results.map((row) => [String(row.protocol), String(row.sale_date), String(row.currency), Number(row.gross_amount_cents), Number(row.discount_cents), Number(row.net_amount_cents), String(row.status)]));
+  } else if (report === 'obligations') {
+    const rows = await env.DB.prepare(
+      `SELECT o.due_date due_date,o.currency currency,o.amount_cents amount_cents,o.status status,o.kind kind,cp.display_name counterparty_name,cat.name category_name
+         FROM fin_obligations o LEFT JOIN fin_counterparties cp ON cp.id=o.counterparty_id LEFT JOIN fin_categories cat ON cat.id=o.category_id
+        WHERE o.due_date BETWEEN ? AND ? ORDER BY o.due_date LIMIT ?`,
+    ).bind(from, to, maxRows).all<Row>();
+    csv = buildCsv(['Vencimento', 'Tipo', 'Categoria', 'Contraparte', 'Moeda', 'Valor (centavos)', 'Status'],
+      rows.results.map((row) => [String(row.due_date), String(row.kind), row.category_name ? String(row.category_name) : '', row.counterparty_name ? String(row.counterparty_name) : '', String(row.currency), Number(row.amount_cents), String(row.status)]));
+  } else {
+    const rows = await env.DB.prepare(
+      `SELECT r.due_date due_date,r.currency currency,r.expected_amount_cents expected_amount_cents,r.status status,s.protocol protocol
+         FROM fin_receivables r JOIN fin_sales s ON s.id=r.sale_id
+        WHERE r.due_date BETWEEN ? AND ? ORDER BY r.due_date LIMIT ?`,
+    ).bind(from, to, maxRows).all<Row>();
+    csv = buildCsv(['Protocolo da venda', 'Vencimento', 'Moeda', 'Valor esperado (centavos)', 'Status'],
+      rows.results.map((row) => [String(row.protocol), String(row.due_date), String(row.currency), Number(row.expected_amount_cents), String(row.status)]));
+  }
+  return new Response(csv, { headers: { ...jsonHeaders, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${report}-${from}-a-${to}.csv"` } });
 }

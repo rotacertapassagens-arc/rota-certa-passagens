@@ -13,6 +13,13 @@ import { registerPaymentRoutes } from './routes/payments.js';
 import { registerPublicRoutes } from './routes/public.js';
 import { registerPartnerRoutes } from './routes/partners.js';
 import { registerNotificationRoutes } from './routes/notifications.js';
+import { registerFinanceRoutes } from './routes/finance.js';
+import { registerFinanceSubscriptionRoutes } from './routes/finance-subscriptions.js';
+import { registerFinanceObligationRoutes } from './routes/finance-obligations.js';
+import { registerFinanceSalesRoutes } from './routes/finance-sales.js';
+import { registerFinanceIssuanceRoutes } from './routes/finance-issuances.js';
+import { registerFinanceMileageRoutes } from './routes/finance-mileage.js';
+import { registerFinanceDashboardRoutes } from './routes/finance-dashboard.js';
 
 export interface AppDependencies {
   db: Database;
@@ -58,6 +65,13 @@ export async function buildApp({ db, config, emailSender = new RuntimeEmailSende
   registerPaymentRoutes(app, db, config);
   registerPartnerRoutes(app, db, config, emailSender);
   registerNotificationRoutes(app, db, config, emailSender);
+  registerFinanceRoutes(app, db, config);
+  registerFinanceSubscriptionRoutes(app, db, config);
+  registerFinanceObligationRoutes(app, db, config);
+  registerFinanceSalesRoutes(app, db, config);
+  registerFinanceIssuanceRoutes(app, db, config);
+  registerFinanceMileageRoutes(app, db, config);
+  registerFinanceDashboardRoutes(app, db, config);
 
   await app.register(fastifyStatic, { root: join(process.cwd(), 'public'), prefix: '/' });
   app.setNotFoundHandler(async (request, reply) => {

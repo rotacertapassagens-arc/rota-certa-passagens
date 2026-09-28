@@ -1,0 +1,50 @@
+PRAGMA foreign_keys = ON;
+
+-- Mirrors migrations/0012_finance_issuances.sql in SQLite/D1 dialect.
+
+CREATE TABLE fin_issuances (
+  id TEXT PRIMARY KEY,
+  sale_id TEXT NOT NULL REFERENCES fin_sales(id) ON DELETE RESTRICT,
+  mode TEXT NOT NULL,
+  airline TEXT,
+  loyalty_program TEXT,
+  pnr TEXT,
+  ticket_numbers TEXT,
+  currency TEXT NOT NULL,
+  cash_amount_cents INTEGER NOT NULL DEFAULT 0,
+  miles_quantity INTEGER NOT NULL DEFAULT 0,
+  miles_cost_cents INTEGER NOT NULL DEFAULT 0,
+  airport_fees_cents INTEGER NOT NULL DEFAULT 0,
+  issuance_fee_cents INTEGER NOT NULL DEFAULT 0,
+  consolidator_fee_cents INTEGER NOT NULL DEFAULT 0,
+  gateway_fee_cents INTEGER NOT NULL DEFAULT 0,
+  agent_commission_cents INTEGER NOT NULL DEFAULT 0,
+  other_costs_cents INTEGER NOT NULL DEFAULT 0,
+  mileage_provider_id TEXT REFERENCES fin_counterparties(id) ON DELETE SET NULL,
+  consolidator_id TEXT REFERENCES fin_counterparties(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  issued_at TEXT,
+  issued_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  terminated_at TEXT,
+  terminated_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  termination_reason TEXT,
+  notes TEXT,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (mode IN ('cash','miles','hybrid','consolidator','airline','other')),
+  CHECK (cash_amount_cents >= 0),
+  CHECK (miles_quantity >= 0),
+  CHECK (miles_cost_cents >= 0),
+  CHECK (airport_fees_cents >= 0),
+  CHECK (issuance_fee_cents >= 0),
+  CHECK (consolidator_fee_cents >= 0),
+  CHECK (gateway_fee_cents >= 0),
+  CHECK (agent_commission_cents >= 0),
+  CHECK (other_costs_cents >= 0),
+  CHECK (status IN ('pending','issued','canceled','refunded')),
+  CHECK ((status IN ('issued','refunded')) = (issued_at IS NOT NULL)),
+  CHECK ((status IN ('canceled','refunded')) = (terminated_at IS NOT NULL))
+);
+CREATE INDEX fin_issuances_sale_idx ON fin_issuances (sale_id);
+CREATE INDEX fin_issuances_status_idx ON fin_issuances (status);

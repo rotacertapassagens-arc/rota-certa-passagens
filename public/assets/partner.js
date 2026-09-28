@@ -52,8 +52,11 @@ try {
       <td>${entry.referralSource==='link'?'Link':entry.referralSource==='manual'?'Manual':'-'}</td>
       <td>${escapeHtml(statusLabels[entry.status]||entry.status)}</td>
       <td>${fmtDate(entry.requestedAt)}</td>
-      <td>${entry.commission?`${fmtMoney(entry.commission.amountCents,entry.commission.currency)} · ${escapeHtml(commissionLabels[entry.commission.status]||entry.commission.status)}`:'-'}</td>
-    </tr>`).join(''):'<tr><td colspan="6">Nenhuma indicação registrada ainda.</td></tr>';
+      <td>${entry.commission?`${fmtMoney(entry.commission.amountCents,entry.commission.currency)} <span class="tag tag-${escapeHtml(entry.commission.status)}">${escapeHtml(commissionLabels[entry.commission.status]||entry.commission.status)}</span>`:'-'}</td>
+    </tr>`).join(''):'<tr><td colspan="6"><div class="empty-state"><strong>Nenhuma indicação registrada ainda.</strong>Divulgue o seu link acima para começar a acompanhar cliques e propostas aqui.</div></td></tr>';
 } catch(error) {
-  document.querySelector('#accessMessage p').textContent=error.status===403?'Sua conta não tem acesso ao painel de parceiro.':'Entre com a sua conta de parceiro para ver o painel.';
+  const message=document.querySelector('#accessMessage p');
+  if(error.status===401) message.textContent='Sua sessão expirou. Entre novamente com sua conta de parceiro.';
+  else if(error.status===403) message.textContent='Sua conta não tem acesso ao painel de parceiro.';
+  else message.textContent='Entre com a sua conta de parceiro para ver o painel.';
 }

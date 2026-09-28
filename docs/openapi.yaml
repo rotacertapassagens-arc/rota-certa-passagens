@@ -12,6 +12,7 @@ tags:
   - name: Admin
   - name: Payments
   - name: Partners
+  - name: Finance
 components:
   securitySchemes:
     sessionCookie:
@@ -679,6 +680,479 @@ paths:
         "200": { description: "{ partnersConsidered, summariesCreated }" }
         "401": { description: Sem sessão válida e sem token cron }
         "403": { description: Sessão autenticada sem papel master }
+  /api/admin/finance/cost-centers:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista centros de custo do módulo financeiro (Fase 1)
+      responses:
+        "200": { description: Lista de centros de custo }
+        "401": { description: Sem sessão válida }
+        "403": { description: Papel master necessário }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria um centro de custo
+      responses:
+        "201": { description: "{ id }" }
+        "400": { description: Corpo inválido }
+        "409": { description: Nome já usado por outro centro de custo }
+  /api/admin/finance/cost-centers/{id}:
+    patch:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza nome ou ativa/desativa um centro de custo (nunca DELETE)
+      responses:
+        "200": { description: "{ ok: true }" }
+        "404": { description: Não encontrado }
+        "409": { description: Nome já usado por outro centro de custo }
+  /api/admin/finance/categories:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista categorias financeiras hierárquicas (receita, custo direto, despesa operacional)
+      responses:
+        "200": { description: Lista de categorias }
+        "401": { description: Sem sessão válida }
+        "403": { description: Papel master necessário }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria categoria; categoria-filha deve ter o mesmo "kind" da categoria-pai
+      responses:
+        "201": { description: "{ id }" }
+        "422": { description: Categoria-pai ou centro de custo padrão inexistente, ou kind incompatível com o pai }
+  /api/admin/finance/categories/{id}:
+    patch:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza ou desativa uma categoria (bloqueado se houver categoria-filha ativa)
+      responses:
+        "200": { description: "{ ok: true }" }
+        "404": { description: Não encontrado }
+        "409": { description: Categoria tem subcategoria ativa; desative-as primeiro }
+  /api/admin/finance/accounts:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista contas financeiras internas (banco/dinheiro/cartão/carteira) — sem integração bancária real
+      responses:
+        "200": { description: Lista de contas }
+        "401": { description: Sem sessão válida }
+        "403": { description: Papel master necessário }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria conta financeira interna
+      responses:
+        "201": { description: "{ id }" }
+        "400": { description: Corpo inválido }
+  /api/admin/finance/accounts/{id}:
+    patch:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza ou desativa uma conta financeira (nunca DELETE)
+      responses:
+        "200": { description: "{ ok: true }" }
+        "404": { description: Não encontrado }
+  /api/admin/finance/counterparties:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista contrapartes (fornecedor, companhia, consolidadora, fornecedor de milhas) — distinta de /api/admin/partners (parceiro de indicação)
+      responses:
+        "200": { description: Lista de contrapartes }
+        "401": { description: Sem sessão válida }
+        "403": { description: Papel master necessário }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria contraparte financeira
+      responses:
+        "201": { description: "{ id }" }
+        "400": { description: Corpo inválido }
+  /api/admin/finance/counterparties/{id}:
+    patch:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza ou desativa uma contraparte (nunca DELETE)
+      responses:
+        "200": { description: "{ ok: true }" }
+        "404": { description: Não encontrado }
+  /api/admin/finance/subscriptions:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista assinaturas recorrentes da empresa (Fase 2)
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [trial, active, suspended, canceled, ended] } }
+      responses:
+        "200": { description: Lista de assinaturas }
+        "401": { description: Sem sessão válida }
+        "403": { description: Papel master necessário }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria assinatura; categoria precisa ser do tipo despesa operacional; grava o primeiro registro de histórico de preço
+      responses:
+        "201": { description: "{ id }" }
+        "422": { description: Categoria/contraparte/conta/centro de custo inválido, ou categoria não é despesa operacional }
+  /api/admin/finance/subscriptions/{id}:
+    patch:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza campos não financeiros da assinatura (descrição, conta, responsável etc.) — nunca o valor, que exige /reprice
+      responses:
+        "200": { description: "{ ok: true }" }
+        "404": { description: Não encontrado }
+  /api/admin/finance/subscriptions/{id}/reprice:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Reajusta o valor da assinatura preservando o valor anterior no histórico (nunca sobrescreve)
+      responses:
+        "200": { description: "{ ok: true }" }
+        "404": { description: Não encontrado }
+        "409": { description: Assinatura cancelada ou encerrada (subscription_terminal) }
+  /api/admin/finance/subscriptions/{id}/price-history:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Histórico completo de valores da assinatura, mais recente primeiro
+      responses:
+        "200": { description: Lista de reajustes }
+  /api/admin/finance/subscriptions/{id}/status:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Muda o status da assinatura seguindo a máquina de estado (trial→active→suspended→canceled/ended)
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: Transição inválida (invalid_transition) }
+  /api/admin/finance/subscriptions/generate-charges:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Gera (idempotente, por assinatura e por período) as obrigações de cobrança de toda assinatura ativa vencida, avançando next_charge_at período a período
+      description: >
+        Se a rotina não rodar por vários períodos, gera uma cobrança para cada período em atraso
+        (até 36 iterações de segurança), cada uma com sua própria chave de idempotência
+        (subscription_charge:{id}:{data}) — repetir a chamada nunca duplica uma cobrança já gerada.
+      responses:
+        "200": { description: "{ subscriptionsDue, created, skipped }" }
+  /api/admin/finance/obligations:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista contas a pagar / despesas, com is_overdue calculado no servidor (status IN (open,partial) AND due_date < hoje) sem sobrescrever o status armazenado
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [open, partial, paid, canceled, reversed] } }
+        - { name: kind, in: query, required: false, schema: { type: string, enum: [direct_cost, operating_expense] } }
+        - { name: dueBefore, in: query, required: false, schema: { type: string, format: date } }
+        - { name: counterpartyId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: currency, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: Lista de obrigações }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria obrigação manual (custo direto ou despesa operacional); categoria precisa ter o mesmo kind
+      responses:
+        "201": { description: "{ id }" }
+        "422": { description: category_kind_mismatch ou vínculo inválido }
+  /api/admin/finance/obligations/{id}:
+    patch:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza categoria/centro de custo/vencimento/conta/observações — bloqueado se a obrigação estiver cancelada ou estornada
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: obligation_terminal }
+  /api/admin/finance/obligations/{id}/cancel:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cancela uma obrigação em aberto (sem nenhum pagamento) com motivo auditado — nunca DELETE
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: obligation_has_payments_or_terminal }
+  /api/admin/finance/obligations/{id}/payments:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista os pagamentos (e estornos) de uma obrigação, em ordem cronológica
+      responses:
+        "200": { description: Lista de pagamentos }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Registra pagamento parcial ou total; recalcula o status da obrigação (open/partial/paid) no servidor
+      responses:
+        "201": { description: "{ id }" }
+        "422": { description: payment_currency_must_match_obligation }
+        "409": { description: obligation_not_payable }
+  /api/admin/finance/obligation-payments/{id}/reverse:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Estorna um pagamento como um novo lançamento negativo vinculado (reversal_of) — nunca apaga o pagamento original; no máximo um estorno por pagamento
+      responses:
+        "201": { description: "{ id }" }
+        "409": { description: payment_already_reversed ou cannot_reverse_a_reversal }
+  /api/admin/finance/sales:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista vendas financeiras (Fase 3), com financialStatus derivado (no_receivables/open/partial/paid/canceled/refunded)
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [confirmed, canceled, refunded] } }
+        - { name: partnerId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: currency, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: Lista de vendas }
+  /api/admin/finance/sales/{id}:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Detalhe da venda, incluindo parcelas, emissões e lucro/margem calculados no servidor (Fase 4)
+      responses:
+        "200": { description: "{ sale, receivables, issuances, profit: { realizedDirectCostCents, projectedDirectCostCents, realizedGrossProfitCents, realizedMarginBps, projectedGrossProfitCents, projectedMarginBps } }" }
+        "404": { description: Não encontrado }
+  /api/admin/finance/sales/from-lead/{leadRequestId}:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria a venda financeira a partir de uma proposta já convertida (lead_requests.status=converted) — idempotente, nunca duplica, nunca recria a comissão do parceiro
+      description: >
+        A proposta precisa já estar convertida pelo fluxo existente da Central de Propostas
+        (PATCH /api/admin/leads/{id}), com sale_amount_cents/sale_currency preenchidos. Chamar de
+        novo para a mesma proposta devolve a venda já existente (200, alreadyExisted:true) em vez
+        de criar uma segunda ou retornar erro.
+      responses:
+        "201": { description: "{ id, alreadyExisted: false }" }
+        "200": { description: "{ id, alreadyExisted: true } — venda já existia" }
+        "409": { description: lead_not_converted }
+        "422": { description: sale_amount_missing, lead_protocol_missing ou discount_exceeds_gross_amount }
+  /api/admin/finance/sales/{id}/cancel:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cancela uma venda confirmada sem nenhum recebimento — nunca DELETE
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: sale_has_payments_use_refund (use /refund) ou sale_not_cancelable }
+  /api/admin/finance/sales/{id}/refund:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Marca a venda como reembolsada — exige que já exista ao menos um recebimento líquido positivo
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: sale_has_no_payments_use_cancel (use /cancel) ou sale_not_refundable }
+  /api/admin/finance/sales/{id}/receivables:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista as parcelas de uma venda
+      responses:
+        "200": { description: Lista de parcelas }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria uma ou mais parcelas para a venda; a soma de todas as parcelas ativas nunca pode ultrapassar o valor líquido da venda
+      responses:
+        "201": { description: "{ ids }" }
+        "409": { description: installments_exceed_sale_amount ou sale_not_confirmed }
+  /api/admin/finance/receivables/{id}/payments:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista os recebimentos (e estornos) de uma parcela
+      responses:
+        "200": { description: Lista de recebimentos }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Registra recebimento parcial ou total; recalcula o status da parcela (open/partial/paid) no servidor
+      responses:
+        "201": { description: "{ id }" }
+        "422": { description: payment_currency_must_match_receivable }
+        "409": { description: receivable_not_payable }
+  /api/admin/finance/receivable-payments/{id}/reverse:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Estorna um recebimento como um novo lançamento negativo vinculado (reversal_of) — nunca apaga o original; no máximo um estorno por recebimento
+      responses:
+        "201": { description: "{ id }" }
+        "409": { description: payment_already_reversed ou cannot_reverse_a_reversal }
+  /api/admin/finance/sales/{saleId}/issuances:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista as emissões de uma venda (Fase 4)
+      responses:
+        "200": { description: Lista de emissões }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cria uma emissão para a venda; a moeda precisa ser igual à moeda da venda
+      responses:
+        "201": { description: "{ id }" }
+        "422": { description: issuance_currency_must_match_sale }
+        "409": { description: sale_not_confirmed }
+  /api/admin/finance/issuances/{id}:
+    patch:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Atualiza uma emissão ainda pendente — bloqueado depois de emitida (custo histórico nunca é alterado retroativamente)
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: issuance_locked_after_issued }
+  /api/admin/finance/issuances/{id}/issue:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Marca a emissão como emitida — exige PNR já preenchido; a partir daqui os campos de custo ficam travados
+      responses:
+        "200": { description: "{ ok: true }" }
+        "422": { description: pnr_required_to_issue }
+        "409": { description: invalid_transition }
+  /api/admin/finance/issuances/{id}/cancel:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cancela uma emissão ainda pendente (nunca emitida) — nunca DELETE
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: invalid_transition (só permitido a partir de "pending") }
+  /api/admin/finance/issuances/{id}/refund:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Reembolsa uma emissão já emitida
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: invalid_transition (só permitido a partir de "issued") }
+  /api/admin/finance/mileage-lots:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista lotes de milhas (Fase 5), com balanceQuantity e isExpired calculados no servidor
+      parameters:
+        - { name: counterpartyId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: program, in: query, required: false, schema: { type: string } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [active, depleted, expired, canceled] } }
+        - { name: currency, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: Lista de lotes }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Compra um lote de milhas; cria automaticamente, na mesma transação, a obrigação de pagamento ao fornecedor (custo direto)
+      responses:
+        "201": { description: "{ id, obligationId }" }
+        "422": { description: category_must_be_direct_cost ou vínculo inválido }
+  /api/admin/finance/mileage-lots/{id}:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Detalhe do lote, incluindo todas as alocações (ativas e estornadas)
+      responses:
+        "200": { description: "{ mileageLot, allocations }" }
+        "404": { description: Não encontrado }
+  /api/admin/finance/mileage-lots/{id}/cancel:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Cancela um lote sem nenhuma alocação ativa — nunca DELETE; lote com alocação nunca pode ser apagado nem escondido
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: mileage_lot_has_active_allocations }
+  /api/admin/finance/issuances/{issuanceId}/mileage-allocations:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Lista as alocações de milhas de uma emissão (pode ter mais de um lote, emissão híbrida)
+      responses:
+        "200": { description: Lista de alocações }
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Aloca milhas de um lote para a emissão; nunca permite saldo negativo mesmo sob concorrência (SELECT ... FOR UPDATE no lote); recalcula miles_quantity/miles_cost_cents da emissão
+      description: >
+        Só permitido enquanto a emissão está `pending` (mesma trava de custo histórico da Fase 4).
+        O custo da alocação é calculado com BigInt a partir de total_cost_cents/quantity_purchased
+        do lote (shared/mileageCost.ts) — nunca float, nunca reprecificado depois. Prova de
+        concorrência real (duas transações Postgres genuínas disputando a última unidade) em
+        tests/mileage-allocation-concurrency.pg-real.test.ts, gated e não executada por `pnpm test`.
+      responses:
+        "201": { description: "{ id }" }
+        "409": { description: insufficient_mileage_balance, mileage_lot_not_active, mileage_lot_expired ou issuance_locked_after_issued }
+        "422": { description: issuance_mode_does_not_use_miles ou mileage_lot_currency_must_match_issuance }
+  /api/admin/finance/mileage-allocations/{id}/void:
+    post:
+      tags: [Finance]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      summary: Estorna uma alocação (devolve o saldo ao lote, reabre o lote se estava esgotado) — nunca apaga a alocação original; no máximo um estorno por alocação
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: allocation_already_voided ou issuance_locked_after_issued }
+  /api/admin/finance/dashboard/overview:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Indicadores financeiros consolidados por moeda (Fase 6) — faturamento, custo direto, lucro bruto, margem, despesas operacionais e resultado operacional (competência) ou recebido/pago/saldo (caixa)
+      description: >
+        Todo indicador é calculado no servidor a partir de linhas persistidas, nunca aceito pronto
+        do cliente, e sempre rotulado pelo regime escolhido (docs/financeiro/REGRAS_CALCULO.md).
+        `regime=accrual` (padrão) usa sale_date/competency_date; `regime=cash` usa as datas de
+        liquidação real (received_at/paid_at).
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+        - { name: regime, in: query, required: false, schema: { type: string, enum: [accrual, cash], default: accrual } }
+      responses:
+        "200": { description: "{ regime, from, to, indicators: [{ currency, ... }] }" }
+        "400": { description: invalid_date_range (from > to) }
+  /api/admin/finance/dashboard/alerts:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Contas vencidas, próximos vencimentos (7/30 dias), assinaturas próximas da cobrança, vendas com margem baixa/negativa, lotes de milhas com saldo baixo ou vencendo em breve
+      parameters:
+        - { name: minMarginBps, in: query, required: false, schema: { type: integer, default: 0 } }
+        - { name: lowBalanceThreshold, in: query, required: false, schema: { type: integer, default: 1000 } }
+        - { name: expiringDays, in: query, required: false, schema: { type: integer, default: 30 } }
+      responses:
+        "200": { description: "{ overdueObligations, overdueReceivables, upcomingObligations7d, upcomingObligations30d, subscriptionsDueSoon, salesBelowMarginThreshold, mileageLotsLowBalance, mileageLotsExpiringSoon }" }
+  /api/admin/finance/dashboard/expenses-by-category:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Despesas agrupadas por categoria e moeda, em competência ou caixa
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+        - { name: regime, in: query, required: false, schema: { type: string, enum: [accrual, cash], default: accrual } }
+      responses:
+        "200": { description: "{ regime, from, to, categories: [{ categoryId, categoryName, kind, currency, amountCents }] }" }
+  /api/admin/finance/dashboard/export.csv:
+    get:
+      tags: [Finance]
+      security: [{ sessionCookie: [] }]
+      summary: Exportação CSV UTF-8 (com BOM) de vendas, contas a pagar ou contas a receber, protegida contra CSV injection
+      description: >
+        Toda célula é escapada por shared/financeCsv.ts: uma célula começando com =, +, -, @, tab
+        ou CR recebe um apóstrofo à frente (mitigação padrão OWASP para "CSV injection" via
+        Excel/Sheets), e vírgula/aspas/quebra de linha são escapadas conforme RFC 4180. Limitado a
+        5000 linhas por exportação.
+      parameters:
+        - { name: report, in: query, required: true, schema: { type: string, enum: [sales, obligations, receivables] } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        "200": { description: Arquivo CSV (text/csv; charset=utf-8) }
   /api/payments/checkout:
     post:
       tags: [Payments]

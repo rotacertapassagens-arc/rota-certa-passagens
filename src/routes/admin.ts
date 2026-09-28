@@ -230,16 +230,21 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database, config: 
 
         let finalSaleAmountCents = lead.sale_amount_cents;
         let finalSaleCurrency = lead.sale_currency;
-        if (parsed.data.status === 'converted' && lead.partner_id) {
-          commissionPreview = await createCommissionForLead(
-            tx, config, request, auth.userId, lead.id, lead.partner_id,
-            parsed.data.saleAmountCents, parsed.data.saleCurrency,
-            lead.sale_amount_cents, lead.sale_currency,
-          );
+        if (parsed.data.status === 'converted') {
           // A repeated/idempotent conversion call that omits saleAmountCents/saleCurrency must
-          // never null out financial data that already exists on the proposal.
+          // never null out financial data that already exists on the proposal. This must persist
+          // for every converted lead, not only ones with a referring partner — a lead with no
+          // partner_id has no commission to compute, but its sale amount is still the source of
+          // truth the finance module (fin_sales) reads from.
           finalSaleAmountCents = parsed.data.saleAmountCents ?? lead.sale_amount_cents;
           finalSaleCurrency = (parsed.data.saleCurrency ?? lead.sale_currency ?? undefined)?.toUpperCase() ?? null;
+          if (lead.partner_id) {
+            commissionPreview = await createCommissionForLead(
+              tx, config, request, auth.userId, lead.id, lead.partner_id,
+              parsed.data.saleAmountCents, parsed.data.saleCurrency,
+              lead.sale_amount_cents, lead.sale_currency,
+            );
+          }
         }
 
         const updated = await tx.query(

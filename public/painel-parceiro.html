@@ -1,38 +1,83 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Painel do parceiro Rota Certa Passagens: acompanhe cliques, propostas, conversões e comissões.">
   <title>Painel do parceiro | Rota Certa Passagens</title>
-  <link rel="stylesheet" href="/assets/portal.css"><link rel="icon" href="/assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=optional" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/portal.css">
+  <link rel="icon" href="/assets/logo.png">
+  <style>
+    .link-row{display:flex;gap:10px;align-items:center}
+    .link-row input{font-family:monospace;font-size:.92rem}
+    @media(max-width:600px){.link-row{flex-direction:column;align-items:stretch}}
+  </style>
 </head>
-<body><main class="shell">
-  <div class="top"><div><div class="brand">Rota Certa <span>Passagens</span></div><p class="muted">Painel do programa de parceiros</p></div><a class="button" href="/">Voltar ao site</a></div>
-  <section class="panel" id="accessMessage"><h1>Painel do parceiro</h1><p>Entre com a conta de parceiro ativada pelo convite recebido por e-mail.</p><a class="button" href="/#/cliente">Ir para o login</a></section>
+<body>
+<a class="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
+<main class="shell" id="conteudo-principal">
+  <div class="top">
+    <div>
+      <a class="brand" href="/" style="text-decoration:none;color:inherit">Rota Certa <span>Passagens</span></a>
+      <p class="muted">Painel do programa de parceiros</p>
+    </div>
+    <a class="button" href="/">Voltar ao site</a>
+  </div>
+
+  <section class="panel" id="accessMessage">
+    <h1>Painel do parceiro</h1>
+    <p aria-live="polite" role="status">Entre com a conta de parceiro ativada pelo convite recebido por e-mail.</p>
+    <a class="btn-primary" href="/#/cliente">Ir para o login</a>
+    <p class="muted" style="margin-top:14px">Ainda não é parceiro(a)? <a href="/parceiros.html">Conheça o programa</a>.</p>
+  </section>
+
   <div id="partnerContent" class="hidden">
     <section class="panel" id="linkPanel">
       <h2>Seu link</h2>
       <p class="muted">Divulgue este link — cada clique e proposta pelo seu código fica registrado automaticamente.</p>
-      <div class="grid" style="grid-template-columns:1fr auto;align-items:center;gap:10px">
-        <input id="partnerLink" readonly>
-        <button id="copyLink" type="button">Copiar link</button>
+      <div class="link-row">
+        <input id="partnerLink" readonly aria-label="Seu link de parceiro">
+        <button id="copyLink" type="button" class="btn-secondary">Copiar link</button>
       </div>
-      <p class="status" id="copyStatus" aria-live="polite"></p>
+      <p class="status" id="copyStatus" aria-live="polite" role="status"></p>
     </section>
-    <section class="grid" id="metrics"></section>
+
+    <section class="panel">
+      <h2>Desempenho</h2>
+      <section class="grid" id="metrics" aria-label="Métricas de cliques e conversões"></section>
+    </section>
+
     <section class="panel">
       <h2>Comissões</h2>
-      <p class="muted" id="programProgress"></p>
-      <div class="grid" id="commissionMetrics"></div>
+      <p class="muted" id="programProgress" aria-live="polite"></p>
+      <div class="grid" id="commissionMetrics" aria-label="Totais de comissão por estado"></div>
+      <p class="field-hint" style="margin-top:14px">
+        <span class="tag tag-pending">Pendente</span> aguardando confirmação da venda ·
+        <span class="tag tag-approved">Aprovada</span> confirmada, aguardando pagamento ·
+        <span class="tag tag-paid">Paga</span> já transferida a você.
+      </p>
     </section>
+
     <section class="panel">
       <h2>Extrato de indicações</h2>
-      <p class="muted">Sem dados pessoais do cliente — apenas protocolo mascarado, rota resumida e estado da indicação.</p>
-      <table>
-        <thead><tr><th>Protocolo</th><th>Rota</th><th>Origem</th><th>Estado</th><th>Pedido em</th><th>Comissão</th></tr></thead>
-        <tbody id="ledger"></tbody>
-      </table>
+      <p class="muted">Sem dados pessoais do cliente — apenas protocolo mascarado, rota resumida e estado da indicação. O painel não exibe nome, e-mail ou telefone do cliente indicado.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Protocolo</th><th>Rota</th><th>Origem</th><th>Estado</th><th>Pedido em</th><th>Comissão</th></tr></thead>
+          <tbody id="ledger"></tbody>
+        </table>
+      </div>
     </section>
-    <section class="panel"><h2>Termos e privacidade</h2><p><a href="/parceiros.html">Ver regras vigentes do programa</a> · <a href="/politica-privacidade-parceiros.html">Política de Privacidade do Parceiro</a></p></section>
+
+    <section class="panel">
+      <h2>Termos e privacidade</h2>
+      <p><a href="/parceiros.html">Ver regras vigentes do programa</a> · <a href="/politica-privacidade-parceiros.html">Política de Privacidade do Parceiro</a></p>
+    </section>
   </div>
-</main><script type="module" src="/assets/partner.js"></script></body>
+</main>
+<script type="module" src="/assets/partner.js"></script>
+</body>
 </html>
