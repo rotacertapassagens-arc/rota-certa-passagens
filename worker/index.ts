@@ -2373,9 +2373,24 @@ async function financeMileageAllocationCreate(req: Request, env: Env, issuanceId
 
   const costCentsSnapshot = allocationCostCents(lot.total_cost_cents, lot.quantity_purchased, quantity);
   const allocationId = crypto.randomUUID();
-  await env.DB.prepare('INSERT INTO fin_mileage_allocations (id,lot_id,issuance_id,quantity,cost_cents_snapshot,created_by) VALUES (?,?,?,?,?,?)')
-    .bind(allocationId, lotId, issuanceId, quantity, costCentsSnapshot, auth.userId).run();
-  const newRemaining = remaining - quantity;
+  // D1 não oferece SELECT ... FOR UPDATE nem transação interativa, então a checagem de saldo
+  // acima é só uma pré-validação (mensagem de erro rápida) — não é o que garante a ausência de
+  // saldo negativo. A garantia real vem daqui: um único INSERT ... SELECT ... WHERE, que o
+  // SQLite/D1 executa como uma instrução atômica só. Duas requisições concorrentes (ex.: duas
+  // abas) nunca podem as duas "ver" o mesmo saldo disponível e as duas inserirem — a segunda a
+  // chegar já vê o efeito da primeira dentro desta mesma instrução, porque a subquery de saldo
+  // roda como parte do INSERT, não como uma leitura separada e anterior a ele.
+  const insertResult = await env.DB.prepare(
+    `INSERT INTO fin_mileage_allocations (id,lot_id,issuance_id,quantity,cost_cents_snapshot,created_by)
+     SELECT ?,?,?,?,?,?
+      WHERE (SELECT quantity_purchased FROM fin_mileage_lots WHERE id = ?)
+          - (SELECT COALESCE(sum(quantity),0) FROM fin_mileage_allocations WHERE lot_id = ? AND voided_at IS NULL)
+         >= ?`,
+  ).bind(allocationId, lotId, issuanceId, quantity, costCentsSnapshot, auth.userId, lotId, lotId, quantity).run();
+  if (insertResult.meta.changes === 0) return reply({ error: 'insufficient_mileage_balance' }, 409);
+
+  const freshAllocatedTotal = await env.DB.prepare('SELECT COALESCE(sum(quantity),0) n FROM fin_mileage_allocations WHERE lot_id=? AND voided_at IS NULL').bind(lotId).first<{ n: number }>();
+  const newRemaining = lot.quantity_purchased - (freshAllocatedTotal?.n ?? 0);
   await env.DB.prepare('UPDATE fin_mileage_lots SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(newRemaining === 0 ? 'depleted' : 'active', lotId).run();
   await financeRecomputeIssuanceMiles(env, issuanceId);
   await audit(env, auth.userId, 'finance.mileage_allocation_created', 'fin_mileage_allocation', allocationId);
