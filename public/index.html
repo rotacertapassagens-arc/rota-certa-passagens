@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Montserrat:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=optional" rel="stylesheet">
-<link rel="preload" as="image" href="/assets/hero/rota-poster.jpg" media="(min-width: 721px) and (orientation: landscape) and (pointer: fine) and (prefers-reduced-motion: no-preference)">
+<link rel="preload" as="image" href="/assets/hero/rota-card-inicio.jpg" media="(min-width: 901px)" fetchpriority="high">
 <style>
   :root{
     --navy: #0D1B2A;
@@ -100,110 +100,124 @@
     .logo-img{ width:36px; height:36px; }
   }
 
-  /* ---------- HERO: A ROTA (globo com scroll) ---------- */
+  /* ---------- HERO ---------- */
+  .hero{
+    min-height: 100vh;
+    display:flex; align-items:center;
+    background: linear-gradient(180deg, var(--navy) 0%, #10233a 60%, var(--blue) 130%);
+    position:relative; overflow:hidden;
+    padding-top:110px; padding-bottom:80px;
+  }
+  .hero-route{ position:absolute; inset:0; width:100%; height:100%; opacity:0.55; }
+  .hero-inner{ position:relative; z-index:2; display:grid; grid-template-columns: 1.1fr 0.9fr; gap:50px; align-items:center; }
   .eyebrow{ color: var(--gold); font-size:0.78rem; letter-spacing:0.22em; text-transform:uppercase; font-weight:600; margin-bottom:22px; display:flex; align-items:center; gap:10px; }
   .eyebrow::before{ content:''; width:34px; height:1px; background: var(--gold); }
+  .hero h1{ color: var(--off-white); font-size: clamp(2.2rem, 4.3vw, 3.6rem); max-width: 640px; margin-bottom:22px; }
+  .hero h1 em{ font-style:italic; color: var(--gold); }
+  .hero p.lede{ color: rgba(244,244,244,0.82); font-size:1.08rem; max-width:520px; margin-bottom:36px; font-weight:300; }
   .hero-ctas{ display:flex; gap:16px; flex-wrap:wrap; }
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
-  .hero-scrub{ --sky:#d6eaf8; --ink:#0d1b2a; --ink-soft:#27394d; --gold-deep:#7a5f0c; --mono:'IBM Plex Mono', ui-monospace, Menlo, monospace;
-    position:relative; height:700vh; background:var(--sky); }
-  .hero-scrub .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-  .hs-stage{ position:sticky; top:0; height:100vh; height:100svh; overflow:hidden; background:var(--sky); }
-  .hs-poster{ position:absolute; inset:0; background:var(--sky) 35% 50% / cover no-repeat; }
-  .hs-video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:35% 50%; opacity:0; transition:opacity .7s var(--ease-out, ease); transform:translateZ(0); will-change:transform; pointer-events:none; }
-  .hs-stage.video-ready .hs-video{ opacity:1; }
-  .hs-stage.video-failed .hs-video{ display:none; }
-  .hs-veil{ position:absolute; inset:0; pointer-events:none;
-    background:linear-gradient(90deg, rgba(238,246,252,.9) 0%, rgba(238,246,252,.68) 25%, rgba(238,246,252,.24) 41%, rgba(238,246,252,0) 53%); }
+  /* Vídeo da rota no lugar do antigo quadro de passos: repete sozinho, as frases entram no tempo
+     da bolinha e o bilhete aparece na chegada. Quadro estreito: frases numa faixa abaixo do vídeo.
+     Quadro largo: frases sobre o céu, à esquerda do globo. */
+  .hero-media{ --ink:#0d1b2a; --ink-soft:#27394d; --gold-deep:#7a5f0c; --mono:'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    container:hm / inline-size; margin:0; min-width:0; }
+  @media (min-width: 901px){
+    /* cresce para a direita, sobre a margem da página, como no retângulo pedido */
+    .hero-media{ margin-right:calc(-1 * clamp(0px, (100vw - var(--max-w)) / 2 - 16px, 200px)); }
+  }
+  .hm-card{ position:relative; isolation:isolate; overflow:hidden; border:1px solid rgba(212,175,55,.35); border-radius:12px;
+    background:rgba(244,244,244,.06); box-shadow:0 40px 80px -40px rgba(0,0,0,.75); }
+  .hm-screen{ position:relative; aspect-ratio:1600 / 904; overflow:hidden; background:#d6e8f6; }
+  .hm-video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+  .hm-screen::after{ content:""; position:absolute; inset:0; z-index:2; pointer-events:none; background:rgba(13,27,42,.28); opacity:0; transition:opacity .6s ease; }
+  .hero-media:is([data-phase="ticket"], [data-phase="static"]) .hm-screen::after{ opacity:1; }
+  .hm-dip{ position:absolute; inset:0; z-index:4; background:#dcebf7; opacity:0; pointer-events:none; }
 
-  .hs-band{ position:absolute; z-index:2; left:clamp(24px,6vw,96px); top:50%; transform:translateY(-50%); width:min(34vw,470px); opacity:0; pointer-events:none; color:var(--ink); }
-  .hs-band.is-on{ pointer-events:auto; }
-  .hs-band::before{ content:""; position:absolute; inset:-34% -30% -34% -45%; z-index:-1; pointer-events:none; opacity:calc(.3 + .7 * var(--k,1));
-    background:radial-gradient(ellipse 72% 62% at 42% 50%, rgba(244,249,253,.8) 0%, rgba(244,249,253,.52) 46%, rgba(244,249,253,0) 76%); }
-  .hs-step{ --ks:clamp(0, var(--k,1) * 3, 1); opacity:var(--ks); display:flex; align-items:center; gap:10px; margin-bottom:14px;
-    font-family:var(--mono); font-size:.76rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--gold-deep); }
-  .hs-step::before{ content:""; width:28px; height:2px; border-radius:2px; background:var(--gold); }
-  .hs-title{ font-family:var(--font-display); font-weight:600; font-size:clamp(2rem,3.4vw,3.2rem); line-height:1.12; color:var(--ink); margin-bottom:16px; max-width:15ch;
-    text-shadow:0 1px 1px rgba(255,255,255,.7), 0 0 28px rgba(244,249,253,.95); }
-  .hs-sub{ --ks:clamp(0, (var(--k,1) - .45) * 2.4, 1); opacity:var(--ks); transform:translateY(calc((1 - var(--ks)) * 10px));
-    font-size:clamp(1rem,1.25vw,1.15rem); line-height:1.6; color:var(--ink-soft); max-width:34ch; text-shadow:0 0 18px rgba(244,249,253,.95); }
-  .hs-words{ display:inline; }
-  .hero-scrub .w{ display:inline-block; --th:calc(var(--i) / var(--n) * .5); --kc:clamp(0, (var(--k,1) - var(--th)) * 2.6, 1);
-    opacity:var(--kc); transform:translateY(calc((1 - var(--kc)) * .55em)); }
-  .hs-drift .w{ transform:translateY(calc((1 - var(--kc)) * -.6em)); }
-  .hs-approach .w{ transform:scale(calc(.82 + .18 * var(--kc))); transform-origin:0 70%; }
-  .hero-scrub .w.em{ font-style:italic; color:#9b7905; }
+  .hm-captions{ position:relative; padding:14px 18px 16px; }
+  .hm-track{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-bottom:12px; }
+  .hm-track span{ height:3px; border-radius:3px; background:rgba(244,244,244,.18); overflow:hidden; }
+  .hm-track i{ display:block; height:100%; background:var(--gold); transform:scaleX(0); transform-origin:left center; }
+  .hm-steps{ display:grid; }
+  .hm-step{ grid-area:1 / 1; opacity:0; visibility:hidden; transition:opacity .3s ease, visibility 0s linear .3s; }
+  .hm-step.is-on{ opacity:1; visibility:visible; transition:opacity .3s ease, visibility 0s; }
+  .hm-kicker{ font-family:var(--mono); font-size:.66rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); margin-bottom:4px; }
+  .hm-title{ font-family:var(--font-display); font-weight:600; font-size:1.2rem; line-height:1.2; color:var(--off-white); }
+  .hm-title .w{ display:inline-block; }
+  .hm-sub{ margin-top:4px; font-size:.86rem; line-height:1.5; color:rgba(244,244,244,.74); }
+  .hm-step.is-on .hm-kicker{ animation:hm-fade .5s ease both; }
+  .hm-step.is-on .w{ animation:hm-word .65s cubic-bezier(.2,.7,.2,1) both; animation-delay:calc(.12s + var(--i) * 70ms); }
+  .hm-step.is-on .hm-sub{ animation:hm-fade .6s ease .5s both; }
+  @keyframes hm-word{ from{ opacity:0; transform:translateY(.55em); filter:blur(3px); } to{ opacity:1; transform:none; filter:none; } }
+  @keyframes hm-fade{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
 
-  .hs-final{ top:0; bottom:0; transform:none; display:flex; flex-direction:column; justify-content:center; gap:clamp(12px,2.2vh,22px); padding:84px 0 28px; width:min(38vw,520px); }
-  .hs-final .eyebrow{ color:var(--gold-deep); margin:0; }
-  .hs-final .eyebrow::before{ background:var(--gold); }
-  .hs-final h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(2rem,3.3vw,3.3rem); line-height:1.1; color:var(--ink); max-width:16ch;
-    text-shadow:0 1px 1px rgba(255,255,255,.7), 0 0 28px rgba(244,249,253,.95); }
-  .hs-lede{ --ks:clamp(0, (var(--k,1) - .5) * 3, 1); opacity:var(--ks); font-size:1.02rem; line-height:1.6; color:var(--ink-soft); max-width:40ch; text-shadow:0 0 18px rgba(244,249,253,.95); }
-  .hs-alt{ --kb:clamp(0, (var(--k,1) - .8) * 5, 1); opacity:var(--kb); align-self:flex-start; font-size:.9rem; font-weight:600; color:var(--blue); text-decoration:underline; text-underline-offset:3px; }
-  .hs-alt:hover{ color:var(--ink); }
+  .hm-cta{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; margin-top:18px; }
+  .hm-link{ display:inline-flex; align-items:center; gap:8px; padding-bottom:3px; border-bottom:1px solid rgba(212,175,55,.45);
+    color:var(--gold); font-weight:600; font-size:.95rem; transition:gap .25s ease, color .25s ease, border-color .25s ease; }
+  .hm-link:hover{ gap:12px; color:#e9c75a; border-color:var(--gold); }
+  .hm-note{ color:rgba(244,244,244,.6); font-size:.84rem; }
 
-  .hs-ticket{ --kt:clamp(0, (var(--k,1) - .45) * 2.2, 1); display:block; width:min(100%,440px); color:var(--ink); text-decoration:none; transform-origin:30% 90%;
-    opacity:var(--kt); transform:translateY(calc((1 - var(--kt)) * 60px)) rotate(calc(-2deg - (1 - var(--kt)) * 5deg)) scale(calc(.94 + .06 * var(--kt))); }
-  .tk-card{ display:block; border-radius:14px; box-shadow:0 34px 60px -26px rgba(13,27,42,.55); transition:transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease; }
-  .hs-ticket:hover .tk-card, .hs-ticket:focus-visible .tk-card{ transform:translateY(-4px) rotate(1.5deg); box-shadow:0 42px 70px -26px rgba(13,27,42,.6); }
-  .hs-ticket:focus-visible{ outline:none; }
-  .hs-ticket:focus-visible .tk-card{ outline:3px solid var(--gold); outline-offset:4px; }
-  .tk-main{ display:block; padding:18px 22px 16px 26px; border-radius:14px 14px 0 0;
+  /* Bilhete de embarque: compacto no quadro estreito, completo no largo */
+  .hm-ticket{ --x:-50%; --r:-1.5deg; position:absolute; z-index:3; left:50%; top:50%; width:min(86%, 320px); display:block; color:var(--ink); text-decoration:none;
+    transform-origin:30% 90%; opacity:0; pointer-events:none;
+    transform:translate(var(--x), calc(-50% + 40px)) rotate(calc(var(--r) - 6deg)) scale(.94); transition:opacity .4s ease, transform .5s ease; }
+  .hero-media:is([data-phase="ticket"], [data-phase="static"]) .hm-ticket{ opacity:1; pointer-events:auto;
+    transform:translate(var(--x), -50%) rotate(var(--r)); transition:opacity .5s ease, transform .9s cubic-bezier(.2,.8,.2,1.06); }
+  .hero-media[data-phase="gap"] .hm-ticket{ transform:translate(var(--x), calc(-50% - 14px)) rotate(var(--r)) scale(.97); }
+  .tk-card{ display:block; border-radius:12px; box-shadow:0 30px 50px -24px rgba(13,27,42,.6); transition:transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease; }
+  .hm-ticket:hover .tk-card{ transform:translateY(-4px) rotate(1.5deg); box-shadow:0 38px 60px -24px rgba(13,27,42,.65); }
+  .tk-main{ display:block; padding:12px 16px 10px 20px; border-radius:12px 12px 0 0;
     background:linear-gradient(90deg, var(--gold) 0 6px, #fbfaf6 6px);
     -webkit-mask:radial-gradient(circle 10px at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 10px at 100% 100%, #0000 97%, #000) right / 51% 100% no-repeat;
             mask:radial-gradient(circle 10px at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 10px at 100% 100%, #0000 97%, #000) right / 51% 100% no-repeat; }
-  .tk-head{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px; }
-  .tk-kicker, .tk-label{ font-family:var(--mono); font-size:.66rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#5d6978; }
-  .tk-brand{ font-family:var(--font-display); font-weight:700; font-size:.95rem; color:var(--ink); }
-  .tk-route{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; margin-bottom:12px; }
-  .tk-code{ display:block; font-family:var(--font-display); font-weight:700; font-size:2.1rem; line-height:1; letter-spacing:.02em; color:var(--ink); }
-  .tk-name{ display:block; margin-top:4px; font-size:.78rem; color:#4a5968; }
+  .tk-head{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px; }
+  .tk-kicker, .tk-label{ font-family:var(--mono); font-size:.62rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#5d6978; }
+  .tk-brand{ font-family:var(--font-display); font-weight:700; font-size:.9rem; color:var(--ink); }
+  .tk-route{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; }
+  .tk-code{ display:block; font-family:var(--font-display); font-weight:700; font-size:1.6rem; line-height:1; letter-spacing:.02em; color:var(--ink); }
+  .tk-name{ display:block; margin-top:3px; font-size:.74rem; color:#4a5968; }
   .tk-to{ text-align:right; }
   .tk-path{ display:block; color:var(--gold); }
-  .tk-path svg{ display:block; width:100%; height:28px; overflow:visible; }
-  .tk-fields{ display:grid; grid-template-columns:auto 1fr; gap:6px 16px; padding-top:12px; border-top:1px dashed rgba(13,27,42,.2); }
-  .tk-field{ display:contents; }
-  .tk-value{ font-size:.86rem; font-weight:600; color:var(--ink); }
+  .tk-path svg{ display:block; width:100%; height:24px; overflow:visible; }
+  .tk-fields{ display:none; grid-template-columns:auto 1fr; gap:4px 24px; margin-top:10px; padding-top:10px; border-top:1px dashed rgba(13,27,42,.2); }
+  .tk-field{ display:flex; flex-direction:column; gap:2px; }
+  .tk-value{ font-size:.84rem; font-weight:600; color:var(--ink); }
   .tk-ok{ color:#1b6b3a; }
-  .tk-stub{ position:relative; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:15px 22px; border-radius:0 0 14px 14px;
-    background:var(--gold); color:var(--ink); font-weight:700; font-size:.95rem;
+  .tk-stub{ position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; border-radius:0 0 12px 12px;
+    background:var(--gold); color:var(--ink); font-weight:700; font-size:.84rem; transition:background .25s ease;
     -webkit-mask:radial-gradient(circle 10px at 0 0, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 10px at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat;
             mask:radial-gradient(circle 10px at 0 0, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 10px at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat; }
-  .tk-stub::before{ content:""; position:absolute; left:16px; right:16px; top:0; border-top:2px dashed rgba(13,27,42,.35); }
-  .tk-barcode{ flex:0 0 56px; height:24px; opacity:.75;
+  .tk-stub::before{ content:""; position:absolute; left:14px; right:14px; top:0; border-top:2px dashed rgba(13,27,42,.35); }
+  .tk-stub > span:first-child{ white-space:nowrap; }
+  .tk-barcode{ flex:0 0 40px; height:20px; opacity:.75;
     background:repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 4px, var(--ink) 4px 5px, transparent 5px 8px, var(--ink) 8px 11px, transparent 11px 13px); }
-  .hs-ticket:hover .tk-stub, .hs-ticket:focus-visible .tk-stub{ background:#c19d2e; }
+  .hm-ticket:hover .tk-stub{ background:#c19d2e; }
 
-  .hs-cue{ position:absolute; z-index:3; left:clamp(24px,6vw,96px); bottom:30px; display:flex; align-items:center; gap:14px; transition:opacity .5s ease;
-    font-family:var(--mono); font-size:.72rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#1b3a57; }
-  .hs-cue svg{ width:18px; height:18px; animation:hs-bob 2.4s ease-in-out -1.2s infinite; }
-  .hs-cue a{ color:#1b3a57; text-decoration:underline; text-underline-offset:3px; letter-spacing:.08em; }
-  .hero-scrub[data-cue="false"] .hs-cue{ opacity:0; pointer-events:none; }
-  @keyframes hs-bob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(5px); } }
-  .hs-ring{ position:absolute; z-index:3; left:clamp(24px,6vw,96px); bottom:66px; width:30px; height:30px; color:#9b7905; transition:opacity .5s ease; }
-  .hs-ring circle{ stroke-dasharray:126; stroke-dashoffset:var(--ld,126); transform:rotate(-90deg); transform-origin:center; }
-  .hs-stage.video-ready .hs-ring, .hs-stage.video-failed .hs-ring{ opacity:0; }
-  body.paused *, body.paused *::before, body.paused *::after{ animation-play-state:paused !important; }
-  @media (max-height:700px){ .hs-lede{ display:none; } .hs-final{ gap:12px; } .tk-code{ font-size:1.8rem; } }
-  @media (max-height:560px){ .hs-cue{ display:none; } }
-
-  /* Hero parado: celulares, tablets em pé, celulares deitados e movimento reduzido (mesmas 5 condições do hero-scrub.js) */
-  @media (max-width: 720px), (orientation: portrait) and (max-width: 1024px), (orientation: portrait) and (pointer: coarse), (orientation: landscape) and (pointer: coarse) and (max-height: 560px), (prefers-reduced-motion: reduce){
-    .hero-scrub{ height:auto; }
-    .hs-stage{ position:relative; height:auto; min-height:0; display:flex; flex-direction:column; padding-top:64px; }
-    .hs-video, .hs-veil, .hs-cue, .hs-ring, .hs-band:not(.hs-final){ display:none !important; }
-    .hs-poster{ position:relative; inset:auto; width:100%; aspect-ratio:1100 / 1004; max-height:58vh; background-image:url('/assets/hero/rota-final-mobile.jpg') !important; background-position:42% 62%; background-size:cover; }
-    .hs-final{ position:relative; left:auto; top:auto; bottom:auto; width:auto; max-width:620px; padding:28px clamp(20px,6vw,48px) 48px; opacity:1 !important; --k:1 !important; pointer-events:auto; }
-    .hs-final::before{ display:none; }
-    .hs-lede{ display:block; }
-    .hs-final h1, .hs-title{ text-shadow:none; }
+  @container hm (min-width: 560px){
+    .hm-captions{ position:absolute; z-index:2; top:0; bottom:0; left:0; width:54%; pointer-events:none;
+      display:flex; flex-direction:column; justify-content:flex-end; padding:0 0 clamp(16px, 4.2cqw, 30px) clamp(18px, 4.2cqw, 30px);
+      background:linear-gradient(90deg, rgba(236,245,252,.9) 0%, rgba(236,245,252,.7) 45%, rgba(236,245,252,0) 100%); transition:opacity .45s ease; }
+    .hero-media:is([data-phase="arrive"], [data-phase="ticket"], [data-phase="gap"], [data-phase="static"]) .hm-captions{ opacity:0; }
+    .hm-track{ max-width:180px; margin-bottom:14px; }
+    .hm-track span{ background:rgba(13,27,42,.14); }
+    .hm-kicker{ color:var(--gold-deep); }
+    .hm-title{ color:var(--ink); font-size:clamp(1.25rem, 3.9cqw, 1.8rem); max-width:14ch; text-shadow:0 0 16px rgba(244,249,253,.9); }
+    .hm-sub{ color:var(--ink-soft); font-size:clamp(.84rem, 1.9cqw, .95rem); max-width:26ch; }
+    .hm-arrival{ display:none; }
+    .hm-screen::after{ display:none; }
+    /* entra pela esquerda, sobre o céu, e deixa o globo com a rota acesa à mostra */
+    .hm-ticket{ --x:0px; --r:-2deg; left:3.5%; width:clamp(270px, 48%, 340px); }
+    .tk-main{ padding:14px 16px 12px 20px; }
+    .tk-head{ margin-bottom:8px; }
+    .tk-code{ font-size:clamp(1.6rem, 4.2cqw, 1.95rem); }
+    .tk-fields{ display:grid; gap:4px 16px; }
+    .tk-stub{ padding:12px 18px; font-size:.86rem; }
+    .tk-barcode{ flex-basis:44px; height:22px; }
   }
-  @media (prefers-reduced-motion: reduce) and (orientation: landscape) and (min-width: 900px) and (min-height: 600px){
-    .hs-stage{ display:block; min-height:100vh; padding-top:0; }
-    .hs-poster{ position:absolute; inset:0; aspect-ratio:auto; max-height:none; background-image:url('/assets/hero/rota-final.jpg') !important; background-position:35% 50%; }
-    .hs-veil{ display:block !important; }
-    .hs-final{ position:absolute; left:clamp(24px,6vw,96px); top:0; bottom:0; width:min(38vw,520px); max-width:none; padding:84px 0 28px; }
+
+  @media (max-width: 900px){
+    .hero-inner{ grid-template-columns: 1fr; }
   }
 
   /* ---------- STRIP ---------- */
@@ -489,66 +503,69 @@
   </div>
 </header>
 
-<section class="hero-scrub" id="top" aria-label="Rota Certa Passagens"
-  data-video="/assets/hero/rota-scrub.mp4" data-poster="/assets/hero/rota-poster.jpg" data-bytes="5605144"
-  data-timemap="0:0.5,0.16:1.8,0.275:2.7,0.475:4.0,0.675:5.2,0.86:6.7,0.93:7.5,1:9.9">
-  <div class="hs-stage">
-    <div class="hs-poster" aria-hidden="true"></div>
-    <video class="hs-video" muted playsinline preload="none" aria-hidden="true" tabindex="-1"></video>
-    <div class="hs-veil" aria-hidden="true"></div>
-
-    <div class="hs-band" data-a="0" data-b="0.17">
-      <p class="hs-step">Passo 1</p>
-      <h2 class="hs-title" data-split>Toda viagem começa com uma conversa.</h2>
-      <p class="hs-sub">Você conta o destino, as datas e o que importa.</p>
-    </div>
-    <div class="hs-band hs-drift" data-a="0.19" data-b="0.37">
-      <p class="hs-step">Passo 2</p>
-      <h2 class="hs-title" data-split>A nossa equipe desenha a sua rota.</h2>
-      <p class="hs-sub">Especialistas analisam tudo e montam cada trecho.</p>
-    </div>
-    <div class="hs-band hs-approach" data-a="0.39" data-b="0.57">
-      <p class="hs-step">Passo 3</p>
-      <h2 class="hs-title" data-split>Você ajusta até ficar do seu jeito.</h2>
-      <p class="hs-sub">Mudou de ideia? A rota muda junto.</p>
-    </div>
-    <div class="hs-band hs-drift" data-a="0.59" data-b="0.77">
-      <p class="hs-step">Passo 4</p>
-      <h2 class="hs-title" data-split>A gente cuida de cada reserva.</h2>
-      <p class="hs-sub">Voos, hotel e roteiro, tudo em um só lugar.</p>
-    </div>
-
-    <div class="hs-band hs-final" data-a="0.80" data-b="1" data-ramp="0.12">
+<section class="hero" id="top">
+  <svg class="hero-route" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <path d="M -50 650 C 200 500, 300 700, 550 550 S 900 300, 1250 380" fill="none" stroke="#D4AF37" stroke-width="1.4" stroke-dasharray="2 10" stroke-linecap="round" opacity="0.55"/>
+    <circle cx="-50" cy="650" r="4" fill="#D4AF37" opacity="0.8"/>
+    <circle cx="550" cy="550" r="4" fill="#D4AF37" opacity="0.8"/>
+    <circle cx="1250" cy="380" r="4" fill="#D4AF37" opacity="0.8"/>
+  </svg>
+  <div class="wrap hero-inner">
+    <div>
       <p class="eyebrow">Rota Certa Passagens</p>
-      <h1 data-split>Você não precisa complicar a sua viagem. Só precisa da <em>rota certa</em>.</h1>
-      <p class="hs-lede">Da passagem ao roteiro, cuidamos de cada detalhe para você viajar com mais tranquilidade, segurança e confiança.</p>
-      <a class="hs-ticket" href="#/planner" aria-label="Quero planejar a minha viagem: abrir o Planejador">
-        <span class="tk-card">
-          <span class="tk-main">
-            <span class="tk-head"><span class="tk-kicker">Cartão de embarque</span><span class="tk-brand">Rota Certa</span></span>
-            <span class="tk-route">
-              <span class="tk-city"><span class="tk-code">LIS</span><span class="tk-name">Lisboa</span></span>
-              <span class="tk-path" aria-hidden="true"><svg viewBox="0 0 120 28" preserveAspectRatio="none"><path d="M4 22 C 36 2, 84 2, 116 22" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="1 6" stroke-linecap="round"/><circle cx="4" cy="22" r="3.5" fill="currentColor"/><circle cx="116" cy="22" r="3.5" fill="currentColor"/></svg></span>
-              <span class="tk-city tk-to"><span class="tk-code">GRU</span><span class="tk-name">São Paulo</span></span>
-            </span>
-            <span class="tk-fields">
-              <span class="tk-field"><span class="tk-label">Passageiro</span><span class="tk-value">Você</span></span>
-              <span class="tk-field"><span class="tk-label">Rota</span><span class="tk-value">Planejada com cuidado</span></span>
-              <span class="tk-field"><span class="tk-label">Status</span><span class="tk-value tk-ok">Pronto para embarcar</span></span>
-            </span>
-          </span>
-          <span class="tk-stub"><span>Quero planejar a minha viagem <span aria-hidden="true">→</span></span><span class="tk-barcode" aria-hidden="true"></span></span>
-        </span>
-      </a>
-      <a class="hs-alt" href="https://wa.me/351925307391" target="_blank" rel="noopener">Prefere conversar? Fale com um especialista no WhatsApp</a>
+      <h1>Você não precisa complicar a sua viagem — só precisa da <em>rota certa</em>.</h1>
+      <p class="lede">Da passagem ao roteiro, cuidamos de cada detalhe para que possa viajar com mais tranquilidade, segurança e confiança.</p>
+      <div class="hero-ctas">
+        <a href="#/planner" class="btn btn-gold">Quero planejar a minha viagem</a>
+        <a href="https://wa.me/351925307391" target="_blank" rel="noopener" class="btn btn-outline">Falar com um especialista</a>
+      </div>
     </div>
-
-    <div class="hs-cue">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-      <span aria-hidden="true">Role para ver a rota</span>
-      <a href="#como-funciona">Pular animação</a>
-    </div>
-    <svg class="hs-ring" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="3"/></svg>
+    <figure class="hero-media" data-src="/assets/hero/rota-card.mp4" data-src-small="/assets/hero/rota-card-celular.mp4"
+      data-poster-end="/assets/hero/rota-card-final.jpg" data-cues="0,2.8,5.2,8,11.3,11.9,15.7">
+      <div class="hm-card">
+        <div class="hm-screen">
+          <video class="hm-video" muted playsinline loop preload="none" poster="/assets/hero/rota-card-inicio.jpg" width="1600" height="904" aria-hidden="true" tabindex="-1"></video>
+          <a class="hm-ticket" href="/proposta-voo.html" aria-hidden="true" tabindex="-1">
+            <span class="tk-card">
+              <span class="tk-main">
+                <span class="tk-head"><span class="tk-kicker">Cartão de embarque</span><span class="tk-brand">Rota Certa</span></span>
+                <span class="tk-route">
+                  <span class="tk-city"><span class="tk-code">LIS</span><span class="tk-name">Lisboa</span></span>
+                  <span class="tk-path"><svg viewBox="0 0 120 28" preserveAspectRatio="none"><path d="M4 22 C 36 2, 84 2, 116 22" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="1 6" stroke-linecap="round"/><circle cx="4" cy="22" r="3.5" fill="currentColor"/><circle cx="116" cy="22" r="3.5" fill="currentColor"/></svg></span>
+                  <span class="tk-city tk-to"><span class="tk-code">GRU</span><span class="tk-name">São Paulo</span></span>
+                </span>
+                <span class="tk-fields">
+                  <span class="tk-field"><span class="tk-label">Passageiro</span><span class="tk-value">Você</span></span>
+                  <span class="tk-field"><span class="tk-label">Status</span><span class="tk-value tk-ok">Pronto para embarcar</span></span>
+                </span>
+              </span>
+              <span class="tk-stub"><span>Pedir proposta de voo →</span><span class="tk-barcode"></span></span>
+            </span>
+          </a>
+          <div class="hm-dip" aria-hidden="true"></div>
+        </div>
+        <div class="hm-captions" aria-hidden="true">
+          <div class="hm-track"><span><i></i></span><span><i></i></span><span><i></i></span><span><i></i></span></div>
+          <div class="hm-steps">
+            <div class="hm-step"><p class="hm-kicker">Passo 1 de 4</p><p class="hm-title">Conte-nos a sua viagem</p><p class="hm-sub">Destino, datas e preferências.</p></div>
+            <div class="hm-step"><p class="hm-kicker">Passo 2 de 4</p><p class="hm-title">A nossa equipe planeja</p><p class="hm-sub">Especialistas organizam tudo para você.</p></div>
+            <div class="hm-step"><p class="hm-kicker">Passo 3 de 4</p><p class="hm-title">Acompanhe no Rota Certa Planner</p><p class="hm-sub">Itinerário, voos e reservas em um só lugar.</p></div>
+            <div class="hm-step"><p class="hm-kicker">Passo 4 de 4</p><p class="hm-title">Viaje tranquilo</p><p class="hm-sub">Tudo organizado, do início ao fim.</p></div>
+            <div class="hm-step hm-arrival"><p class="hm-kicker">Tudo pronto</p><p class="hm-title">Agora é só embarcar</p><p class="hm-sub">Peça a sua proposta de voo no link abaixo.</p></div>
+          </div>
+        </div>
+      </div>
+      <p class="hm-cta"><a class="hm-link" href="/proposta-voo.html">Pedir proposta de voo <span aria-hidden="true">→</span></a><span class="hm-note">Nossa equipe responde em até 48 horas.</span></p>
+      <figcaption class="sr-only">
+        A sua viagem, passo a passo:
+        <ol>
+          <li>Conte-nos a sua viagem: destino, datas e preferências.</li>
+          <li>A nossa equipe planeja: especialistas organizam tudo para você.</li>
+          <li>Acompanhe no Rota Certa Planner: itinerário, voos e reservas em um só lugar.</li>
+          <li>Viaje tranquilo: tudo organizado, do início ao fim.</li>
+        </ol>
+      </figcaption>
+    </figure>
   </div>
 </section>
 
@@ -920,6 +937,6 @@
 
 
 <script type="module" src="/assets/site.js"></script>
-<script type="module" src="/assets/hero-scrub.js"></script>
+<script type="module" src="/assets/hero-media.js"></script>
 </body>
 </html>
