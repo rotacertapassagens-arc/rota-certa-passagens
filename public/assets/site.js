@@ -90,7 +90,7 @@ async function refreshSession() {
 }
 
 function setHomeMode(isHome) {
-  document.querySelectorAll('body>section,body>header,body>footer,body>.wa-float').forEach((element) => {
+  document.querySelectorAll('body>section,body>header,body>footer,body>.strip,body>.wa-float').forEach((element) => {
     if (!element.matches('#plannerApp,#clientApp')) element.style.display = isHome ? '' : 'none';
   });
   const planner = document.getElementById('plannerApp');
