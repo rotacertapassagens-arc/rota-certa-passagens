@@ -21,8 +21,7 @@
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy",
     "d1:migrate:local": "wrangler d1 migrations apply DB --local",
-    "d1:migrate:remote": "wrangler d1 migrations apply DB --remote",
-    "blog:build": "node scripts/blog/build.mjs"
+    "d1:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

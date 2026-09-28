@@ -5,6 +5,7 @@ import { isValidSubscriptionTransition, nextChargeDate, subscriptionChargeIdempo
 import { calculateSaleProfit, isValidIssuanceTransition, sumIssuanceDirectCostCents } from '../shared/salesProfit.js';
 import { allocationCostCents, unitCostMicros } from '../shared/mileageCost.js';
 import { buildCsv } from '../shared/financeCsv.js';
+import { blogAdmin, blogPublic, type BlogDeps } from './blog.js';
 
 type Row = Record<string, unknown>;
 type Auth = { userId: string; sessionId: string; email: string; name: string; roles: string[] };
@@ -27,9 +28,13 @@ const jsonHeaders = {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/i/')) return env.ASSETS.fetch(request);
+    const p = url.pathname;
+    // Guias de viagem (blog), fotos do blog e sitemap são montados pelo Worker a partir do D1.
+    const isBlog = p === '/blog' || p.startsWith('/blog/') || p.startsWith('/media/blog/') || p === '/sitemap.xml';
+    if (!p.startsWith('/api/') && !p.startsWith('/i/') && !isBlog) return env.ASSETS.fetch(request);
     try {
       if (request.method === 'OPTIONS') return secureResponse(new Response(null, { status: 204 }));
+      if (isBlog) return secureResponse(await blogPublic(request, env, url, blogDeps) ?? await env.ASSETS.fetch(request));
       return secureResponse(await route(request, env, url));
     } catch (error) {
       console.error(JSON.stringify({ message: 'request_failed', error: error instanceof Error ? error.message : 'unknown', path: url.pathname }));
@@ -47,8 +52,11 @@ function secureResponse(response: Response) {
   return response;
 }
 
+const blogDeps: BlogDeps = { reply, getAuth, mutationAuth, audit };
+
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
+  if (p.startsWith('/api/admin/blog')) { const blog = await blogAdmin(req, env, url, blogDeps); if (blog) return blog; }
   if (req.method === 'POST' && p === '/api/partner-applications') return partnerApplicationCreate(req, env);
   if (req.method === 'GET' && p === '/api/admin/partner-applications') return adminPartnerApplications(req, env);
   const applicationReject = p.match(/^\/api\/admin\/partner-applications\/([0-9a-f-]+)\/reject$/i);
