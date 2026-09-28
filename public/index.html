@@ -152,11 +152,8 @@
   @keyframes hm-word{ from{ opacity:0; transform:translateY(.55em); filter:blur(3px); } to{ opacity:1; transform:none; filter:none; } }
   @keyframes hm-fade{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
 
-  .hm-cta{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; margin-top:18px; }
-  .hm-link{ display:inline-flex; align-items:center; gap:8px; padding-bottom:3px; border-bottom:1px solid rgba(212,175,55,.45);
-    color:var(--gold); font-weight:600; font-size:.95rem; transition:gap .25s ease, color .25s ease, border-color .25s ease; }
-  .hm-link:hover{ gap:12px; color:#e9c75a; border-color:var(--gold); }
-  .hm-note{ color:rgba(244,244,244,.6); font-size:.84rem; }
+  .hero-note{ margin-top:14px; font-size:.84rem; color:rgba(244,244,244,.6); }
+  @media (max-width: 560px){ .hero .hero-ctas .btn{ width:100%; justify-content:center; } }
 
   /* Bilhete de embarque: compacto no quadro estreito, completo no largo */
   .hm-ticket{ --x:-50%; --r:-1.5deg; position:absolute; z-index:3; left:50%; top:50%; width:min(86%, 320px); display:block; color:var(--ink); text-decoration:none;
@@ -517,8 +514,9 @@
       <p class="lede">Da passagem ao roteiro, cuidamos de cada detalhe para que possa viajar com mais tranquilidade, segurança e confiança.</p>
       <div class="hero-ctas">
         <a href="#/planner" class="btn btn-gold">Quero planejar a minha viagem</a>
-        <a href="https://wa.me/351925307391" target="_blank" rel="noopener" class="btn btn-outline">Falar com um especialista</a>
+        <a href="/proposta-voo.html" class="btn btn-outline">Pedir proposta de voo</a>
       </div>
+      <p class="hero-note">Propostas de voo respondidas em até 48 horas.</p>
     </div>
     <figure class="hero-media" data-src="/assets/hero/rota-card.mp4" data-src-small="/assets/hero/rota-card-celular.mp4"
       data-poster-end="/assets/hero/rota-card-final.jpg" data-cues="0,2.8,5.2,8,11.3,11.9,15.7">
@@ -551,11 +549,10 @@
             <div class="hm-step"><p class="hm-kicker">Passo 2 de 4</p><p class="hm-title">A nossa equipe planeja</p><p class="hm-sub">Especialistas organizam tudo para você.</p></div>
             <div class="hm-step"><p class="hm-kicker">Passo 3 de 4</p><p class="hm-title">Acompanhe no Rota Certa Planner</p><p class="hm-sub">Itinerário, voos e reservas em um só lugar.</p></div>
             <div class="hm-step"><p class="hm-kicker">Passo 4 de 4</p><p class="hm-title">Viaje tranquilo</p><p class="hm-sub">Tudo organizado, do início ao fim.</p></div>
-            <div class="hm-step hm-arrival"><p class="hm-kicker">Tudo pronto</p><p class="hm-title">Agora é só embarcar</p><p class="hm-sub">Peça a sua proposta de voo no link abaixo.</p></div>
+            <div class="hm-step hm-arrival"><p class="hm-kicker">Tudo pronto</p><p class="hm-title">Agora é só embarcar</p><p class="hm-sub">Abra o bilhete e peça a sua proposta de voo.</p></div>
           </div>
         </div>
       </div>
-      <p class="hm-cta"><a class="hm-link" href="/proposta-voo.html">Pedir proposta de voo <span aria-hidden="true">→</span></a><span class="hm-note">Nossa equipe responde em até 48 horas.</span></p>
       <figcaption class="sr-only">
         A sua viagem, passo a passo:
         <ol>
