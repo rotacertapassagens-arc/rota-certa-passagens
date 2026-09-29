@@ -587,7 +587,10 @@ async function startCheckout() {
 }
 function showClient() {
   if (!session) return;
-  document.getElementById('clientName').textContent = session.user.name || 'Cliente Rota Certa';
+  const firstName = String(session.user.name || '').trim().split(/\s+/)[0];
+  document.getElementById('clientApp').dataset.state = 'logado';
+  document.getElementById('clientTitle').textContent = firstName ? `Olá, ${firstName}` : 'O seu espaço Rota Certa';
+  document.getElementById('planContext').textContent = 'O seu planejamento, reservas e anexos em um só lugar.';
   document.querySelector('.client-grid').classList.add('hidden');
   document.getElementById('clientDashboard').classList.remove('hidden');
   document.getElementById('masterPanelLink')?.classList.toggle('hidden', !session.user.roles?.includes('master'));
@@ -598,6 +601,8 @@ async function clientInit() {
   document.getElementById('planContext').textContent = plan ? `Acesse sua conta para continuar: ${planLabel(plan)}.` : 'Acesse o seu planejamento e mantenha os dados da viagem em um só lugar.';
   document.querySelector('.client-grid').classList.toggle('hidden', Boolean(session));
   document.getElementById('clientDashboard').classList.toggle('hidden', !session);
+  document.getElementById('clientApp').dataset.state = 'entrar';
+  document.getElementById('clientTitle').textContent = 'O seu espaço Rota Certa';
   if (session) showClient();
   if (localStorage.getItem('rotaCertaClient')) document.getElementById('clientNote').textContent += ' Uma conta antiga deste navegador foi detectada; a senha local não será enviada nem migrada.';
 }
