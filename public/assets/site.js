@@ -42,6 +42,8 @@ const starterData = {
 };
 
 let session = null;
+let rates = null;
+let ratesDate = null;
 let data = starterData;
 let plannerLocked = true;
 let userCurrency = 'EUR';
@@ -50,8 +52,8 @@ let selectedTripId = null;
 function esc(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
 }
-function money(value) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(Number(value) || 0);
+function money(value, currency = 'EUR') {
+  return new Intl.NumberFormat(currency === 'EUR' ? 'pt-PT' : 'pt-BR', { style: 'currency', currency }).format(Number(value) || 0);
 }
 function currentPath() {
   return (`/${location.hash.slice(1).split('?')[0] || ''}`).replace(/\/+/g, '/');
@@ -100,6 +102,7 @@ function setHomeMode(isHome) {
 }
 
 async function loadPlanner(tripId = selectedTripId) {
+  if (!rates) { try { const result = await api('/api/planner/rates'); rates = result.rates || null; ratesDate = result.date || null; } catch { rates = null; } }
   if (!session) {
     const legacy = localStorage.getItem(legacyPlannerKey);
     try { data = legacy ? { ...starterData, ...JSON.parse(legacy), trip: starterData.trip } : structuredClone(starterData); }
@@ -112,12 +115,14 @@ async function loadPlanner(tripId = selectedTripId) {
     trip: payload.trip,
     trips: payload.trips || [payload.trip],
     entitlement: payload.entitlement || session.access,
-    itinerary: payload.itinerary.map((item) => ({ id: item.id, day: item.day, time: item.time || '', what: item.title, type: item.kind, notes: item.notes || '', bookingCode: item.booking_code || '', bookingUrl: item.booking_url || '' })),
+    itinerary: payload.itinerary.map((item) => ({ id: item.id, day: item.day, time: item.time || '', what: item.title, type: item.kind, notes: item.notes || '', bookingCode: item.booking_code || '', bookingUrl: item.booking_url || '', source: item.source || '' })),
     attachments: (payload.attachments || []).map((file) => ({ id: file.id, itemId: file.item_id, name: file.name, type: file.content_type, size: Number(file.size) || 0 })),
     places: payload.places.map((item) => ({ id: item.id, name: item.name, type: item.category, address: item.address || '', notes: item.notes || '' })),
-    expenses: payload.expenses.map((item) => ({ id: item.id, value: item.amount_cents / 100, type: item.category, desc: item.description })),
+    expenses: payload.expenses.map((item) => ({ id: item.id, value: item.amount_cents / 100, type: item.category, desc: item.description, currency: item.currency || 'EUR', paidBy: item.paid_by || '' })),
     checklist: payload.checklist.map((item) => ({ id: item.id, text: item.text, done: item.completed })),
     budget: payload.budget.amount_cents / 100,
+    budgetCurrency: payload.budget.currency || 'EUR',
+    companions: (() => { try { const list = JSON.parse(payload.trip.companions || '[]'); return Array.isArray(list) ? list : []; } catch { return []; } })(),
   };
   void cacheAttachments();
 }
@@ -130,7 +135,11 @@ function requireAccount() {
   return true;
 }
 
+let currentPlannerKey = 'overview';
+/** Redesenha a seção atual com o cartão da viagem (trocar, arquivar, configurar) no topo. */
+function redraw() { return plannerView(currentPlannerKey); }
 async function plannerView(key) {
+  currentPlannerKey = key;
   const content = document.getElementById('plannerContent');
   const title = document.getElementById('plannerTitle');
   const subtitle = document.getElementById('plannerSubtitle');
@@ -174,8 +183,21 @@ function addTripManager(element, key) {
   manager.className = 'trip-manager planner-card';
   const daysLeft = data.entitlement?.tier === 'free' && data.entitlement?.endsAt ? Math.max(0, Math.ceil((new Date(data.entitlement.endsAt).getTime() - Date.now()) / 86400000)) : null;
   const planText = data.entitlement?.tier === 'free' ? `TESTE FREE · ${daysLeft} DIA${daysLeft === 1 ? '' : 'S'}` : `PLANO ${(data.entitlement?.tier || 'free').toUpperCase()}`;
-  manager.innerHTML = `<div class="trip-manager-main"><div><small class="trip-plan-badge">${esc(planText)}</small><strong>${esc(data.trip.name)}</strong><span>${active.length} ativa${active.length === 1 ? '' : 's'} · ${archived.length} arquivada${archived.length === 1 ? '' : 's'}</span></div><label>Trocar viagem<select id="tripSelector">${active.length ? '<optgroup label="Ativas">' + active.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}${archived.length ? '<optgroup label="Arquivadas">' + archived.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}</select></label></div><div class="trip-manager-actions"><button class="btn btn-outline-dark btn-sm" id="newTrip">+ Nova viagem</button><button class="btn btn-outline-dark btn-sm" id="tripArchiveAction">${isArchived ? 'Restaurar viagem' : 'Arquivar viagem'}</button></div>`;
+  manager.innerHTML = `<div class="trip-manager-main"><div><small class="trip-plan-badge">${esc(planText)}</small><strong>${esc(data.trip.name)}</strong><span>${active.length} ativa${active.length === 1 ? '' : 's'} · ${archived.length} arquivada${archived.length === 1 ? '' : 's'}</span></div><label>Trocar viagem<select id="tripSelector">${active.length ? '<optgroup label="Ativas">' + active.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}${archived.length ? '<optgroup label="Arquivadas">' + archived.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === data.trip.id ? 'selected' : ''}>${esc(trip.name)}</option>`).join('') + '</optgroup>' : ''}</select></label></div><div class="trip-manager-actions"><button class="btn btn-outline-dark btn-sm" id="newTrip">+ Nova viagem</button><button class="btn btn-gold btn-sm" id="tripSettings">Configurar e compartilhar</button><button class="btn btn-outline-dark btn-sm" id="tripArchiveAction">${isArchived ? 'Restaurar viagem' : 'Arquivar viagem'}</button></div>`
+    + `<div class="trip-settings hidden" id="tripSettingsPanel"><div class="ts-grid"><label>Nome da viagem<input id="tsName" maxlength="120" value="${esc(data.trip.name)}"></label><label>Data de ida<input id="tsStart" type="date" value="${esc(data.trip.starts_on || '')}"></label><label>Data de volta<input id="tsEnd" type="date" value="${esc(data.trip.ends_on || '')}"></label><label class="ts-wide">Quem viaja com você<input id="tsCompanions" maxlength="500" placeholder="Ex.: Ana, Bruno" value="${esc((data.companions || []).join(', '))}"><small>Separe os nomes por vírgula. Eles entram na divisão dos custos.</small></label></div><div class="pl-form-actions"><button class="btn btn-gold btn-sm" id="tsSave">Salvar</button></div>`
+    + `<div class="ts-share"><strong>Compartilhar com quem vai junto</strong><p>O link mostra o roteiro e os lugares. Não mostra códigos de reserva, anexos nem gastos, e você pode desligar quando quiser.</p>${data.trip.share_token ? `<div class="ts-link"><input id="tsLink" readonly value="${esc(`${location.origin}/viagem/${data.trip.share_token}`)}" aria-label="Link da viagem"><button class="btn btn-outline-dark btn-sm" id="tsCopy">Copiar</button><button class="btn btn-outline-dark btn-sm" id="tsUnshare">Desligar link</button></div>` : '<button class="btn btn-outline-dark btn-sm" id="tsShare">Criar link de leitura</button>'}</div></div>`;
   element.prepend(manager);
+  const refresh = async () => { await loadPlanner(); await plannerView(key); };
+  manager.querySelector('#tripSettings').onclick = () => manager.querySelector('#tripSettingsPanel').classList.toggle('hidden');
+  manager.querySelector('#tsSave').onclick = async () => {
+    const body = { name: manager.querySelector('#tsName').value.trim(), startsOn: manager.querySelector('#tsStart').value || null, endsOn: manager.querySelector('#tsEnd').value || null, companions: manager.querySelector('#tsCompanions').value.split(',').map((n) => n.trim()).filter(Boolean) };
+    if (body.startsOn && body.endsOn && body.endsOn < body.startsOn) { notify('A data de volta precisa ser depois da data de ida.'); return; }
+    try { await api(`/api/planner/trips/${data.trip.id}`, { method: 'PATCH', body: JSON.stringify(body) }); } catch (error) { notify(plannerError(error)); return; }
+    await refresh();
+  };
+  manager.querySelector('#tsShare')?.addEventListener('click', async () => { try { await api(`/api/planner/trips/${data.trip.id}/share`, { method: 'POST' }); } catch (error) { notify(plannerError(error)); return; } await refresh(); document.getElementById('tripSettingsPanel')?.classList.remove('hidden'); });
+  manager.querySelector('#tsUnshare')?.addEventListener('click', async () => { if (!window.confirm('Desligar o link? Quem tiver o link não vai mais conseguir abrir a viagem.')) return; try { await api(`/api/planner/trips/${data.trip.id}/share`, { method: 'DELETE' }); } catch (error) { notify(plannerError(error)); return; } await refresh(); });
+  manager.querySelector('#tsCopy')?.addEventListener('click', async () => { const link = manager.querySelector('#tsLink').value; try { await navigator.clipboard.writeText(link); notify('Link copiado. Mande para quem vai viajar com você.'); } catch { notify(link); } });
   manager.querySelector('#tripSelector').onchange = async (event) => { selectedTripId = event.target.value; await loadPlanner(); await plannerView(key); };
   manager.querySelector('#newTrip').onclick = async () => {
     const name = window.prompt('Qual será o nome da nova viagem?');
@@ -193,6 +215,60 @@ function addTripManager(element, key) {
       await loadPlanner(); await plannerView(key);
     } catch (error) { notify(error?.body?.upgrade_required ? upgradeMessage(error) : 'Não foi possível atualizar esta viagem agora.'); }
   };
+}
+
+// Moedas: valores guardados na moeda original e convertidos pelo câmbio do dia (base EUR).
+const CUR_LABEL = { EUR: 'Euro (€)', BRL: 'Real (R$)', USD: 'Dólar (US$)', GBP: 'Libra (£)' };
+function convert(value, from = 'EUR', to = 'EUR') {
+  if (from === to) return Number(value) || 0;
+  if (!rates?.[from] || !rates?.[to]) return null;
+  return (Number(value) || 0) / rates[from] * rates[to];
+}
+function displayCurrency() {
+  try { const saved = localStorage.getItem('rcMoedaViagem'); if (saved === 'EUR' || saved === 'BRL') return saved; } catch { /* sem armazenamento */ }
+  return data.budgetCurrency || 'EUR';
+}
+function tripTotals() {
+  const cur = displayCurrency();
+  let spent = 0;
+  let missing = 0;
+  const byType = new Map();
+  for (const item of data.expenses) {
+    const value = convert(item.value, item.currency || 'EUR', cur);
+    if (value === null) { missing += 1; continue; }
+    spent += value;
+    byType.set(item.type, (byType.get(item.type) || 0) + value);
+  }
+  const budget = convert(data.budget, data.budgetCurrency || 'EUR', cur) ?? Number(data.budget || 0);
+  return { cur, spent, budget, missing, byType: [...byType].sort((x, y) => y[1] - x[1]) };
+}
+/** Divide igualmente entre os viajantes e diz quem paga quanto a quem (menor número de transferências). */
+function splitCosts(people, cur) {
+  const paid = Object.fromEntries(people.map((person) => [person, 0]));
+  let total = 0;
+  for (const item of data.expenses) {
+    const value = convert(item.value, item.currency || 'EUR', cur);
+    if (value === null) continue;
+    paid[people.includes(item.paidBy) ? item.paidBy : 'Você'] += value;
+    total += value;
+  }
+  const share = total / people.length;
+  const debtors = people.map((p) => ({ p, v: share - paid[p] })).filter((x) => x.v > 0.005).sort((x, y) => y.v - x.v);
+  const creditors = people.map((p) => ({ p, v: paid[p] - share })).filter((x) => x.v > 0.005).sort((x, y) => y.v - x.v);
+  const transfers = [];
+  for (let i = 0, j = 0; i < debtors.length && j < creditors.length;) {
+    const value = Math.min(debtors[i].v, creditors[j].v);
+    transfers.push({ from: debtors[i].p, to: creditors[j].p, value });
+    debtors[i].v -= value; creditors[j].v -= value;
+    if (debtors[i].v < 0.005) i += 1;
+    if (creditors[j].v < 0.005) j += 1;
+  }
+  return { share, paid, transfers };
+}
+function tripDayLabel(day) {
+  if (!data.trip?.starts_on) return '';
+  const date = new Date(Date.parse(`${data.trip.starts_on}T00:00:00Z`) + ((Number(day) || 1) - 1) * 86400000);
+  return new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' }).format(date);
 }
 
 // Ícones do Planner (traço simples, 24x24). Cores por tipo em [data-tone] no CSS.
@@ -248,6 +324,11 @@ function plannerError(error) {
     invalid_booking_code: 'O código da reserva pode ter até 80 caracteres.',
     trip_archived: 'Esta viagem está arquivada. Restaure a viagem para editar.',
     free_trial_expired: 'O seu teste Free terminou. Assine o Premium para continuar editando.',
+    invalid_trip_date: 'Confira as datas da viagem.',
+    invalid_companions: 'Informe até 12 nomes, separados por vírgula.',
+    invalid_trip: 'Informe o nome da viagem.',
+    invalid_expense: 'Confira o valor, a moeda e a descrição da despesa.',
+    invalid_budget: 'Confira o valor do orçamento.',
   };
   if (!navigator.onLine) return 'Você está sem internet. Conecte-se para salvar mudanças; o que já está salvo continua disponível.';
   return messages[code] || 'Não foi possível salvar agora. Tente de novo em instantes.';
@@ -292,8 +373,10 @@ async function uploadAttachment(itemId, file) {
 
 function renderOverview(element) {
   const icon = (d) => `<span class="ov-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg></span>`;
-  const spent = data.expenses.reduce((sum, item) => sum + Number(item.value || 0), 0);
-  const budget = Number(data.budget || 0);
+  const totals = tripTotals();
+  const cur = totals.cur;
+  const spent = totals.spent;
+  const budget = totals.budget;
   const budgetPct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
   const done = data.checklist.filter((item) => item.done).length;
   const total = data.checklist.length;
@@ -301,16 +384,16 @@ function renderOverview(element) {
   const agenda = [...data.itinerary].sort(byDayTime).slice(0, 5);
   const files = data.attachments || [];
   const placeTypes = tally(data.places, () => 1).slice(0, 3);
-  const costTypes = tally(data.expenses, (item) => Number(item.value || 0)).slice(0, 4);
+  const costTypes = totals.byType.slice(0, 4);
   const pending = data.checklist.filter((item) => !item.done).slice(0, 5);
   element.innerHTML = `<div class="ov-stats">`
     + `<a class="ov-stat" data-tone="voo" href="#/planner/itinerario"><span class="ov-stat-head">${icon('<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>')}Roteiro</span><span class="ov-value">${data.itinerary.length}<small>${data.itinerary.length === 1 ? 'atividade' : 'atividades'}</small></span><span class="ov-meta">${data.itinerary.length ? `em ${plural(days, 'dia', 'dias')} de viagem` : 'Nada planejado ainda'}</span><span class="ov-more">Organizar roteiro →</span></a>`
     + `<a class="ov-stat" data-tone="trans" href="#/planner/lugares"><span class="ov-stat-head">${icon('<path d="M12 21.5s-7-6.1-7-11.5a7 7 0 0 1 14 0c0 5.4-7 11.5-7 11.5z"/><circle cx="12" cy="10" r="2.5"/>')}Lugares</span><span class="ov-value">${data.places.length}<small>${data.places.length === 1 ? 'lugar salvo' : 'lugares salvos'}</small></span>${placeTypes.length ? `<span class="ov-chips">${placeTypes.map(([type, n]) => `<span>${esc(type)} ${n}</span>`).join('')}</span>` : '<span class="ov-meta">Guarde atrações e restaurantes</span>'}<span class="ov-more">Ver no mapa →</span></a>`
-    + `<a class="ov-stat" data-tone="ativ" href="#/planner/orcamento"><span class="ov-stat-head">${icon('<path d="M19 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 9.5h-5a2.5 2.5 0 0 0 0 5h5z"/>')}Orçamento</span><span class="ov-value">${money(spent)}<small>gastos</small></span>${budget > 0 ? `<span class="progress"><span style="width:${budgetPct.toFixed(0)}%"></span></span><span class="ov-meta">${budgetPct.toFixed(0)}% de ${money(budget)} · saldo ${money(budget - spent)}</span>` : '<span class="ov-meta">Defina um orçamento para a viagem</span>'}<span class="ov-more">Controlar gastos →</span></a>`
+    + `<a class="ov-stat" data-tone="ativ" href="#/planner/orcamento"><span class="ov-stat-head">${icon('<path d="M19 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 9.5h-5a2.5 2.5 0 0 0 0 5h5z"/>')}Orçamento</span><span class="ov-value">${money(spent, cur)}<small>gastos</small></span>${budget > 0 ? `<span class="progress"><span style="width:${budgetPct.toFixed(0)}%"></span></span><span class="ov-meta">${budgetPct.toFixed(0)}% de ${money(budget, cur)} · saldo ${money(budget - spent, cur)}</span>` : '<span class="ov-meta">Defina um orçamento para a viagem</span>'}<span class="ov-more">Controlar gastos →</span></a>`
     + `<a class="ov-stat" data-tone="ok" href="#/planner/checklist"><span class="ov-stat-head">${icon('<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="m8.5 12.2 2.4 2.4 4.8-5"/>')}Checklist</span><span class="ov-value">${done}/${total}<small>concluídos</small></span>${total ? `<span class="progress"><span style="width:${((done / total) * 100).toFixed(0)}%"></span></span><span class="ov-meta">${done === total ? 'Tudo pronto para viajar' : `Faltam ${plural(total - done, 'item', 'itens')}`}</span>` : '<span class="ov-meta">Monte a lista do que levar e resolver</span>'}<span class="ov-more">Preparar viagem →</span></a>`
     + `</div><div class="ov-panels">`
     + `<section class="planner-card ov-panel ov-agenda-wrap"><h2>Roteiro da viagem</h2>${agenda.length ? `<ul class="ov-agenda">${agenda.map((item) => `<li><span class="ov-when">Dia ${esc(item.day)}<b>${esc(item.time || '--:--')}</b></span><div><strong>${esc(item.what)}</strong><small>${esc(item.type)}${item.notes ? ` · ${esc(item.notes)}` : ''}${item.bookingCode ? '<span class="ov-flags">Reserva</span>' : ''}${files.some((f) => f.itemId === item.id) ? `<span class="ov-flags">${plIcon('clip')}${files.filter((f) => f.itemId === item.id).length}</span>` : ''}</small></div></li>`).join('')}</ul>` : '<p class="ov-empty">Adicione a primeira atividade: o voo, o hotel ou um passeio.</p>'}<a class="ov-link" href="#/planner/itinerario">${data.itinerary.length > agenda.length ? `Ver as ${data.itinerary.length} atividades →` : 'Abrir o roteiro →'}</a></section>`
-    + `<section class="planner-card ov-panel"><h2>Para onde vai o dinheiro</h2>${costTypes.length ? `<ul class="ov-bars">${costTypes.map(([type, value]) => `<li><span>${esc(type)}</span><b>${money(value)}</b><span class="ov-bar"><i style="width:${spent ? ((value / spent) * 100).toFixed(0) : 0}%"></i></span></li>`).join('')}</ul>` : '<p class="ov-empty">Nenhum gasto registrado ainda.</p>'}<a class="ov-link" href="#/planner/orcamento">Ver orçamento →</a></section>`
+    + `<section class="planner-card ov-panel"><h2>Para onde vai o dinheiro</h2>${costTypes.length ? `<ul class="ov-bars">${costTypes.map(([type, value]) => `<li><span>${esc(type)}</span><b>${money(value, cur)}</b><span class="ov-bar"><i style="width:${spent ? ((value / spent) * 100).toFixed(0) : 0}%"></i></span></li>`).join('')}</ul>` : '<p class="ov-empty">Nenhum gasto registrado ainda.</p>'}<a class="ov-link" href="#/planner/orcamento">Ver orçamento →</a></section>`
     + `<section class="planner-card ov-panel"><h2>O que falta preparar</h2>${pending.length ? `<ul class="ov-todo">${pending.map((item) => `<li>${esc(item.text)}</li>`).join('')}</ul>` : `<p class="ov-empty">${total ? 'Tudo pronto. Boa viagem!' : 'Seu checklist ainda está vazio.'}</p>`}<a class="ov-link" href="#/planner/checklist">Abrir checklist →</a></section>`
     + `</div>`;
 }
@@ -341,21 +424,22 @@ function renderItinerary(element) {
     const mine = files.filter((file) => file.itemId === item.id);
     const url = safeUrl(item.bookingUrl);
     return `<li class="it-item" data-tone="${kind.tone}"><span class="pl-ico">${kind.svg}</span><div class="it-body">`
-      + `<div class="it-meta"><b>${esc(item.time || 'Sem horário')}</b><span>${esc(item.type)}</span></div><strong class="it-title">${esc(item.what)}</strong>${item.notes ? `<p class="it-notes">${esc(item.notes)}</p>` : ''}`
+      + `<div class="it-meta"><b>${esc(item.time || 'Sem horário')}</b><span>${esc(item.type)}</span>${item.source === 'rota_certa' ? '<em class="it-rc">Emitido pela Rota Certa</em>' : ''}</div><strong class="it-title">${esc(item.what)}</strong>${item.notes ? `<p class="it-notes">${esc(item.notes)}</p>` : ''}`
       + (item.bookingCode || url ? `<div class="it-booking">${item.bookingCode ? `<span class="it-code">Reserva <b>${esc(item.bookingCode)}</b><button type="button" class="it-copy" data-copy="${esc(item.bookingCode)}">${plIcon('copy')}Copiar</button></span>` : ''}${url ? `<a class="it-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${plIcon('external')}Abrir reserva</a>` : ''}</div>` : '')
       + (mine.length ? `<ul class="it-files">${mine.map((file) => `<li><a href="/api/planner/${esc(data.trip.id)}/attachments/${esc(file.id)}" target="_blank" rel="noopener" data-file="${file.type === 'application/pdf' ? 'pdf' : 'image'}">${plIcon(file.type === 'application/pdf' ? 'file' : 'image')}<span>${esc(file.name)}</span><small>${fileSize(file.size)}</small></a><button type="button" class="it-file-del" data-del-file="${esc(file.id)}" aria-label="Remover ${esc(file.name)}">×</button></li>`).join('')}</ul>` : '')
       + `</div><div class="it-actions"><button type="button" class="it-act" data-attach-it="${esc(item.id || '')}">${plIcon('clip')}Anexar</button><button type="button" class="it-act" data-edit-it="${esc(item.id || '')}">Editar</button><button type="button" class="delete-item" data-del-it="${esc(item.id || '')}">Excluir</button></div></li>`;
   };
   const dayHtml = (day) => {
     const list = items.filter((item) => (Number(item.day) || 1) === day);
-    return `<section class="it-day"><div class="it-day-head"><span class="it-day-num">Dia ${day}</span><span>${plural(list.length, 'atividade', 'atividades')}</span></div><ol class="it-list">${list.map(itemHtml).join('')}</ol></section>`;
+    return `<section class="it-day"><div class="it-day-head"><span class="it-day-num">Dia ${day}${tripDayLabel(day) ? `<small>${esc(tripDayLabel(day))}</small>` : ''}</span><span>${plural(list.length, 'atividade', 'atividades')}</span></div><ol class="it-list">${list.map(itemHtml).join('')}</ol></section>`;
   };
   element.innerHTML = `<div class="pl-toolbar"><div><strong>${plural(items.length, 'atividade planejada', 'atividades planejadas')}</strong><small>${days.length ? `em ${plural(days.length, 'dia', 'dias')} de viagem` : 'Comece pelo voo ou pelo hotel'}</small></div><button class="btn btn-gold" id="toggleItinerary">+ Adicionar atividade</button></div>`
+    + (session && data.trip?.id && !data.trip.starts_on ? '<p class="pl-hint">Informe a data de ida em <b>Configurar e compartilhar</b>, no topo, para ver a data de cada dia e receber por e-mail o lembrete de check-in dos voos.</p>' : '')
     + `<div class="planner-form pl-form hidden" id="itineraryForm"><h3>Nova atividade</h3>${fields('i')}<div class="pl-form-actions"><button class="btn btn-gold" id="addItinerary">Adicionar ao roteiro</button></div></div>`
     + (items.length ? days.map(dayHtml).join('') : `<div class="planner-card pl-empty">${plIcon('calendar')}<strong>Seu roteiro está vazio</strong><p>Adicione o voo, o hotel e os passeios de cada dia. Dá para guardar o código e o link da reserva e anexar o bilhete em PDF ou foto.</p></div>`)
     + `<p class="pl-privacy">${plIcon('lock')}Reservas e anexos ficam só na sua conta: apenas você, com a sua senha, consegue abrir. Os anexos também ficam guardados neste aparelho para abrir sem internet e são apagados quando você sai da conta.</p>`
     + '<input type="file" id="itFile" accept="application/pdf,image/*" hidden>';
-  const again = async () => { await loadPlanner(); renderItinerary(element); };
+  const again = async () => { await loadPlanner(); redraw(); };
   document.getElementById('toggleItinerary').onclick = () => { if (!requireAccount()) document.getElementById('itineraryForm').classList.toggle('hidden'); };
   document.getElementById('addItinerary').onclick = async () => {
     if (requireAccount()) return;
@@ -375,10 +459,9 @@ function renderItinerary(element) {
   element.querySelectorAll('[data-edit-it]').forEach((button) => button.onclick = () => {
     if (requireAccount()) return;
     editingItemId = button.dataset.editIt;
-    renderItinerary(element);
-    element.querySelector('.it-edit input')?.focus();
+    redraw().then(() => element.querySelector('.it-edit input')?.focus());
   });
-  element.querySelector('[data-cancel-edit]')?.addEventListener('click', () => { editingItemId = null; renderItinerary(element); });
+  element.querySelector('[data-cancel-edit]')?.addEventListener('click', () => { editingItemId = null; redraw(); });
   element.querySelector('[data-edit-form]')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const b = read('ed');
@@ -433,7 +516,7 @@ function renderPlaces(element) {
     const body = { name: document.getElementById('pName').value, category: document.getElementById('pType').value, address: document.getElementById('pAddress').value || undefined, notes: document.getElementById('pNotes').value || undefined };
     if (!body.name) return;
     await api(`/api/planner/${data.trip.id}/places`, { method: 'POST', body: JSON.stringify(body) });
-    await loadPlanner(); renderPlaces(element);
+    await loadPlanner(); redraw();
   };
   document.getElementById('mapGo').onclick = () => { const query = document.getElementById('mapSearch').value.trim(); if (query) document.getElementById('mapFrame').src = mapEmbedUrl(query); };
   element.querySelectorAll('[data-map-place]').forEach((button) => button.onclick = () => {
@@ -449,38 +532,56 @@ function renderPlaces(element) {
   element.querySelectorAll('[data-del-place]').forEach((button) => button.onclick = async () => {
     if (requireAccount()) return;
     await api(`/api/planner/${data.trip.id}/places/${button.dataset.delPlace}`, { method: 'DELETE' });
-    await loadPlanner(); renderPlaces(element);
+    await loadPlanner(); redraw();
   });
 }
 
 function renderBudget(element) {
-  const spent = data.expenses.reduce((sum, item) => sum + Number(item.value || 0), 0);
-  const balance = Number(data.budget || 0) - spent;
-  const percentage = Math.min(100, Math.max(0, spent / (Number(data.budget) || 1) * 100));
-  const categories = tally(data.expenses, (item) => Number(item.value || 0));
-  element.innerHTML = `<div class="budget-summary"><div class="budget-box" data-tone="voo"><span class="pl-ico">${plIcon('wallet')}</span><small>Orçamento</small><strong>${money(data.budget)}</strong></div><div class="budget-box expense" data-tone="food"><span class="pl-ico">${plIcon('trend')}</span><small>Gasto</small><strong>${money(spent)}</strong></div><div class="budget-box balance" data-tone="ok"><span class="pl-ico">${plIcon('ok')}</span><small>Saldo</small><strong>${money(balance)}</strong></div></div>`
-    + `<div class="budget-grid"><section class="planner-card pl-panel"><h2>Progresso do orçamento</h2><div class="pl-progress-head"><span>${Number(data.budget) > 0 ? `${money(spent)} de ${money(data.budget)}` : 'Defina quanto quer gastar na viagem'}</span><b>${percentage.toFixed(0)}%</b></div><div class="progress"><span style="width:${percentage}%"></span></div><div class="pl-inline-form"><input class="inline-input" id="budgetValue" type="number" min="0" step="0.01" value="${esc(data.budget)}"><button class="btn btn-outline-dark" id="saveBudget">Definir orçamento</button></div></section>`
-    + `<section class="planner-card pl-panel"><h2>Gastos por categoria</h2>${categories.length ? `<ul class="ov-bars">${categories.map(([type, value]) => `<li><span>${esc(type)}</span><b>${money(value)}</b><span class="ov-bar"><i style="width:${spent ? ((value / spent) * 100).toFixed(0) : 0}%"></i></span></li>`).join('')}</ul>` : '<p class="ov-empty">As despesas aparecem aqui separadas por categoria.</p>'}</section></div>`
-    + `<div class="pl-toolbar"><div><strong>${plural(data.expenses.length, 'despesa registrada', 'despesas registradas')}</strong><small>Valores em euro</small></div><button class="btn btn-gold" id="toggleExpense">+ Despesa</button></div><div class="planner-form pl-form hidden" id="expenseForm"><div class="planner-form-grid"><input id="eValue" type="number" min="0" step="0.01" placeholder="Valor (€)"><select id="eType"><option>Voos</option><option>Hospedagem</option><option>Alimentação</option><option>Transporte</option><option>Atividades</option><option>Compras</option><option>Outros</option></select><input id="eDesc" placeholder="Descrição"><button class="btn btn-gold" id="addExpense">Adicionar despesa</button></div></div><div class="item-list">${data.expenses.map((expense) => `<div class="planner-item" data-tone="${kindIcon(expense.type).tone}"><div class="planner-item-main"><span class="pl-ico">${kindIcon(expense.type).svg}</span><div><strong>${money(expense.value)}</strong><small>${esc(expense.type)} · ${esc(expense.desc)}</small></div></div><button class="delete-item" data-del-exp="${esc(expense.id || '')}">Excluir</button></div>`).join('') || '<div class="planner-card"><p class="muted" style="text-align:center;padding:20px">Nenhuma despesa ainda.</p></div>'}</div>`;
-  document.getElementById('saveBudget').onclick = async () => { if (requireAccount()) return; await api(`/api/planner/${data.trip.id}/budget`, { method: 'PUT', body: JSON.stringify({ amount: Number(document.getElementById('budgetValue').value) || 0 }) }); await loadPlanner(); renderBudget(element); };
+  const totals = tripTotals();
+  const cur = totals.cur;
+  const people = ['Você', ...(data.companions || [])];
+  const balance = totals.budget - totals.spent;
+  const percentage = totals.budget > 0 ? Math.min(100, Math.max(0, totals.spent / totals.budget * 100)) : 0;
+  const options = (list, selected) => list.map((c) => `<option value="${c}"${c === selected ? ' selected' : ''}>${CUR_LABEL[c]}</option>`).join('');
+  const split = people.length > 1 ? splitCosts(people, cur) : null;
+  const splitHtml = split
+    ? `<section class="planner-card pl-panel"><h2>Divisão entre ${people.length} viajantes</h2><p class="split-each">Cada um: <b>${money(split.share, cur)}</b></p><ul class="split-list">${people.map((person) => { const diff = split.paid[person] - split.share; return `<li><div><strong>${esc(person)}</strong><small>pagou ${money(split.paid[person], cur)}</small></div><b class="${diff >= 0 ? 'pos' : 'neg'}">${Math.abs(diff) < 0.005 ? 'em dia' : diff > 0 ? `recebe ${money(diff, cur)}` : `deve ${money(-diff, cur)}`}</b></li>`; }).join('')}</ul>${split.transfers.length ? `<h3 class="split-title">Para acertar</h3><ul class="split-transfers">${split.transfers.map((t) => `<li>${esc(t.from)} paga <b>${money(t.value, cur)}</b> a ${esc(t.to)}</li>`).join('')}</ul>` : '<p class="ov-empty">Tudo certo: ninguém deve nada.</p>'}</section>`
+    : '<section class="planner-card pl-panel"><h2>Divisão dos custos</h2><p class="ov-empty">Viaja com mais gente? Informe os nomes em <b>Configurar e compartilhar</b>, no topo, e o Planner divide os gastos e mostra quem deve a quem.</p></section>';
+  element.innerHTML = `<div class="pl-toolbar"><div><strong>Moeda de visualização</strong><small>${rates ? `Câmbio do Banco Central Europeu${ratesDate && ratesDate !== 'fixo' ? ` de ${esc(ratesDate.split('-').reverse().join('/'))}` : ''}` : 'Sem câmbio agora: gastos em outras moedas ficam fora da soma'}</small></div><div class="cur-switch" role="group" aria-label="Moeda de visualização">${['EUR', 'BRL'].map((c) => `<button type="button" data-cur="${c}" aria-pressed="${c === cur}">${c === 'EUR' ? '€ Euro' : 'R$ Real'}</button>`).join('')}</div></div>`
+    + `<div class="budget-summary"><div class="budget-box" data-tone="voo"><span class="pl-ico">${plIcon('wallet')}</span><small>Orçamento</small><strong>${money(totals.budget, cur)}</strong></div><div class="budget-box expense" data-tone="food"><span class="pl-ico">${plIcon('trend')}</span><small>Gasto</small><strong>${money(totals.spent, cur)}</strong></div><div class="budget-box balance" data-tone="ok"><span class="pl-ico">${plIcon('ok')}</span><small>Saldo</small><strong>${money(balance, cur)}</strong></div></div>`
+    + `<div class="budget-grid"><section class="planner-card pl-panel"><h2>Progresso do orçamento</h2><div class="pl-progress-head"><span>${totals.budget > 0 ? `${money(totals.spent, cur)} de ${money(totals.budget, cur)}` : 'Defina quanto quer gastar na viagem'}</span><b>${percentage.toFixed(0)}%</b></div><div class="progress"><span style="width:${percentage}%"></span></div><div class="pl-inline-form"><input class="inline-input" id="budgetValue" type="number" min="0" step="0.01" value="${esc(data.budget)}" aria-label="Valor do orçamento"><select class="inline-input cur-select" id="budgetCurrency" aria-label="Moeda do orçamento">${options(['EUR', 'BRL'], data.budgetCurrency || 'EUR')}</select><button class="btn btn-outline-dark" id="saveBudget">Definir orçamento</button></div></section>`
+    + `<section class="planner-card pl-panel"><h2>Gastos por categoria</h2>${totals.byType.length ? `<ul class="ov-bars">${totals.byType.map(([type, value]) => `<li><span>${esc(type)}</span><b>${money(value, cur)}</b><span class="ov-bar"><i style="width:${totals.spent ? ((value / totals.spent) * 100).toFixed(0) : 0}%"></i></span></li>`).join('')}</ul>` : '<p class="ov-empty">As despesas aparecem aqui separadas por categoria.</p>'}</section></div>`
+    + splitHtml
+    + `<div class="pl-toolbar"><div><strong>${plural(data.expenses.length, 'despesa registrada', 'despesas registradas')}</strong><small>Registre na moeda em que pagou: o Planner converte</small></div><button class="btn btn-gold" id="toggleExpense">+ Despesa</button></div>`
+    + `<div class="planner-form pl-form hidden" id="expenseForm"><div class="expense-grid"><label>Valor<input id="eValue" type="number" min="0" step="0.01" placeholder="0,00"></label><label>Moeda<select id="eCurrency">${options(['EUR', 'BRL', 'USD', 'GBP'], cur)}</select></label><label>Categoria<select id="eType"><option>Voos</option><option>Hospedagem</option><option>Alimentação</option><option>Transporte</option><option>Atividades</option><option>Compras</option><option>Outros</option></select></label><label class="ex-wide">Descrição<input id="eDesc" maxlength="500" placeholder="Ex.: Jantar no Bairro Alto"></label>${people.length > 1 ? `<label>Pago por<select id="ePaidBy">${people.map((p) => `<option>${esc(p)}</option>`).join('')}</select></label>` : ''}</div><div class="pl-form-actions"><button class="btn btn-gold" id="addExpense">Adicionar despesa</button></div></div>`
+    + `<div class="item-list">${data.expenses.map((expense) => { const k = kindIcon(expense.type); const own = expense.currency || 'EUR'; const conv = own === cur ? null : convert(expense.value, own, cur); const who = people.includes(expense.paidBy) ? expense.paidBy : 'Você'; return `<div class="planner-item" data-tone="${k.tone}"><div class="planner-item-main"><span class="pl-ico">${k.svg}</span><div><strong>${money(expense.value, own)}${conv !== null ? ` <span class="conv">≈ ${money(conv, cur)}</span>` : ''}</strong><small>${esc(expense.type)} · ${esc(expense.desc)}${people.length > 1 ? ` · pago por ${esc(who)}` : ''}</small></div></div><button class="delete-item" data-del-exp="${esc(expense.id || '')}">Excluir</button></div>`; }).join('') || '<div class="planner-card"><p class="muted" style="text-align:center;padding:20px">Nenhuma despesa ainda.</p></div>'}</div>`;
+  element.querySelectorAll('[data-cur]').forEach((button) => button.onclick = () => { try { localStorage.setItem('rcMoedaViagem', button.dataset.cur); } catch { /* sem armazenamento */ } redraw(); });
+  document.getElementById('saveBudget').onclick = async () => {
+    if (requireAccount()) return;
+    try { await api(`/api/planner/${data.trip.id}/budget`, { method: 'PUT', body: JSON.stringify({ amount: Number(document.getElementById('budgetValue').value) || 0, currency: document.getElementById('budgetCurrency').value }) }); }
+    catch (error) { notify(plannerError(error)); return; }
+    await loadPlanner(); redraw();
+  };
   document.getElementById('toggleExpense').onclick = () => { if (!requireAccount()) document.getElementById('expenseForm').classList.toggle('hidden'); };
   document.getElementById('addExpense').onclick = async () => {
     if (requireAccount()) return;
-    const body = { amount: Number(document.getElementById('eValue').value), category: document.getElementById('eType').value, description: document.getElementById('eDesc').value };
+    const paidBy = document.getElementById('ePaidBy')?.value;
+    const body = { amount: Number(document.getElementById('eValue').value), currency: document.getElementById('eCurrency').value, category: document.getElementById('eType').value, description: document.getElementById('eDesc').value.trim(), paidBy: paidBy && paidBy !== 'Você' ? paidBy : undefined };
     if (!body.amount || !body.description) return;
-    await api(`/api/planner/${data.trip.id}/expenses`, { method: 'POST', body: JSON.stringify(body) });
-    await loadPlanner(); renderBudget(element);
+    try { await api(`/api/planner/${data.trip.id}/expenses`, { method: 'POST', body: JSON.stringify(body) }); }
+    catch (error) { notify(plannerError(error)); return; }
+    await loadPlanner(); redraw();
   };
-  element.querySelectorAll('[data-del-exp]').forEach((button) => button.onclick = async () => { if (requireAccount()) return; await api(`/api/planner/${data.trip.id}/expenses/${button.dataset.delExp}`, { method: 'DELETE' }); await loadPlanner(); renderBudget(element); });
+  element.querySelectorAll('[data-del-exp]').forEach((button) => button.onclick = async () => { if (requireAccount()) return; await api(`/api/planner/${data.trip.id}/expenses/${button.dataset.delExp}`, { method: 'DELETE' }); await loadPlanner(); redraw(); });
 }
 
 function renderChecklist(element) {
   const done = data.checklist.filter((item) => item.done).length;
   const percentage = data.checklist.length ? done / data.checklist.length * 100 : 0;
   element.innerHTML = `<section class="planner-card pl-panel pl-check-head"><h2>Preparação da viagem</h2><div class="pl-progress-head"><span>${done} de ${data.checklist.length} concluídos</span><b>${percentage.toFixed(0)}%</b></div><div class="progress"><span style="width:${percentage}%"></span></div></section><div class="checklist-add"><input id="checkInput" placeholder="Adicionar item..."><button class="btn btn-gold" id="addCheck">+</button></div><div>${data.checklist.map((item) => `<div class="check-item ${item.done ? 'done' : ''}"><input type="checkbox" ${item.done ? 'checked' : ''} data-check="${esc(item.id || '')}"><span>${esc(item.text)}</span><button class="delete-item" data-del-check="${esc(item.id || '')}">Excluir</button></div>`).join('')}</div>`;
-  document.getElementById('addCheck').onclick = async () => { if (requireAccount()) return; const text = document.getElementById('checkInput').value.trim(); if (!text) return; await api(`/api/planner/${data.trip.id}/checklist`, { method: 'POST', body: JSON.stringify({ text }) }); await loadPlanner(); renderChecklist(element); };
-  element.querySelectorAll('[data-check]').forEach((input) => input.onchange = async () => { if (requireAccount()) { input.checked = !input.checked; return; } await api(`/api/planner/${data.trip.id}/checklist/${input.dataset.check}`, { method: 'PATCH', body: JSON.stringify({ completed: input.checked }) }); await loadPlanner(); renderChecklist(element); });
-  element.querySelectorAll('[data-del-check]').forEach((button) => button.onclick = async () => { if (requireAccount()) return; await api(`/api/planner/${data.trip.id}/checklist/${button.dataset.delCheck}`, { method: 'DELETE' }); await loadPlanner(); renderChecklist(element); });
+  document.getElementById('addCheck').onclick = async () => { if (requireAccount()) return; const text = document.getElementById('checkInput').value.trim(); if (!text) return; await api(`/api/planner/${data.trip.id}/checklist`, { method: 'POST', body: JSON.stringify({ text }) }); await loadPlanner(); redraw(); };
+  element.querySelectorAll('[data-check]').forEach((input) => input.onchange = async () => { if (requireAccount()) { input.checked = !input.checked; return; } await api(`/api/planner/${data.trip.id}/checklist/${input.dataset.check}`, { method: 'PATCH', body: JSON.stringify({ completed: input.checked }) }); await loadPlanner(); redraw(); });
+  element.querySelectorAll('[data-del-check]').forEach((button) => button.onclick = async () => { if (requireAccount()) return; await api(`/api/planner/${data.trip.id}/checklist/${button.dataset.delCheck}`, { method: 'DELETE' }); await loadPlanner(); redraw(); });
 }
 
 function addLegacyImportOffer(element) {

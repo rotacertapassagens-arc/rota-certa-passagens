@@ -812,6 +812,30 @@
 .pl-check-head{margin-bottom:16px}
 .planner-app .check-item{padding:15px 16px}
 .planner-app .check-item.done{background:#f3f7f4}
+.cur-switch{display:inline-flex;padding:4px;border-radius:99px;background:#eef1f4;gap:4px}
+.cur-switch button{font:inherit;font-size:.84rem;font-weight:700;border:0;border-radius:99px;padding:8px 16px;background:none;color:#4a5968;cursor:pointer}
+.cur-switch button[aria-pressed="true"]{background:var(--navy);color:var(--gold)}
+.pl-inline-form .cur-select{flex:0 0 150px;min-width:0}
+.expense-grid{display:grid;grid-template-columns:130px 150px 170px minmax(0,1fr) 150px;gap:12px}
+.expense-grid label{display:grid;gap:6px;font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#4a5968}
+.expense-grid input,.expense-grid select{min-width:0;width:100%;padding:11px 12px;border:1px solid rgba(13,27,42,.16);border-radius:8px;background:#fff;color:var(--navy);font:inherit;font-size:.95rem;text-transform:none;letter-spacing:0}
+@media(max-width:900px){.expense-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.expense-grid .ex-wide{grid-column:1/-1}}
+.conv{font-size:.8rem;font-weight:600;color:#697481}
+.split-each{margin-bottom:12px}.split-each b{font-size:1.1rem}
+.split-list{display:grid;gap:8px}.split-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:#f6f7f9}
+.split-list small{display:block;font-size:.76rem;color:#697481}.split-list .pos{color:#22945a}.split-list .neg{color:#c64b5b}
+.split-title{font-size:.95rem;margin:16px 0 8px}.split-transfers{display:grid;gap:6px;font-size:.9rem}
+.pl-hint{margin:-4px 0 16px;padding:12px 16px;border-radius:12px;background:#fdf6e3;border:1px solid rgba(212,175,55,.5);font-size:.86rem}
+.it-day-num small{margin-left:10px;font-family:'Montserrat',system-ui,sans-serif;font-size:.8rem;font-weight:600;color:rgba(244,244,244,.8)}
+.it-rc{font-style:normal;font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:99px;background:var(--navy);color:var(--gold)}
+.trip-settings{width:100%;margin-top:14px;padding-top:16px;border-top:1px solid #eef1f4}
+.ts-grid{display:grid;grid-template-columns:minmax(0,1.4fr) 170px 170px;gap:12px}
+.ts-grid label{display:grid;gap:6px;font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#4a5968}
+.ts-grid input{min-width:0;width:100%;padding:11px 12px;border:1px solid rgba(13,27,42,.16);border-radius:8px;font:inherit;font-size:.95rem;text-transform:none;letter-spacing:0;color:var(--navy)}
+.ts-grid small{font-size:.76rem;font-weight:500;text-transform:none;letter-spacing:0;color:#697481}.ts-grid .ts-wide{grid-column:1/-1}
+.ts-share{margin-top:18px;padding:16px;border-radius:12px;background:#f6f7f9}.ts-share p{font-size:.84rem;color:#5d6978;margin:4px 0 12px}
+.ts-link{display:flex;gap:8px;flex-wrap:wrap}.ts-link input{flex:1;min-width:200px;padding:10px 12px;border:1px solid rgba(13,27,42,.16);border-radius:8px;font:inherit;font-size:.85rem}
+@media(max-width:700px){.ts-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ts-grid label:first-child{grid-column:1/-1}}
 button.pl-pill{font:inherit;cursor:pointer}
 [data-install-app][hidden]{display:none!important}
 .rc-offline{position:fixed;left:50%;bottom:18px;z-index:400;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:12px 18px;border-radius:12px;background:var(--navy);color:var(--off-white);border:1px solid rgba(212,175,55,.6);font-size:.88rem;line-height:1.4;box-shadow:0 18px 40px -18px rgba(0,0,0,.6)}
@@ -1237,6 +1261,7 @@ button.pl-pill{font:inherit;cursor:pointer}
           <li>Acompanhar orçamento da viagem</li>
           <li>Marcar itens da checklist como concluídos</li>
           <li>Contatar a equipe Rota Certa</li>
+          <li>Seus dados e bilhetes aparecem só para você</li>
         </ul>
       </div>
     </div>
@@ -1365,6 +1390,23 @@ button.pl-pill{font:inherit;cursor:pointer}
       <details>
         <summary>Como posso falar com um especialista?</summary>
         <p>Pelo <a href="https://wa.me/351925307391" target="_blank" rel="noopener">WhatsApp</a>, pelo <a href="mailto:contato@rotacertapassagens.com">e-mail</a> ou pelo pedido de proposta de voo. Respondemos o mais rápido possível.</p>
+      </details>
+      <h3 class="faq-group">App, privacidade e segurança</h3>
+      <details>
+        <summary>Os meus dados e bilhetes ficam seguros?</summary>
+        <p>Sim. Reservas, anexos e gastos ficam na sua conta e só você, com a sua senha, consegue abrir. A nossa equipe não vende nem repassa os seus dados. No celular, o que fica guardado para usar sem internet é apagado quando você sai da conta.</p>
+      </details>
+      <details>
+        <summary>O app funciona sem internet?</summary>
+        <p>Funciona. Depois que você abre a viagem com internet, o roteiro e os bilhetes anexados ficam guardados no celular e abrem até no modo avião. Para editar, é só voltar a ter conexão.</p>
+      </details>
+      <details>
+        <summary>Como instalo o app no celular?</summary>
+        <p>Não precisa de loja de aplicativos. Abra <a href="/app">rotacertapassagens.com/app</a> e toque em Instalar o app. No iPhone, use o Safari: Compartilhar e depois Adicionar à Tela de Início.</p>
+      </details>
+      <details>
+        <summary>Posso compartilhar a viagem e dividir os gastos?</summary>
+        <p>Pode. Em Configurar e compartilhar você informa quem vai junto e cria um link só de leitura com o roteiro e os lugares (sem códigos de reserva, anexos nem gastos). No Orçamento, o Planner divide as despesas e mostra quem deve a quem, em euro ou em real.</p>
       </details>
     </div>
   </div>

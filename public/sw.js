@@ -105,7 +105,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Sessão e dados do Planner: rede primeiro, cópia do aparelho sem conexão.
-  if (p === '/api/auth/session') {
+  if (p === '/api/auth/session' || p === '/api/planner/rates') {
     event.respondWith(networkFirst(request, DADOS));
     return;
   }

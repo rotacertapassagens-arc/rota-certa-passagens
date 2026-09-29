@@ -12,7 +12,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/i/*", "/blog", "/blog/*", "/media/*", "/sitemap.xml"]
+    "run_worker_first": ["/api/*", "/i/*", "/blog", "/blog/*", "/media/*", "/sitemap.xml", "/viagem/*"]
   },
   "vars": {
     "APP_ORIGIN": "https://rotacertapassagens.com",
@@ -28,6 +28,8 @@
   "secrets": {
     "required": ["TOKEN_PEPPER", "RATE_LIMIT_SECRET", "RESEND_API_KEY", "MASTER_BOOTSTRAP_TOKEN"]
   },
+  // Lembrete de check-in do Planner (worker/planner-extras.ts), de hora em hora.
+  "triggers": { "crons": ["20 * * * *"] },
   "d1_databases": [
     {
       "binding": "DB",
