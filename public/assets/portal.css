@@ -266,3 +266,7 @@ body { background:#e8ecf1; }
 .pf-grid .pf-wide { grid-column:span 2; }
 .pf-status { margin-left:10px; font-size:.86rem; color:var(--blue); }
 @media (max-width:700px) { .pf-grid { grid-template-columns:1fr 1fr; } }
+
+.grant-form { display:grid; grid-template-columns:minmax(0,1fr) 110px auto; gap:12px; align-items:end; margin-top:12px; }
+.grant-form label { margin:0; }
+@media (max-width:640px) { .grant-form { grid-template-columns:1fr 1fr; } .grant-form label:first-child { grid-column:1 / -1; } }

@@ -7,7 +7,7 @@ import { calculateSaleProfit, isValidIssuanceTransition, sumIssuanceDirectCostCe
 import { allocationCostCents, unitCostMicros } from '../shared/mileageCost.js';
 import { buildCsv } from '../shared/financeCsv.js';
 import { blogAdmin, blogPublic, type BlogDeps } from './blog.js';
-import { applyPendingFlights, checkinReminders, CURRENCIES, plannerExtras, sharedTripPage, type ExtrasDeps } from './planner-extras.js';
+import { applyPendingFlights, checkinReminders, CURRENCIES, plannerExtras, reactivationReminders, sharedTripPage, type ExtrasDeps } from './planner-extras.js';
 
 type Row = Record<string, unknown>;
 type Auth = { userId: string; sessionId: string; email: string; name: string; roles: string[] };
@@ -29,7 +29,7 @@ const jsonHeaders = {
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(checkinReminders(env, extrasDeps).then(() => undefined));
+    ctx.waitUntil(Promise.all([checkinReminders(env, extrasDeps), reactivationReminders(env, extrasDeps)]).then(() => undefined));
   },
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -65,7 +65,7 @@ const extrasDeps: ExtrasDeps = { reply, getAuth, mutationAuth, requirePlannerAcc
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
   if (p.startsWith('/api/admin/blog')) { const blog = await blogAdmin(req, env, url, blogDeps); if (blog) return blog; }
-  if (p.startsWith('/api/planner/') || p.startsWith('/api/admin/leads/')) { const extra = await plannerExtras(req, env, url, extrasDeps); if (extra) return extra; }
+  if (p.startsWith('/api/planner/') || p.startsWith('/api/admin/leads/') || p === '/api/admin/subscriptions/grant') { const extra = await plannerExtras(req, env, url, extrasDeps); if (extra) return extra; }
   if (req.method === 'POST' && p === '/api/partner-applications') return partnerApplicationCreate(req, env);
   if (req.method === 'GET' && p === '/api/admin/partner-applications') return adminPartnerApplications(req, env);
   const applicationReject = p.match(/^\/api\/admin\/partner-applications\/([0-9a-f-]+)\/reject$/i);
@@ -369,7 +369,7 @@ function sessionHeaders(token: string, csrf: string) {
 }
 async function entitlement(auth: Auth, env: Env): Promise<Entitlement> {
   if(auth.roles.includes('master'))return {tier:'master',unlimited:true,accessActive:true,endsAt:null,activeTripLimit:null,archivedTripLimit:null,premiumFeatures:true};
-  const active=await env.DB.prepare("SELECT p.code,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.user_id=? AND s.status IN ('trialing','active') AND s.ends_at>CURRENT_TIMESTAMP AND p.code IN ('trial-10d','planner-30d') ORDER BY CASE WHEN p.code='planner-30d' THEN 0 ELSE 1 END,s.ends_at DESC LIMIT 1").bind(auth.userId).first<{code:string;ends_at:string}>();
+  const active=await env.DB.prepare("SELECT p.code,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.user_id=? AND s.status IN ('trialing','active') AND s.ends_at>CURRENT_TIMESTAMP AND p.code IN ('trial-10d','planner-30d','cliente-rota-certa') ORDER BY CASE WHEN p.code='planner-30d' THEN 0 ELSE 1 END,s.ends_at DESC LIMIT 1").bind(auth.userId).first<{code:string;ends_at:string}>();
   const tier=active?.code==='planner-30d'?'premium':'free';
   const unlimited=tier!=='free';
   return {tier,unlimited,accessActive:Boolean(active),endsAt:active?.ends_at||null,activeTripLimit:unlimited?null:1,archivedTripLimit:unlimited?null:2,premiumFeatures:unlimited};

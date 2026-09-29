@@ -311,6 +311,12 @@ document.getElementById('leads')?.addEventListener('change',(event)=>{
   card.querySelectorAll('[data-sale-fields]').forEach((field)=>field.classList.toggle('hidden',select.value!=='converted'||!card.dataset.partnerId));
 });
 
+document.getElementById('grantForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault(); const status=document.getElementById('grantStatus');
+  const messages={user_not_found:'Não achamos uma conta confirmada com este e-mail. Peça para o cliente criar a conta e confirmar o código.',invalid_grant:'Confira o e-mail e os dias (1 a 366).'};
+  try{ const r=await api('/api/admin/subscriptions/grant',{method:'POST',body:JSON.stringify({email:document.getElementById('grantEmail').value.trim(),days:Number(document.getElementById('grantDays').value)})}); status.textContent=`Premium liberado até ${new Date(r.endsAt.replace(' ','T')+'Z').toLocaleDateString('pt-BR')}. O cliente recebeu um e-mail.`; event.target.reset(); document.getElementById('grantDays').value='30'; }
+  catch(error){ status.textContent=messages[error?.body?.error||error?.message]||'Não foi possível liberar agora.'; }
+});
 document.getElementById('inviteForm')?.addEventListener('submit',async(event)=>{
   event.preventDefault(); const status=document.getElementById('inviteStatus');
   try { await api('/api/admin/master-invites',{method:'POST',body:JSON.stringify({name:document.getElementById('inviteName').value,email:document.getElementById('inviteEmail').value})}); status.textContent='Convite criado e encaminhado pelo provedor configurado.'; event.target.reset(); }

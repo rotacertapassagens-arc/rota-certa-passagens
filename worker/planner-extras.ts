@@ -39,6 +39,7 @@ export async function plannerExtras(req: Request, env: Env, url: URL, deps: Extr
   if (trip && req.method === 'PATCH') return tripSettings(req, env, trip[1]!, deps);
   const share = p.match(/^\/api\/planner\/trips\/([0-9a-f-]+)\/share$/i);
   if (share && (req.method === 'POST' || req.method === 'DELETE')) return tripShare(req, env, share[1]!, deps);
+  if (p === '/api/admin/subscriptions/grant' && req.method === 'POST') return grantPremium(req, env, deps);
   const flight = p.match(/^\/api\/admin\/leads\/([0-9a-f-]+)\/planner-flight$/i);
   if (flight && req.method === 'POST') return leadFlightToPlanner(req, env, flight[1]!, deps);
   return null;
@@ -166,6 +167,9 @@ async function applyFlight(env: Env, userId: string, f: FlightPayload) {
   ];
   if (f.returnDate) stmts.push(env.DB.prepare("INSERT INTO itinerary_items(id,trip_id,owner_user_id,day_number,starts_at,title,kind,notes,booking_code,source) VALUES(?,?,?,?,?,?,'Voo',?,?,'rota_certa')")
     .bind(crypto.randomUUID(), tripId, userId, daysBetween(f.outboundDate, f.returnDate) + 1, f.returnTime, `Voo ${f.destination} para ${f.origin}${f.flightBack ? ` · ${f.flightBack}` : ''}`.slice(0, 240), f.notes || null, f.bookingCode || null));
+  const until = addDays(f.returnDate || f.outboundDate, 7);
+  stmts.push(env.DB.prepare("INSERT INTO subscriptions(id,user_id,plan_id,status,starts_at,ends_at,provider,provider_reference) SELECT ?,?,id,'active',CURRENT_TIMESTAMP,?,'rota_certa','voo emitido' FROM plans WHERE code='cliente-rota-certa'")
+    .bind(crypto.randomUUID(), userId, `${until} 23:59:59`));
   await env.DB.batch(stmts);
   return tripId;
 }
@@ -183,7 +187,7 @@ async function leadFlightToPlanner(req: Request, env: Env, leadId: string, deps:
     const tripId = await applyFlight(env, String(user.id), f);
     await deps.audit(env, a.userId, 'planner.flight_sent', 'trip', tripId);
     await deps.sendEmail(env, String(user.id), email, 'planner_flight_added', 'Seu voo já está no seu Planner',
-      `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu voo <strong>${rota}</strong> já está no roteiro do seu Planner, com as datas e o código da reserva.</p><p>Anexe lá o cartão de embarque quando fizer o check-in: ele abre até sem internet.</p><p><a href="${env.APP_ORIGIN}/#/planner/itinerario">Abrir o meu roteiro</a></p><p>Rota Certa Passagens</p>`,
+      `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu voo <strong>${rota}</strong> já está no roteiro do seu Planner, com as datas e o código da reserva.</p><p>Como cliente Rota Certa, o Planner fica liberado para você até a sua volta: é você quem organiza o roteiro, os lugares e os gastos. Se preferir que a nossa equipe monte tudo, conheça o plano Personalizado.</p><p>Anexe o cartão de embarque quando fizer o check-in: ele abre até sem internet.</p><p><a href="${env.APP_ORIGIN}/#/planner/itinerario">Abrir o meu roteiro</a></p><p>Rota Certa Passagens</p>`,
       `O seu voo ${f.origin} para ${f.destination} já está no seu Planner: ${env.APP_ORIGIN}/#/planner/itinerario`, `planner-flight-${tripId}`);
     return deps.reply({ ok: true, applied: true, tripId });
   }
@@ -227,6 +231,54 @@ export async function checkinReminders(env: Env, deps: ExtrasDeps, now = Date.no
     await deps.sendEmail(env, String(r.user_id), String(r.email), 'checkin_reminder', 'Seu voo está chegando: faça o check-in online',
       `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu voo <strong>${esc(r.title)}</strong> está marcado para <strong>${esc(fmtDate(day))} às ${esc(time)}</strong>.</p><p>O check-in online costuma abrir de 24 a 48 horas antes. Faça pelo site ou app da companhia aérea e anexe o cartão de embarque no seu Planner: ele abre até sem internet.</p>${r.booking_code ? `<p>Código da reserva: <strong>${esc(r.booking_code)}</strong></p>` : ''}<p><a href="${env.APP_ORIGIN}/#/planner/itinerario">Abrir o meu roteiro</a></p><p>Boa viagem!<br>Rota Certa Passagens</p>`,
       `O seu voo ${String(r.title)} é ${fmtDate(day)} às ${time}. Faça o check-in online e anexe o cartão de embarque no Planner: ${env.APP_ORIGIN}/#/planner/itinerario`, `checkin-${String(r.id)}`)
+      .catch(() => undefined);
+    sent += 1;
+  }
+  return sent;
+}
+
+// --- Premium liberado pela equipe (pagamento combinado no WhatsApp, enquanto a Stripe não entra) --------
+async function grantPremium(req: Request, env: Env, deps: ExtrasDeps) {
+  const a = await deps.mutationAuth(req, env); if (!a) return deps.reply({ error: 'unauthorized' }, 401);
+  if (!a.roles.includes('master')) return deps.reply({ error: 'forbidden' }, 403);
+  const b = await readJson(req);
+  const email = clean(b?.email, 254).toLowerCase();
+  const days = Number(b?.days ?? 30);
+  if (!email || !Number.isInteger(days) || days < 1 || days > 366) return deps.reply({ error: 'invalid_grant' }, 400);
+  const user = await env.DB.prepare('SELECT u.id,pr.display_name name FROM users u LEFT JOIN profiles pr ON pr.user_id=u.id WHERE lower(u.email)=? AND u.email_verified_at IS NOT NULL').bind(email).first<Row>();
+  if (!user) return deps.reply({ error: 'user_not_found' }, 404);
+  // Soma ao Premium que ainda estiver valendo, para quem renova antes de acabar.
+  const current = await env.DB.prepare("SELECT MAX(s.ends_at) ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.user_id=? AND p.code='planner-30d' AND s.status='active' AND s.ends_at>CURRENT_TIMESTAMP").bind(user.id).first<Row>();
+  const base = current?.ends_at ? Date.parse(String(current.ends_at).replace(' ', 'T') + 'Z') : Date.now();
+  const ends = new Date(base + days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+  await env.DB.prepare("INSERT INTO subscriptions(id,user_id,plan_id,status,starts_at,ends_at,provider,provider_reference) SELECT ?,?,id,'active',CURRENT_TIMESTAMP,?,'manual',? FROM plans WHERE code='planner-30d'")
+    .bind(crypto.randomUUID(), user.id, ends, `painel:${a.userId}`).run();
+  await deps.audit(env, a.userId, 'subscription.premium_granted', 'user', String(user.id));
+  const first = esc(String(user.name || '').trim().split(/\s+/)[0] || '');
+  const ate = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(new Date(ends.replace(' ', 'T') + 'Z'));
+  await deps.sendEmail(env, String(user.id), email, 'premium_granted', 'Seu Premium do Planner está ativo',
+    `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu <strong>Premium do Planner</strong> está ativo até <strong>${ate}</strong>: viagens ilimitadas, bilhetes anexados, divisão de custos e tudo no celular, até sem internet.</p><p><a href="${env.APP_ORIGIN}/#/planner">Abrir o Planner</a></p><p>Boa viagem!<br>Rota Certa Passagens</p>`,
+    `O seu Premium do Planner está ativo até ${ate}: ${env.APP_ORIGIN}/#/planner`).catch(() => undefined);
+  return deps.reply({ ok: true, endsAt: ends });
+}
+
+// --- reativação: 7 dias antes da viagem, para quem está sem acesso ao Planner --------------------------
+export async function reactivationReminders(env: Env, deps: ExtrasDeps, now = Date.now()) {
+  const inSeven = new Date(now + 7 * 86400000).toISOString().slice(0, 10);
+  const rows = await env.DB.prepare(`SELECT t.id,t.name,t.starts_on,u.id user_id,u.email,pr.display_name name FROM trips t JOIN users u ON u.id=t.owner_user_id LEFT JOIN profiles pr ON pr.user_id=u.id
+    WHERE t.starts_on=? AND t.reactivation_sent_at IS NULL AND t.archived_at IS NULL AND u.email_verified_at IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id=u.id AND r.role='master')
+      AND NOT EXISTS (SELECT 1 FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.user_id=u.id AND s.status IN ('trialing','active') AND s.ends_at>CURRENT_TIMESTAMP AND p.code IN ('trial-10d','planner-30d','cliente-rota-certa'))
+    LIMIT 200`).bind(inSeven).all<Row>();
+  let sent = 0;
+  for (const r of rows.results) {
+    const claim = await env.DB.prepare('UPDATE trips SET reactivation_sent_at=CURRENT_TIMESTAMP WHERE id=? AND reactivation_sent_at IS NULL').bind(r.id).run();
+    if (!claim.meta.changes) continue;
+    const first = esc(String(r.name || '').trim().split(/\s+/)[0] || '');
+    const texto = encodeURIComponent(`Olá! Quero assinar o Premium do Planner (9,99 € por 30 dias). Meu e-mail de cadastro é ${String(r.email)}.`);
+    await deps.sendEmail(env, String(r.user_id), String(r.email), 'planner_reactivation', 'Sua viagem começa em 7 dias',
+      `<p>Olá${first ? `, ${first}` : ''}.</p><p>A sua viagem <strong>${esc(r.name)}</strong> começa em 7 dias, e tudo o que você organizou continua guardado no Planner.</p><p>Assine o Premium por <strong>9,99 € (30 dias)</strong> e leve roteiro, reservas e cartão de embarque no celular, até sem internet. O pagamento é por Pix ou cartão, pelo WhatsApp.</p><p><a href="https://wa.me/351925307391?text=${texto}">Assinar pelo WhatsApp</a></p><p>Rota Certa Passagens</p>`,
+      `A sua viagem ${String(r.name)} começa em 7 dias. Assine o Premium por 9,99 € e leve tudo no celular: https://wa.me/351925307391?text=${texto}`, `reactivation-${String(r.id)}`)
       .catch(() => undefined);
     sent += 1;
   }

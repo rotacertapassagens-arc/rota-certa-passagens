@@ -166,7 +166,7 @@ async function plannerView(key) {
 }
 
 function upgradeMessage(error) {
-  if (error?.body?.error === 'free_archived_trip_limit') return 'O plano Free permite até duas viagens arquivadas. Assine o Premium para manter histórico ilimitado.';
+  if (error?.body?.error === 'free_archived_trip_limit') return 'O plano Free permite até duas viagens arquivadas. Assine o Premium (9,99 € por 30 dias, pelo WhatsApp) para manter histórico ilimitado.';
   return 'O plano Free permite uma viagem ativa. Arquive a viagem atual ou assine o Premium para manter várias viagens ativas.';
 }
 
@@ -683,11 +683,16 @@ async function afterAuthentication() {
   if (redirect) { location.hash = redirect; await router(); window.scrollTo(0, 0); }
   else showClient();
 }
-async function startCheckout() {
-  try {
-    const result = await api('/api/payments/checkout', { method: 'POST', body: JSON.stringify({ planCode: 'planner-30d' }) });
-    location.assign(result.url);
-  } catch { notify('O checkout sandbox ainda não está configurado. Nenhuma cobrança foi feita.'); showClient(); }
+/** Premium pelo WhatsApp (Pix ou cartão): a equipe libera no painel depois do pagamento. */
+function premiumWhatsAppUrl() {
+  const email = session?.user?.email || '';
+  const text = `Olá! Quero assinar o Premium do Planner (9,99 € por 30 dias).${email ? ` Meu e-mail de cadastro é ${email}.` : ''}`;
+  return `https://wa.me/351925307391?text=${encodeURIComponent(text)}`;
+}
+function startCheckout() {
+  const url = premiumWhatsAppUrl();
+  history.replaceState(null, '', '#/cliente');
+  location.href = url;
 }
 function showClient() {
   if (!session) return;
@@ -707,6 +712,7 @@ async function clientInit() {
   document.getElementById('clientDashboard').classList.toggle('hidden', !session);
   document.getElementById('clientApp').dataset.state = 'entrar';
   document.getElementById('clientTitle').textContent = 'O seu espaço Rota Certa';
+  if (session && plan === 'plus') { startCheckout(); return; }
   if (session) showClient();
   if (localStorage.getItem('rotaCertaClient')) document.getElementById('clientNote').textContent += ' Uma conta antiga deste navegador foi detectada; a senha local não será enviada nem migrada.';
 }
@@ -770,7 +776,7 @@ async function router() {
   if (isPlanner) {
     try { await loadPlanner(); await plannerView(parts[1] === 'visao-geral' ? 'overview' : (parts[1] || 'overview')); }
     catch (error) {
-      if (error.status === 402 && error.body?.error === 'free_trial_expired') document.getElementById('plannerContent').innerHTML = '<div class="planner-lock"><div><strong>Seu teste gratuito terminou</strong><p>Suas viagens continuam guardadas. Assine o Premium para voltar a acessar e editar tudo.</p></div><a class="btn btn-gold" href="#/cliente?plan=plus">Assinar o Premium</a></div>';
+      if (error.status === 402 && error.body?.error === 'free_trial_expired') document.getElementById('plannerContent').innerHTML = '<div class="planner-lock"><div><strong>Seu teste gratuito terminou, mas nada se perdeu</strong><p>Suas viagens continuam guardadas. Assine o Premium por 9,99 € (30 dias) e leve roteiro, reservas e bilhetes no celular, até sem internet. Pagamento por Pix ou cartão, pelo WhatsApp.</p></div><a class="btn btn-gold" target="_blank" rel="noopener" href="' + premiumWhatsAppUrl() + '">Assinar pelo WhatsApp</a></div>';
       else notify('Não foi possível carregar o Planner agora.');
     }
   }

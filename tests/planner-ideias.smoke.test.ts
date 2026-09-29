@@ -178,5 +178,29 @@ describe('Planner: moedas, divisão, compartilhar, datas, lembrete e voo emitido
     const plannerC = await planner(c);
     expect(plannerC.trips.filter((t: any) => t.name === 'Viagem para Lisboa')).toHaveLength(1);
     expect(count("SELECT count(*) n FROM planner_flight_imports WHERE email='carla@example.com' AND applied_at IS NOT NULL")).toBe(1);
+
+    // --- modelo da Tais: cliente Rota Certa com Planner até a volta, Premium pelo painel, reativação --------
+    expect(count("SELECT count(*) n FROM subscriptions s JOIN plans p ON p.id=s.plan_id JOIN users u ON u.id=s.user_id WHERE u.email='bruno@example.com' AND p.code='cliente-rota-certa' AND s.ends_at LIKE '2027-04-27%'")).toBe(1);
+    expect((await worker.fetch('/api/admin/subscriptions/grant', { method: 'POST', headers: a.json(), body: JSON.stringify({ email: 'ninguem@example.com', days: 30 }) })).status).toBe(404);
+    const grant = await worker.fetch('/api/admin/subscriptions/grant', { method: 'POST', headers: a.json(), body: JSON.stringify({ email: 'bruno@example.com', days: 30 }) }).then((r) => r.json()) as { ok: boolean; endsAt: string };
+    expect(grant.ok).toBe(true);
+    expect(Date.parse(grant.endsAt.replace(' ', 'T') + 'Z') - Date.now()).toBeGreaterThan(29 * 86400000);
+    expect(count("SELECT count(*) n FROM email_events WHERE template='premium_granted'")).toBe(1);
+    const renova = await worker.fetch('/api/admin/subscriptions/grant', { method: 'POST', headers: a.json(), body: JSON.stringify({ email: 'bruno@example.com', days: 30 }) }).then((r) => r.json()) as { endsAt: string };
+    expect(Date.parse(renova.endsAt.replace(' ', 'T') + 'Z') - Date.now()).toBeGreaterThan(59 * 86400000);
+
+    // cliente comum com o teste vencido e viagem daqui a 7 dias recebe a reativação, uma vez só
+    const emSete = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+    d1Query(persistTo, `INSERT INTO users(id,email,email_verified_at,status) VALUES('u-reativa','reativa@example.com',CURRENT_TIMESTAMP,'active'),('u-ativo','ativo@example.com',CURRENT_TIMESTAMP,'active')`);
+    d1Query(persistTo, `INSERT INTO profiles(user_id,display_name) VALUES('u-reativa','Rita Reativa'),('u-ativo','Ari Ativo')`);
+    d1Query(persistTo, `INSERT INTO subscriptions(id,user_id,plan_id,status,starts_at,ends_at) SELECT 's-ativo','u-ativo',id,'trialing',CURRENT_TIMESTAMP,datetime('now','+5 days') FROM plans WHERE code='trial-10d'`);
+    d1Query(persistTo, `INSERT INTO trips(id,owner_user_id,name,starts_on) VALUES('t-reativa','u-reativa','Paris','${emSete}'),('t-ativo','u-ativo','Roma','${emSete}')`);
+    await worker.fetch('/__scheduled?cron=20+*+*+*+*');
+    await new Promise((r) => setTimeout(r, 1500));
+    await worker.fetch('/__scheduled?cron=20+*+*+*+*');
+    await new Promise((r) => setTimeout(r, 1000));
+    expect(count("SELECT count(*) n FROM email_events WHERE template='planner_reactivation'")).toBe(1);
+    expect(count("SELECT count(*) n FROM trips WHERE id='t-reativa' AND reactivation_sent_at IS NOT NULL")).toBe(1);
+    expect(count("SELECT count(*) n FROM trips WHERE id='t-ativo' AND reactivation_sent_at IS NOT NULL")).toBe(0);
   }, 180_000);
 });
