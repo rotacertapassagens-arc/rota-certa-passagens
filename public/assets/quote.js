@@ -5,6 +5,15 @@ const howHeardSelect=document.getElementById('howHeard');
 const referralCodeField=document.getElementById('referralCodeField');
 const referralBanner=document.getElementById('referralBanner');
 
+// Pedido começado no formulário curto da página inicial (ou num cartão de destino): chega com
+// origem, destino e datas já preenchidos. Tudo continua sendo validado no envio.
+const startParams=new URLSearchParams(location.search);
+['origem','destino','ida','volta'].forEach((id)=>{
+  const value=startParams.get(id);
+  const field=document.getElementById(id);
+  if(value&&field&&!field.disabled)field.value=value.slice(0,160);
+});
+
 form.querySelectorAll('input[name=tipo]').forEach((radio)=>radio.addEventListener('change',()=>{
   const roundTrip=form.querySelector('input[name=tipo]:checked')?.value==='Ida e volta';
   returnInput.required=roundTrip;

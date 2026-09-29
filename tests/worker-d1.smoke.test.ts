@@ -214,7 +214,7 @@ describe('Worker + D1 (local, isolated): full smoke chain', () => {
         type: 'quote', name: 'Comprador Smoke', email: buyerEmail, phone: '+55 11 91234-5678',
         origem: 'São Paulo', destino: 'Lisboa', ida: '2027-04-10', volta: '2027-04-20', adults: 1,
         children: 0, infants: 0, tipo: 'Ida e volta', cabinClass: 'Econômica', baggage: 'Bagagem despachada',
-        flexibility: 'Datas fixas', paymentPreference: 'Dinheiro', observacoes: '', contactConsent: true,
+        flexibility: 'Datas fixas', paymentPreference: 'Pix', observacoes: '', contactConsent: true,
       }),
     });
     expect(lead.status, await lead.clone().text()).toBe(201);
@@ -280,7 +280,7 @@ describe('Worker + D1 (local, isolated): full smoke chain', () => {
         type: 'quote', name: 'Comprador Smoke 2', email: 'smoke-buyer-2@example.com', phone: '+55 11 98888-7777',
         origem: 'Rio de Janeiro', destino: 'Porto', ida: '2027-05-01', volta: '2027-05-15', adults: 1,
         children: 0, infants: 0, tipo: 'Ida e volta', cabinClass: 'Econômica', baggage: 'Bagagem despachada',
-        flexibility: 'Datas fixas', paymentPreference: 'Dinheiro', observacoes: '', contactConsent: true,
+        flexibility: 'Datas fixas', paymentPreference: 'Cartão de crédito em até 12x', observacoes: '', contactConsent: true,
       }),
     });
     expect(secondLead.status, await secondLead.clone().text()).toBe(201);

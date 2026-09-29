@@ -52,7 +52,10 @@ try {
   document.getElementById('adminContent').classList.remove('hidden');
   document.getElementById('metrics').innerHTML=`<div class="metric"><small>Propostas novas</small><strong>${overview.new_leads}</strong></div><div class="metric ${overview.overdue_leads?'warning':''}"><small>Prazo vencido</small><strong>${overview.overdue_leads}</strong></div><div class="metric"><small>Usuários</small><strong>${overview.users}</strong></div><div class="metric"><small>Acessos ativos</small><strong>${overview.active_access}</strong></div>`;
   document.getElementById('users').innerHTML=users.users.map((u)=>`<tr><td>${escapeHtml(u.display_name)}</td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.status)}</td><td>${escapeHtml((u.roles||[]).join(', '))}</td><td>${fmtDate(u.created_at)}</td></tr>`).join('');
-  document.getElementById('plans').innerHTML=plans.plans.map((p)=>`<tr><td>${escapeHtml(p.name)}</td><td>${fmtMoney(p.price_cents,p.currency)}</td><td>${p.duration_days?`${p.duration_days} dias`:'Proposta'}</td><td>${p.checkout_enabled?'Sandbox':'Manual'}</td></tr>`).join('');
+  // Só os planos ativos, na mesma ordem da página inicial: Free (10 dias), Premium e Personalizado.
+  const planOrder={'trial-10d':1,'planner-30d':2,personalized:3};
+  const activePlans=plans.plans.filter((p)=>p.active).sort((a,b)=>(planOrder[a.code]||9)-(planOrder[b.code]||9));
+  document.getElementById('plans').innerHTML=activePlans.map((p)=>`<tr><td>${escapeHtml(p.name)}</td><td>${fmtMoney(p.price_cents,p.currency)}</td><td>${p.duration_days?`${p.duration_days} dias`:p.code==='personalized'?'Sob proposta':'Sem prazo'}</td><td>${p.checkout_enabled?'Sandbox':'Manual'}</td></tr>`).join('');
   document.getElementById('payments').innerHTML=payments.payments.map((p)=>`<tr><td>${fmtDate(p.created_at)}</td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.plan_code||'-')}</td><td>${fmtMoney(p.amount_cents,p.currency)}</td><td>${escapeHtml(p.status)}</td></tr>`).join('')||'<tr><td colspan="5">Nenhum pagamento registrado.</td></tr>';
   await loadPartners();
   await loadPartnerProgramSettings();

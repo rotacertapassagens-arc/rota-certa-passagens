@@ -238,3 +238,21 @@ button:disabled,.button:disabled { opacity:.6; cursor:not-allowed; transform:non
   .pm-header .pm-wrap { justify-content:center; text-align:center; }
   .pm-cta-band .pm-wrap { flex-direction:column; align-items:flex-start; text-align:left; }
 }
+
+/* Faixa do topo (igual ao Planner): escura, de ponta a ponta, com foto por página */
+html { overflow-x:clip; }
+.top { position:relative; isolation:isolate; flex-wrap:wrap; align-items:center; min-height:150px; margin:-40px calc(50% - 50vw) 34px; padding:26px calc(50vw - 50%) 30px;
+  background:var(--navy) center/cover no-repeat; color:var(--white); border-bottom:3px solid var(--gold); }
+.top::before { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,rgba(13,27,42,.95) 0%,rgba(13,27,42,.84) 45%,rgba(13,27,42,.5) 100%); }
+.top[data-band="conta"] { background-image:url(/assets/telas/conta-senha.jpg); }
+.top[data-band="parceiros"] { background-image:url(/assets/parceiros/criadora-conteudo.jpg); }
+.top[data-band="painel"] { background-image:url(/assets/telas/painel-interno.jpg); }
+.top .brand { display:inline-flex; align-items:center; gap:10px; font-family:var(--font-display); font-size:1.45rem; color:var(--white) !important; }
+.top .brand::before { content:""; width:40px; height:40px; flex:0 0 40px; background:url(/assets/logo-simbolo-claro.png) center/contain no-repeat; }
+.top .brand span { color:var(--gold); }
+.top .muted { color:rgba(244,244,244,.82); margin:6px 0 0; }
+.top .button, .top a:not(.brand) { display:inline-flex; align-items:center; padding:10px 18px; border-radius:99px; background:rgba(13,27,42,.45); color:var(--white); border:1px solid rgba(244,244,244,.35); backdrop-filter:blur(4px); font-weight:700; text-decoration:none; }
+.top .button:hover, .top a:not(.brand):hover { background:var(--gold); color:var(--navy); border-color:var(--gold); }
+.panel { border-radius:14px; box-shadow:0 1px 2px rgba(13,27,42,.06),0 18px 36px -28px rgba(13,27,42,.5); }
+body { background:#e8ecf1; }
+@media (max-width:600px) { .top { min-height:0; padding-top:18px; padding-bottom:20px; } .top .brand { font-size:1.2rem; } }

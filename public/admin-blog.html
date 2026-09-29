@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Guias de viagem | Painel Rota Certa</title>
+  <link rel="stylesheet" href="/assets/portal.css">
+  <link rel="stylesheet" href="/assets/admin-blog.css">
+  <link rel="icon" href="/assets/favicon.png">
+</head>
+<body><main class="shell ab-shell">
+  <div class="top" data-band="painel">
+    <div><div class="brand">Rota Certa <span>Passagens</span></div><p class="muted">Guias de viagem (blog)</p></div>
+    <div class="ab-top-actions"><a class="button" href="/admin.html">Voltar ao painel</a><a class="button" href="/blog/" target="_blank" rel="noopener">Ver o blog</a></div>
+  </div>
+
+  <section class="panel" id="accessMessage">
+    <h1>Guias de viagem</h1>
+    <p id="accessText">Verificando o seu acesso...</p>
+    <a class="button hidden" id="accessLogin" href="/#/cliente">Entrar pela Área do cliente</a>
+  </section>
+
+  <div id="blogApp" class="hidden">
+    <!-- Lista de guias -->
+    <section class="panel" id="listView">
+      <div class="section-head">
+        <div><h1>Guias de viagem</h1><p class="muted">Crie, edite e publique os posts do blog. O que estiver publicado aparece em rotacertapassagens.com/blog.</p></div>
+        <a class="btn-primary" href="#/novo">+ Novo guia</a>
+      </div>
+      <div id="postList" class="ab-list"><p class="muted">Carregando guias...</p></div>
+    </section>
+
+    <!-- Editor -->
+    <section id="editorView" class="hidden" aria-labelledby="editorTitle">
+      <div class="ab-bar">
+        <a class="btn-text" href="#/" id="backToList">← Todos os guias</a>
+        <h1 id="editorTitle" class="ab-bar-title">Novo guia</h1>
+        <span class="ab-state" id="saveState" aria-live="polite"></span>
+        <div class="ab-bar-actions">
+          <button type="button" class="btn-secondary" id="previewBtn">Pré-visualizar</button>
+          <button type="button" class="btn-secondary" id="saveBtn">Salvar rascunho</button>
+          <button type="button" class="btn-primary" id="publishBtn">Publicar</button>
+        </div>
+      </div>
+      <p class="status" id="editorStatus" aria-live="polite"></p>
+
+      <div class="ab-grid">
+        <div class="ab-main">
+          <section class="panel">
+            <h2>Informações do guia</h2>
+            <label>Título<input id="fTitle" maxlength="140" placeholder="Ex.: Lisboa em 3 dias: bairros, miradouros e o que não pode faltar"></label>
+            <label>Trecho do título em dourado <small>opcional: copie aqui uma parte do título</small><input id="fHighlight" maxlength="80" placeholder="Ex.: o que não pode faltar"></label>
+            <label>Resumo <small>aparece nos cartões, no Google e ao compartilhar (10 a 300 letras)</small><textarea id="fSummary" maxlength="300" rows="3"></textarea></label>
+            <label>Frase abaixo do título <small>opcional; se ficar vazio, usa o resumo</small><textarea id="fLede" maxlength="300" rows="2"></textarea></label>
+            <div class="ab-row">
+              <label>Região<select id="fRegion"></select></label>
+              <label>Destino <small>vai preenchido no pedido de proposta</small><input id="fDestination" maxlength="80" placeholder="Ex.: Lisboa"></label>
+            </div>
+            <label>Chamada final <small>opcional; se vazio: "Quer conhecer (destino)?"</small><input id="fCta" maxlength="120" placeholder="Ex.: Vai voltar ao Brasil?"></label>
+          </section>
+
+          <section class="panel">
+            <h2>Foto de capa</h2>
+            <div class="ab-cover" id="coverBox"><span>Nenhuma foto escolhida</span></div>
+            <div class="ab-row ab-row-actions">
+              <button type="button" class="btn-secondary" id="coverBtn">Escolher foto de capa</button>
+              <input type="file" id="coverFile" accept="image/*" hidden>
+            </div>
+            <label>Descrição da foto <small>o que aparece nela, para quem usa leitor de tela</small><input id="fCoverAlt" maxlength="200" placeholder="Ex.: Telhados vermelhos da Alfama com o rio ao fundo"></label>
+          </section>
+
+          <section class="panel">
+            <div class="ab-blocks-head">
+              <h2>Conteúdo</h2>
+              <p class="muted ab-help">Dica: selecione um trecho e use <strong>Negrito</strong> ou <strong>Link</strong>. No texto fica assim: **negrito** e [texto](https://site.com).</p>
+            </div>
+            <div id="blocks" class="ab-blocks"></div>
+            <div class="ab-add" role="group" aria-label="Adicionar bloco ao conteúdo">
+              <span>Adicionar:</span>
+              <button type="button" data-add="p">Parágrafo</button>
+              <button type="button" data-add="h">Título de seção</button>
+              <button type="button" data-add="ul">Lista</button>
+              <button type="button" data-add="tip">Caixa de dicas</button>
+              <button type="button" data-add="img">Foto</button>
+              <button type="button" data-add="quote">Citação</button>
+            </div>
+          </section>
+        </div>
+
+        <aside class="ab-side">
+          <section class="panel">
+            <h2>Publicação</h2>
+            <p class="ab-status-line">Situação: <span class="tag tag-pending" id="statusTag">Rascunho</span></p>
+            <p class="muted ab-small" id="publishedLink"></p>
+            <label class="ab-check"><input type="checkbox" id="fFeatured"> Destaque grande na página de guias <small>só um guia fica em destaque por vez</small></label>
+            <label>Endereço do guia <small>rotacertapassagens.com/blog/…</small><input id="fSlug" maxlength="80" placeholder="criado a partir do título"></label>
+            <button type="button" class="btn-secondary btn-block hidden" id="unpublishBtn">Tirar do ar</button>
+            <button type="button" class="btn-text ab-danger hidden" id="deleteBtn">Excluir este guia</button>
+          </section>
+          <section class="panel ab-tips">
+            <h2>Como fazer um bom guia</h2>
+            <ul>
+              <li>Fotos do celular podem ir direto: o sistema reduz o tamanho sozinho.</li>
+              <li>Use "Título de seção" com um rótulo curto, como "Dia 1" ou "01", para dividir o roteiro.</li>
+              <li>A "Caixa de dicas" é ideal para o resumo prático no fim.</li>
+              <li>Não publique preço, número ou regra de visto sem fonte: isso muda o tempo todo.</li>
+              <li>Antes de publicar, clique em Pré-visualizar para ver como vai ficar.</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </div>
+</main>
+<script type="module" src="/assets/admin-blog.js"></script>
+</body>
+</html>
