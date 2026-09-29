@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { timingSafeEqual } from 'node:crypto';
 import { parseCommissionPaidPayload, parseWeeklySummaryPayload } from '../shared/notificationPayloads.js';
 import { calculateProgramCommission, lisbonMonthStartUtc, nextProgressiveTier, PARTNER_PRIVACY_POLICY_VERSION, type PartnerCommissionPolicy } from '../shared/partnerCommission.js';
@@ -190,6 +191,10 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const tripAction = p.match(/^\/api\/planner\/trips\/([0-9a-f-]+)\/(archive|restore)$/i);
   if (req.method === 'POST' && tripAction) return plannerTripAction(req, env, tripAction[1], tripAction[2]);
   if (req.method === 'POST' && p === '/api/planner/import-local') return plannerImport(req, env);
+  const attachUpload = p.match(/^\/api\/planner\/([0-9a-f-]+)\/itinerary\/([0-9a-f-]+)\/attachments$/i);
+  if (req.method === 'POST' && attachUpload) return plannerAttachmentUpload(req, env, attachUpload[1], attachUpload[2]);
+  const attachment = p.match(/^\/api\/planner\/([0-9a-f-]+)\/attachments\/([0-9a-f-]+)$/i);
+  if (attachment) return plannerAttachment(req, env, attachment[1], attachment[2]);
   const match = p.match(/^\/api\/planner\/([0-9a-f-]+)\/(itinerary|places|budget|expenses|checklist)(?:\/([0-9a-f-]+))?$/i);
   if (match) return plannerItem(req, env, match[1], match[2], match[3]);
   return reply({ error: 'not_found' }, 404);
@@ -705,7 +710,7 @@ async function flightQuoteLead(req:Request,env:Env){
 
 async function audit(env:Env,actor:string|null,action:string,targetType:string,targetId:string|null){await env.DB.prepare('INSERT INTO audit_events(id,actor_user_id,action,target_type,target_id) VALUES(?,?,?,?,?)').bind(crypto.randomUUID(),actor,action,targetType,targetId).run();}
 
-async function plannerGet(req:Request,env:Env,url:URL){const a=await getAuth(req,env);if(!a)return reply({error:'unauthorized'},401);const access=await requirePlannerAccess(a,env);if(!access)return reply({error:'free_trial_expired',upgrade_required:true},402);const id=url.searchParams.get('tripId');const trip=id?await env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,source,travelers,archived_at FROM trips WHERE id=? AND owner_user_id=?').bind(id,a.userId).first<Row>():await env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,source,travelers,archived_at FROM trips WHERE owner_user_id=? ORDER BY (archived_at IS NOT NULL),updated_at DESC LIMIT 1').bind(a.userId).first<Row>();if(!trip)return reply({error:'trip_not_found'},404);const tripId=String(trip.id);const [it,places,expenses,budget,checklist,trips]=await Promise.all([env.DB.prepare('SELECT id,day_number day,starts_at time,title,kind,notes FROM itinerary_items WHERE owner_user_id=? AND trip_id=? ORDER BY day_number,sort_order,starts_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,name,category,address,notes,latitude,longitude FROM places WHERE owner_user_id=? AND trip_id=? ORDER BY created_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,category,description,amount_cents,currency,spent_on FROM expenses WHERE owner_user_id=? AND trip_id=? ORDER BY created_at DESC').bind(a.userId,tripId).all(),env.DB.prepare('SELECT amount_cents,currency FROM budgets WHERE owner_user_id=? AND trip_id=?').bind(a.userId,tripId).first(),env.DB.prepare('SELECT id,text,completed,sort_order FROM checklist_items WHERE owner_user_id=? AND trip_id=? ORDER BY sort_order,created_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,travelers,archived_at,updated_at FROM trips WHERE owner_user_id=? ORDER BY (archived_at IS NOT NULL),updated_at DESC').bind(a.userId).all()]);return reply({trip,trips:trips.results,entitlement:access,itinerary:it.results,places:places.results,expenses:expenses.results,budget:budget||{amount_cents:0,currency:'EUR'},checklist:checklist.results.map((x:Row)=>({...x,completed:Boolean(x.completed)}))});}
+async function plannerGet(req:Request,env:Env,url:URL){const a=await getAuth(req,env);if(!a)return reply({error:'unauthorized'},401);const access=await requirePlannerAccess(a,env);if(!access)return reply({error:'free_trial_expired',upgrade_required:true},402);const id=url.searchParams.get('tripId');const trip=id?await env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,source,travelers,archived_at FROM trips WHERE id=? AND owner_user_id=?').bind(id,a.userId).first<Row>():await env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,source,travelers,archived_at FROM trips WHERE owner_user_id=? ORDER BY (archived_at IS NOT NULL),updated_at DESC LIMIT 1').bind(a.userId).first<Row>();if(!trip)return reply({error:'trip_not_found'},404);const tripId=String(trip.id);const [it,places,expenses,budget,checklist,trips,files]=await Promise.all([env.DB.prepare('SELECT id,day_number day,starts_at time,title,kind,notes,booking_code,booking_url FROM itinerary_items WHERE owner_user_id=? AND trip_id=? ORDER BY day_number,sort_order,starts_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,name,category,address,notes,latitude,longitude FROM places WHERE owner_user_id=? AND trip_id=? ORDER BY created_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,category,description,amount_cents,currency,spent_on FROM expenses WHERE owner_user_id=? AND trip_id=? ORDER BY created_at DESC').bind(a.userId,tripId).all(),env.DB.prepare('SELECT amount_cents,currency FROM budgets WHERE owner_user_id=? AND trip_id=?').bind(a.userId,tripId).first(),env.DB.prepare('SELECT id,text,completed,sort_order FROM checklist_items WHERE owner_user_id=? AND trip_id=? ORDER BY sort_order,created_at').bind(a.userId,tripId).all(),env.DB.prepare('SELECT id,name,destination,starts_on,ends_on,travelers,archived_at,updated_at FROM trips WHERE owner_user_id=? ORDER BY (archived_at IS NOT NULL),updated_at DESC').bind(a.userId).all(),env.DB.prepare('SELECT id,item_id,name,content_type,size,created_at FROM planner_attachments WHERE owner_user_id=? AND trip_id=? ORDER BY created_at').bind(a.userId,tripId).all()]);return reply({trip,trips:trips.results,entitlement:access,itinerary:it.results,places:places.results,expenses:expenses.results,budget:budget||{amount_cents:0,currency:'EUR'},checklist:checklist.results.map((x:Row)=>({...x,completed:Boolean(x.completed)})),attachments:files.results});}
 async function plannerTrip(req:Request,env:Env){const a=await mutationAuth(req,env);if(!a)return reply({error:'unauthorized'},401);const access=await requirePlannerAccess(a,env);if(!access)return reply({error:'free_trial_expired',upgrade_required:true},402);if(!(await canCreateActiveTrip(a,env,access)))return reply({error:'free_active_trip_limit',upgrade_required:true},403);const b=await body(req);const name=text(b?.name,120,1);if(!name)return reply({error:'invalid_trip'},400);const id=crypto.randomUUID();const travelers=Number.isInteger(b?.travelers)?Number(b?.travelers):1;await env.DB.batch([env.DB.prepare('INSERT INTO trips(id,owner_user_id,name,destination,starts_on,ends_on,travelers) VALUES(?,?,?,?,?,?,?)').bind(id,a.userId,name,text(b?.destination,180),text(b?.startsOn,10),text(b?.endsOn,10),travelers),env.DB.prepare("INSERT INTO budgets(trip_id,owner_user_id,amount_cents,currency) VALUES(?,?,0,'EUR')").bind(id,a.userId)]);return reply({id},201);}
 async function plannerTripAction(req:Request,env:Env,tripId:string,action:string){const a=await mutationAuth(req,env);if(!a)return reply({error:'unauthorized'},401);const access=await requirePlannerAccess(a,env);if(!access)return reply({error:'free_trial_expired',upgrade_required:true},402);const trip=await env.DB.prepare('SELECT id,archived_at FROM trips WHERE id=? AND owner_user_id=?').bind(tripId,a.userId).first<Row>();if(!trip)return reply({error:'trip_not_found'},404);if(action==='archive'){if(trip.archived_at)return reply({ok:true});if(!access.unlimited){const count=await env.DB.prepare('SELECT count(*) n FROM trips WHERE owner_user_id=? AND archived_at IS NOT NULL').bind(a.userId).first<{n:number}>();if(Number(count?.n||0)>=2)return reply({error:'free_archived_trip_limit',upgrade_required:true},403);}await env.DB.prepare('UPDATE trips SET archived_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND owner_user_id=?').bind(tripId,a.userId).run();await audit(env,a.userId,'planner.trip_archived','trip',tripId);return reply({ok:true});}if(action==='restore'){if(!trip.archived_at)return reply({ok:true});if(!(await canCreateActiveTrip(a,env,access)))return reply({error:'free_active_trip_limit',upgrade_required:true},403);await env.DB.prepare('UPDATE trips SET archived_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND owner_user_id=?').bind(tripId,a.userId).run();await audit(env,a.userId,'planner.trip_restored','trip',tripId);return reply({ok:true});}return reply({error:'not_found'},404);}
 async function ownedTrip(env:Env,userId:string,tripId:string){return await env.DB.prepare('SELECT archived_at FROM trips WHERE id=? AND owner_user_id=?').bind(tripId,userId).first<Row>();}
@@ -713,13 +718,98 @@ async function plannerItem(req:Request,env:Env,tripId:string,kind:string,itemId?
   if(req.method==='DELETE'&&itemId){const table=kind==='itinerary'?'itinerary_items':kind==='places'?'places':kind==='expenses'?'expenses':kind==='checklist'?'checklist_items':null;if(!table)return reply({error:'invalid_item'},400);const r=await env.DB.prepare(`DELETE FROM ${table} WHERE id=? AND trip_id=? AND owner_user_id=?`).bind(itemId,tripId,a.userId).run();return r.meta.changes?reply({ok:true}):reply({error:'item_not_found'},404);}
   if(kind==='budget'&&req.method==='PUT'){const amount=Number(b?.amount);if(!Number.isFinite(amount)||amount<0)return reply({error:'invalid_budget'},400);await env.DB.prepare('UPDATE budgets SET amount_cents=?,updated_at=CURRENT_TIMESTAMP WHERE trip_id=? AND owner_user_id=?').bind(Math.round(amount*100),tripId,a.userId).run();return reply({ok:true});}
   if(kind==='checklist'&&req.method==='PATCH'&&itemId){if(typeof b?.completed!=='boolean')return reply({error:'invalid_checklist_item'},400);const r=await env.DB.prepare('UPDATE checklist_items SET completed=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND trip_id=? AND owner_user_id=?').bind(b.completed?1:0,itemId,tripId,a.userId).run();return r.meta.changes?reply({ok:true}):reply({error:'item_not_found'},404);}
+  if(kind==='itinerary'&&req.method==='PATCH'&&itemId)return plannerItineraryPatch(env,a.userId,tripId,itemId,b);
   const id=crypto.randomUUID();
-  if(kind==='itinerary'&&req.method==='POST'){const day=Number(b?.day),title=text(b?.title,240,1),itemKind=text(b?.kind,60,1);if(!Number.isInteger(day)||day<1||!title||!itemKind)return reply({error:'invalid_itinerary_item'},400);await env.DB.prepare('INSERT INTO itinerary_items(id,trip_id,owner_user_id,day_number,starts_at,title,kind,notes) VALUES(?,?,?,?,?,?,?,?)').bind(id,tripId,a.userId,day,text(b?.time,5),title,itemKind,text(b?.notes,2000)).run();return reply({id},201);}
+  if(kind==='itinerary'&&req.method==='POST'){const day=Number(b?.day),title=text(b?.title,240,1),itemKind=text(b?.kind,60,1);if(!Number.isInteger(day)||day<1||!title||!itemKind)return reply({error:'invalid_itinerary_item'},400);const code=bookingCodeOf(b?.bookingCode),link=bookingUrlOf(b?.bookingUrl);if(code===false)return reply({error:'invalid_booking_code'},400);if(link===false)return reply({error:'invalid_booking_url'},400);await env.DB.prepare('INSERT INTO itinerary_items(id,trip_id,owner_user_id,day_number,starts_at,title,kind,notes,booking_code,booking_url) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(id,tripId,a.userId,day,text(b?.time,5),title,itemKind,text(b?.notes,2000),code??null,link??null).run();return reply({id},201);}
   if(kind==='places'&&req.method==='POST'){const name=text(b?.name,240,1),category=text(b?.category,60,1);if(!name||!category)return reply({error:'invalid_place'},400);await env.DB.prepare('INSERT INTO places(id,trip_id,owner_user_id,name,category,address,notes) VALUES(?,?,?,?,?,?,?)').bind(id,tripId,a.userId,name,category,text(b?.address,500),text(b?.notes,2000)).run();return reply({id},201);}
   if(kind==='expenses'&&req.method==='POST'){const amount=Number(b?.amount),category=text(b?.category,60,1),description=text(b?.description,500,1);if(!Number.isFinite(amount)||amount<=0||!category||!description)return reply({error:'invalid_expense'},400);await env.DB.prepare("INSERT INTO expenses(id,trip_id,owner_user_id,category,description,amount_cents,currency) VALUES(?,?,?,?,?,?,'EUR')").bind(id,tripId,a.userId,category,description,Math.round(amount*100)).run();return reply({id},201);}
   if(kind==='checklist'&&req.method==='POST'){const itemText=text(b?.text,300,1);if(!itemText)return reply({error:'invalid_checklist_item'},400);await env.DB.prepare('INSERT INTO checklist_items(id,trip_id,owner_user_id,text,sort_order) VALUES(?,?,?,?,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM checklist_items WHERE trip_id=? AND owner_user_id=?))').bind(id,tripId,a.userId,itemText,tripId,a.userId).run();return reply({id},201);}return reply({error:'not_found'},404);
 }
 async function plannerImport(req:Request,env:Env){const a=await mutationAuth(req,env);if(!a)return reply({error:'unauthorized'},401);const access=await requirePlannerAccess(a,env);if(!access)return reply({error:'free_trial_expired',upgrade_required:true},402);if(!(await canCreateActiveTrip(a,env,access)))return reply({error:'free_active_trip_limit',upgrade_required:true},403);const b=await body(req);if(!b||!Array.isArray(b.itinerary)||!Array.isArray(b.places)||!Array.isArray(b.expenses)||!Array.isArray(b.checklist))return reply({error:'invalid_import'},400);const id=crypto.randomUUID();await env.DB.batch([env.DB.prepare("INSERT INTO trips(id,owner_user_id,name,source) VALUES(?,?,'Viagem importada do navegador','local_import')").bind(id,a.userId),env.DB.prepare("INSERT INTO budgets(trip_id,owner_user_id,amount_cents,currency) VALUES(?,?,?,'EUR')").bind(id,a.userId,Math.round(Number(b.budget||0)*100))]);const stmts:D1PreparedStatement[]=[];for(const x of b.itinerary.slice(0,1000) as Row[]){const title=text(x.what,240,1);if(title)stmts.push(env.DB.prepare('INSERT INTO itinerary_items(id,trip_id,owner_user_id,day_number,starts_at,title,kind,notes) VALUES(?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),id,a.userId,Math.max(1,Number(x.day)||1),text(x.time,5),title,text(x.type,60)||'Atividade',text(x.notes,2000)));}for(const x of b.places.slice(0,1000) as Row[]){const name=text(x.name,240,1);if(name)stmts.push(env.DB.prepare('INSERT INTO places(id,trip_id,owner_user_id,name,category,address,notes) VALUES(?,?,?,?,?,?,?)').bind(crypto.randomUUID(),id,a.userId,name,text(x.type,60)||'Outro',text(x.address,500),text(x.notes,2000)));}for(const x of b.expenses.slice(0,1000) as Row[]){const amount=Number(x.value),description=text(x.desc,500,1);if(amount>0&&description)stmts.push(env.DB.prepare("INSERT INTO expenses(id,trip_id,owner_user_id,category,description,amount_cents,currency) VALUES(?,?,?,?,?,?,'EUR')").bind(crypto.randomUUID(),id,a.userId,text(x.type,60)||'Outros',description,Math.round(amount*100)));}for(const [i,x] of (b.checklist.slice(0,1000) as Row[]).entries()){const t=text(x.text,300,1);if(t)stmts.push(env.DB.prepare('INSERT INTO checklist_items(id,trip_id,owner_user_id,text,completed,sort_order) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),id,a.userId,t,x.done?1:0,i));}for(let i=0;i<stmts.length;i+=100)await env.DB.batch(stmts.slice(i,i+100));return reply({id},201);}
+
+// --- Planner: reserva e anexos de cada item do roteiro ---------------------------------------
+// Anexos ficam no D1 em base64 (o R2 exige cartão). Os limites protegem o banco de 500 MB do plano grátis.
+const ATTACH_MAX_BYTES=1_400_000,ATTACH_PER_ITEM=5,ATTACH_USER_QUOTA=20_000_000,ATTACH_GLOBAL_QUOTA=150_000_000;
+/** undefined = não mexer; null = apagar; false = inválido. */
+function bookingCodeOf(v:unknown):string|null|undefined|false{if(v===undefined)return undefined;if(v===null||v==='')return null;return text(v,80,1)??false;}
+function bookingUrlOf(v:unknown):string|null|undefined|false{
+  if(v===undefined)return undefined;if(v===null||v==='')return null;if(typeof v!=='string'||v.trim().length>500)return false;
+  try{const u=new URL(v.trim());return u.protocol==='https:'||u.protocol==='http:'?u.toString():false;}catch{return false;}
+}
+async function plannerItineraryPatch(env:Env,userId:string,tripId:string,itemId:string,b:Row|null){
+  if(!b)return reply({error:'invalid_itinerary_item'},400);
+  const sets:string[]=[],vals:unknown[]=[];
+  if(b.day!==undefined){const day=Number(b.day);if(!Number.isInteger(day)||day<1)return reply({error:'invalid_itinerary_item'},400);sets.push('day_number=?');vals.push(day);}
+  if(b.time!==undefined){sets.push('starts_at=?');vals.push(text(b.time,5)||null);}
+  if(b.title!==undefined){const title=text(b.title,240,1);if(!title)return reply({error:'invalid_itinerary_item'},400);sets.push('title=?');vals.push(title);}
+  if(b.kind!==undefined){const kind=text(b.kind,60,1);if(!kind)return reply({error:'invalid_itinerary_item'},400);sets.push('kind=?');vals.push(kind);}
+  if(b.notes!==undefined){sets.push('notes=?');vals.push(text(b.notes,2000)||null);}
+  const code=bookingCodeOf(b.bookingCode);if(code===false)return reply({error:'invalid_booking_code'},400);if(code!==undefined){sets.push('booking_code=?');vals.push(code);}
+  const link=bookingUrlOf(b.bookingUrl);if(link===false)return reply({error:'invalid_booking_url'},400);if(link!==undefined){sets.push('booking_url=?');vals.push(link);}
+  if(!sets.length)return reply({error:'invalid_itinerary_item'},400);
+  const r=await env.DB.prepare(`UPDATE itinerary_items SET ${sets.join(',')} WHERE id=? AND trip_id=? AND owner_user_id=?`).bind(...vals,itemId,tripId,userId).run();
+  return r.meta.changes?reply({ok:true}):reply({error:'item_not_found'},404);
+}
+/** Tipo pelo conteúdo (assinatura do arquivo), nunca pelo nome ou pelo que o navegador declarou. */
+function attachmentType(bytes:Uint8Array):string|null{
+  const ascii=(from:number,to:number)=>String.fromCharCode(...bytes.slice(from,to));
+  if(bytes.length>=5&&ascii(0,5)==='%PDF-')return 'application/pdf';
+  if(bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff)return 'image/jpeg';
+  if(bytes.length>=8&&bytes[0]===0x89&&ascii(1,4)==='PNG')return 'image/png';
+  if(bytes.length>=12&&ascii(0,4)==='RIFF'&&ascii(8,12)==='WEBP')return 'image/webp';
+  return null;
+}
+function attachmentName(value:unknown,type:string){
+  const clean=typeof value==='string'?value.normalize('NFC').replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g,' ').replace(/\s+/g,' ').trim().slice(0,120):'';
+  const ext=type==='application/pdf'?'.pdf':type==='image/png'?'.png':type==='image/webp'?'.webp':'.jpg';
+  const name=clean||'Anexo';
+  return /\.[a-z0-9]{2,4}$/i.test(name)?name:name+ext;
+}
+async function plannerAttachmentUpload(req:Request,env:Env,tripId:string,itemId:string){
+  const a=await mutationAuth(req,env);if(!a)return reply({error:'unauthorized'},401);
+  if(!(await requirePlannerAccess(a,env)))return reply({error:'free_trial_expired',upgrade_required:true},402);
+  const trip=await ownedTrip(env,a.userId,tripId);if(!trip)return reply({error:'trip_not_found'},404);if(trip.archived_at)return reply({error:'trip_archived'},409);
+  const item=await env.DB.prepare('SELECT id FROM itinerary_items WHERE id=? AND trip_id=? AND owner_user_id=?').bind(itemId,tripId,a.userId).first();if(!item)return reply({error:'item_not_found'},404);
+  if(Number(req.headers.get('content-length')||0)>ATTACH_MAX_BYTES+64_000)return reply({error:'attachment_too_large'},413);
+  let form:FormData;try{form=await req.formData();}catch{return reply({error:'invalid_upload'},400);}
+  const file=form.get('file');if(!file||typeof file==='string')return reply({error:'invalid_upload'},400);
+  const bytes=new Uint8Array(await (file as File).arrayBuffer());
+  if(!bytes.length)return reply({error:'invalid_upload'},400);if(bytes.length>ATTACH_MAX_BYTES)return reply({error:'attachment_too_large'},413);
+  const type=attachmentType(bytes);if(!type)return reply({error:'unsupported_attachment_type'},415);
+  const [perItem,perUser,global]=await Promise.all([
+    env.DB.prepare('SELECT count(*) n FROM planner_attachments WHERE item_id=? AND owner_user_id=?').bind(itemId,a.userId).first<{n:number}>(),
+    env.DB.prepare('SELECT COALESCE(SUM(size),0) n FROM planner_attachments WHERE owner_user_id=?').bind(a.userId).first<{n:number}>(),
+    env.DB.prepare('SELECT COALESCE(SUM(size),0) n FROM planner_attachments').first<{n:number}>(),
+  ]);
+  if(Number(perItem?.n||0)>=ATTACH_PER_ITEM)return reply({error:'attachment_item_limit'},409);
+  if(Number(perUser?.n||0)+bytes.length>ATTACH_USER_QUOTA)return reply({error:'attachment_quota_exceeded'},409);
+  if(Number(global?.n||0)+bytes.length>ATTACH_GLOBAL_QUOTA)return reply({error:'attachment_storage_full'},507);
+  const id=crypto.randomUUID(),name=attachmentName(form.get('name')??(file as File).name,type);
+  // Os limites por item e por conta são conferidos de novo dentro do próprio INSERT (dois envios ao mesmo tempo não passam juntos).
+  const r=await env.DB.prepare(`INSERT INTO planner_attachments(id,trip_id,item_id,owner_user_id,name,content_type,size,data)
+    SELECT ?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM planner_attachments WHERE item_id=? AND owner_user_id=?)<?
+    AND (SELECT COALESCE(SUM(size),0) FROM planner_attachments WHERE owner_user_id=?)+?<=?`)
+    .bind(id,tripId,itemId,a.userId,name,type,bytes.length,Buffer.from(bytes).toString('base64'),itemId,a.userId,ATTACH_PER_ITEM,a.userId,bytes.length,ATTACH_USER_QUOTA).run();
+  if(!r.meta.changes)return reply({error:'attachment_item_limit'},409);
+  return reply({id,name,contentType:type,size:bytes.length},201);
+}
+async function plannerAttachment(req:Request,env:Env,tripId:string,id:string){
+  if(req.method==='DELETE'){
+    const a=await mutationAuth(req,env);if(!a)return reply({error:'unauthorized'},401);
+    const trip=await ownedTrip(env,a.userId,tripId);if(!trip)return reply({error:'trip_not_found'},404);if(trip.archived_at)return reply({error:'trip_archived'},409);
+    const r=await env.DB.prepare('DELETE FROM planner_attachments WHERE id=? AND trip_id=? AND owner_user_id=?').bind(id,tripId,a.userId).run();
+    return r.meta.changes?reply({ok:true}):reply({error:'attachment_not_found'},404);
+  }
+  if(req.method!=='GET')return reply({error:'not_found'},404);
+  // Só o dono abre o arquivo. Continua disponível mesmo com o teste Free vencido: o bilhete é do cliente.
+  const a=await getAuth(req,env);if(!a)return reply({error:'unauthorized'},401);
+  const row=await env.DB.prepare('SELECT name,content_type,data FROM planner_attachments WHERE id=? AND trip_id=? AND owner_user_id=?').bind(id,tripId,a.userId).first<Row>();
+  if(!row)return reply({error:'attachment_not_found'},404);
+  const type=String(row.content_type);
+  const headers=new Headers({'content-type':type,'content-disposition':`inline; filename*=UTF-8''${encodeURIComponent(String(row.name)).replace(/['()*]/g,(c)=>'%'+c.charCodeAt(0).toString(16).toUpperCase())}`,'cache-control':'private, no-store'});
+  if(type.startsWith('image/'))headers.set('content-security-policy',"default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
+  return new Response(Buffer.from(String(row.data),'base64'),{headers});
+}
 
 // --- Partner referral program -------------------------------------------------------------
 

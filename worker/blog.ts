@@ -170,10 +170,25 @@ function footer(scripts: string[]) {
   return `
 <footer class="bl-footer">
   <div class="wrap">
-    <div class="bl-foot-grid">
+    <div class="foot-grid">
       <div>
-        <a class="bl-logo" href="/"><img src="/assets/logo-simbolo-claro.png" alt="" width="40" height="40" loading="lazy">Rota Certa <span>Passagens</span></a>
-        <p>Você escolhe o destino. Nós tratamos da rota.</p>
+        <a class="bl-logo foot-logo" href="/"><img src="/assets/logo-simbolo-claro.png" alt="" width="46" height="46" loading="lazy">Rota Certa <span>Passagens</span></a>
+        <p class="foot-tag">Você escolhe o destino. Nós tratamos da rota.</p>
+        <div class="foot-pay">
+          <h2>Formas de pagamento</h2>
+          <p>Cartão de crédito em até 12x</p>
+          <ul class="foot-pay-row" aria-label="Bandeiras de cartão aceitas">
+            <li><img src="/assets/pagamento/mastercard.svg" alt="Mastercard" title="Mastercard" width="30" height="19" loading="lazy" decoding="async"></li>
+            <li><img src="/assets/pagamento/visa.svg" alt="Visa" title="Visa" width="30" height="19" loading="lazy" decoding="async"></li>
+            <li><img src="/assets/pagamento/amex.svg" alt="American Express" title="American Express" width="30" height="19" loading="lazy" decoding="async"></li>
+            <li><img src="/assets/pagamento/hipercard.svg" alt="Hipercard" title="Hipercard" width="30" height="19" loading="lazy" decoding="async"></li>
+            <li><img src="/assets/pagamento/elo.svg" alt="Elo" title="Elo" width="30" height="19" loading="lazy" decoding="async"></li>
+          </ul>
+          <p>Pagamento via Pix</p>
+          <ul class="foot-pay-row" aria-label="Pix">
+            <li><img src="/assets/pagamento/pix.svg" alt="Pix" title="Pix" width="30" height="19" loading="lazy" decoding="async"></li>
+          </ul>
+        </div>
       </div>
       <div>
         <h2>Explorar</h2>
@@ -181,6 +196,7 @@ function footer(scripts: string[]) {
           <li><a href="/#como-funciona">Como funciona</a></li>
           <li><a href="/#servicos">Serviços</a></li>
           <li><a href="/#planner">Rota Certa Planner</a></li>
+          <li><a href="/#destinos">Destinos</a></li>
           <li><a href="/blog/">Guias de viagem</a></li>
         </ul>
       </div>
@@ -189,7 +205,7 @@ function footer(scripts: string[]) {
         <ul>
           <li><a href="/#faq">Perguntas frequentes</a></li>
           <li><a href="/#sobre">Sobre nós</a></li>
-          <li><a href="/proposta-voo">Pedir proposta de voo</a></li>
+          <li><a href="/#planejar">Planejar viagem</a></li>
         </ul>
       </div>
       <div>
@@ -202,9 +218,9 @@ function footer(scripts: string[]) {
         </ul>
       </div>
     </div>
-    <div class="bl-foot-bottom">
+    <div class="foot-bottom">
       <span>© ${new Date().getUTCFullYear()} Rota Certa Passagens. Todos os direitos reservados.</span>
-      <span>Fotos: Pexels e equipe Rota Certa.</span>
+      <span>Feito com cuidado para quem viaja.</span>
     </div>
   </div>
 </footer>
