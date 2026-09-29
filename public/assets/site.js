@@ -119,6 +119,7 @@ async function loadPlanner(tripId = selectedTripId) {
     checklist: payload.checklist.map((item) => ({ id: item.id, text: item.text, done: item.completed })),
     budget: payload.budget.amount_cents / 100,
   };
+  void cacheAttachments();
 }
 
 function requireAccount() {
@@ -248,6 +249,7 @@ function plannerError(error) {
     trip_archived: 'Esta viagem está arquivada. Restaure a viagem para editar.',
     free_trial_expired: 'O seu teste Free terminou. Assine o Premium para continuar editando.',
   };
+  if (!navigator.onLine) return 'Você está sem internet. Conecte-se para salvar mudanças; o que já está salvo continua disponível.';
   return messages[code] || 'Não foi possível salvar agora. Tente de novo em instantes.';
 }
 async function compressImage(file) {
@@ -351,7 +353,7 @@ function renderItinerary(element) {
   element.innerHTML = `<div class="pl-toolbar"><div><strong>${plural(items.length, 'atividade planejada', 'atividades planejadas')}</strong><small>${days.length ? `em ${plural(days.length, 'dia', 'dias')} de viagem` : 'Comece pelo voo ou pelo hotel'}</small></div><button class="btn btn-gold" id="toggleItinerary">+ Adicionar atividade</button></div>`
     + `<div class="planner-form pl-form hidden" id="itineraryForm"><h3>Nova atividade</h3>${fields('i')}<div class="pl-form-actions"><button class="btn btn-gold" id="addItinerary">Adicionar ao roteiro</button></div></div>`
     + (items.length ? days.map(dayHtml).join('') : `<div class="planner-card pl-empty">${plIcon('calendar')}<strong>Seu roteiro está vazio</strong><p>Adicione o voo, o hotel e os passeios de cada dia. Dá para guardar o código e o link da reserva e anexar o bilhete em PDF ou foto.</p></div>`)
-    + `<p class="pl-privacy">${plIcon('lock')}Reservas e anexos ficam só na sua conta: apenas você, com a sua senha, consegue abrir.</p>`
+    + `<p class="pl-privacy">${plIcon('lock')}Reservas e anexos ficam só na sua conta: apenas você, com a sua senha, consegue abrir. Os anexos também ficam guardados neste aparelho para abrir sem internet e são apagados quando você sai da conta.</p>`
     + '<input type="file" id="itFile" accept="application/pdf,image/*" hidden>';
   const again = async () => { await loadPlanner(); renderItinerary(element); };
   document.getElementById('toggleItinerary').onclick = () => { if (!requireAccount()) document.getElementById('itineraryForm').classList.toggle('hidden'); };
@@ -568,6 +570,7 @@ function bindClientForms() {
   };
   document.getElementById('logoutBtn').onclick = async () => {
     try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
+    await clearDeviceData();
     session = null; plannerLocked = true; location.hash = '/cliente'; await router();
   };
 }
@@ -683,3 +686,57 @@ document.addEventListener('click', (event) => {
 await refreshSession();
 await detectCurrency();
 await router();
+
+// --- App Rota Certa (PWA): instalar na tela do celular e funcionar sem internet ---------------------
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+let installPrompt = null;
+function showInstallButtons(show) { document.querySelectorAll('[data-install-app]').forEach((element) => { element.hidden = !show; }); }
+if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault(); installPrompt = event; showInstallButtons(true); });
+window.addEventListener('appinstalled', () => { installPrompt = null; showInstallButtons(false); });
+if (isIos && !isStandalone()) showInstallButtons(true);
+document.addEventListener('click', async (event) => {
+  const trigger = event.target.closest('[data-install-app]');
+  if (!trigger) return;
+  event.preventDefault();
+  if (installPrompt) {
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice.catch(() => null);
+    installPrompt = null;
+    if (choice?.outcome === 'accepted') showInstallButtons(false);
+    return;
+  }
+  notify(isIos
+    ? 'Para instalar no iPhone: no Safari, toque em Compartilhar (o quadrado com a seta para cima) e depois em "Adicionar à Tela de Início".'
+    : 'Para instalar: abra o menu do navegador e escolha "Instalar app" ou "Adicionar à tela inicial".');
+});
+function updateOnlineBanner() {
+  let banner = document.getElementById('offlineBanner');
+  if (navigator.onLine) { banner?.remove(); return; }
+  if (banner) return;
+  banner = document.createElement('div');
+  banner.id = 'offlineBanner';
+  banner.className = 'rc-offline';
+  banner.setAttribute('role', 'status');
+  banner.textContent = 'Você está sem internet. Mostrando a última versão salva da sua viagem; para editar, conecte-se de novo.';
+  document.body.append(banner);
+}
+window.addEventListener('online', updateOnlineBanner);
+window.addEventListener('offline', updateOnlineBanner);
+updateOnlineBanner();
+/** Guarda no aparelho os bilhetes e vouchers da viagem aberta, para abrir sem internet. */
+async function cacheAttachments() {
+  if (!('caches' in window) || !session || !data?.trip?.id || !navigator.onLine) return;
+  try {
+    const cache = await caches.open('rc-anexos');
+    for (const file of data.attachments || []) {
+      const url = `/api/planner/${data.trip.id}/attachments/${file.id}`;
+      if (!(await cache.match(url))) await cache.add(url).catch(() => {});
+    }
+  } catch { /* sem espaço ou navegador sem suporte: segue normal */ }
+}
+async function clearDeviceData() {
+  if (!('caches' in window)) return;
+  await Promise.all(['rc-dados', 'rc-anexos'].map((name) => caches.delete(name).catch(() => false)));
+}

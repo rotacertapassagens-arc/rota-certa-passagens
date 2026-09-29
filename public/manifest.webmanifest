@@ -1,0 +1,23 @@
+{
+  "name": "Rota Certa Passagens",
+  "short_name": "Rota Certa",
+  "description": "O Planner da Rota Certa: roteiro, reservas, bilhetes, mapa e orçamento da sua viagem, até sem internet.",
+  "lang": "pt-BR",
+  "start_url": "/?origem=app#/planner",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1b2a",
+  "theme_color": "#0d1b2a",
+  "categories": ["travel"],
+  "icons": [
+    { "src": "/assets/app/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/app/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/app/icone-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/assets/app/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Itinerário", "url": "/?origem=app#/planner/itinerario", "icons": [{ "src": "/assets/app/icone-192.png", "sizes": "192x192" }] },
+    { "name": "Orçamento", "url": "/?origem=app#/planner/orcamento", "icons": [{ "src": "/assets/app/icone-192.png", "sizes": "192x192" }] }
+  ]
+}
