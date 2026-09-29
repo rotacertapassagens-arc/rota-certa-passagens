@@ -24,7 +24,7 @@ const quoteSchema = z.object({
   cabinClass: z.enum(['Econômica', 'Premium Economy', 'Executiva', 'Primeira classe']),
   baggage: z.enum(['Somente item pessoal', 'Bagagem de mão', 'Bagagem despachada', 'Ainda não sei']),
   flexibility: z.enum(['Datas fixas', 'Até 3 dias', 'Até 7 dias', 'Datas flexíveis']),
-  paymentPreference: z.enum(['Dinheiro', 'Milhas', 'Dinheiro ou milhas']),
+  paymentPreference: z.enum(['Pix', 'Cartão de crédito em até 12x', 'Ainda não sei', 'Dinheiro', 'Milhas', 'Dinheiro ou milhas']),
   observacoes: z.string().trim().max(3000).optional(),
   contactConsent: z.literal(true),
   howHeard: z.enum(['Instagram', 'Indicação de um amigo', 'Indicação de um parceiro/influenciador', 'Google', 'Outro']).optional(),

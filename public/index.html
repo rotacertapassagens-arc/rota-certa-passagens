@@ -289,6 +289,16 @@
   .qb-points{ display:grid; gap:4px; }
   .qb-points li{ display:flex; gap:12px; align-items:center; padding:6px 0; color: var(--off-white); font-weight:500; }
   .qb-points svg{ width:22px; height:22px; flex:0 0 22px; color: var(--gold); }
+  .qb-pay{ max-width:520px; margin-top:22px; padding:18px 20px; border-radius:14px; background:rgba(13,27,42,.55);
+    border:1px solid rgba(212,175,55,.32); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  .qb-pay-kicker{ font-family:'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size:.66rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color: var(--gold); margin-bottom:12px; }
+  .qb-pay-methods{ display:flex; flex-wrap:wrap; gap:10px; }
+  .qb-pay-chip{ display:inline-flex; align-items:center; gap:9px; padding:9px 16px 9px 12px; border-radius:999px; font-weight:600; font-size:.95rem;
+    color: var(--off-white); background:rgba(212,175,55,.12); border:1px solid rgba(212,175,55,.5); }
+  .qb-pay-chip svg{ width:20px; height:20px; flex:0 0 20px; color: var(--gold); }
+  .qb-pay-chip b{ color: var(--gold); font-size:1.08em; }
+  .qb-pay-safe{ display:flex; gap:10px; align-items:flex-start; margin-top:14px; font-size:.86rem; line-height:1.5; color:rgba(244,244,244,.78); }
+  .qb-pay-safe svg{ width:20px; height:20px; flex:0 0 20px; margin-top:1px; color: var(--gold); }
   .qb-form{ display:grid; gap:14px; padding:28px 28px 24px 34px; border-radius:14px; color: var(--navy);
     background:linear-gradient(90deg, var(--gold) 0 6px, #fbfaf6 6px); box-shadow:0 40px 80px -40px rgba(0,0,0,.85); }
   .qb-form-title{ font-family:var(--font-display); font-size:1.4rem; font-weight:600; line-height:1.2; }
@@ -338,6 +348,13 @@
 
   /* ---------- PLANS (PLANEJADOR ROTA CERTA) ---------- */
   .plans{ background: var(--sand); padding:100px 0; }
+  .plans .sec-head{ max-width:900px; }
+  .plans .sec-head > p:not(.sec-eyebrow){ max-width:680px; margin-left:auto; margin-right:auto; }
+  .plans-highlights{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin-top:26px; text-align:left; }
+  .plans-highlights li{ display:flex; align-items:center; gap:12px; padding:13px 16px; border-radius:12px; font-size:.88rem; font-weight:600; line-height:1.35;
+    color: var(--navy); background:rgba(255,255,255,.58); border:1px solid rgba(13,27,42,.1); }
+  .plans-highlights svg{ width:24px; height:24px; flex:0 0 24px; color:#7a5f0c; }
+  @media (max-width: 760px){ .plans-highlights{ grid-template-columns:1fr; max-width:440px; margin-left:auto; margin-right:auto; } }
   .plans-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:26px; align-items:stretch; }
   @media (max-width:900px){ .plans-grid{ grid-template-columns:1fr; max-width:440px; margin:0 auto; } }
   .plan-card{
@@ -406,7 +423,8 @@
   .pl-shot.is-on{ opacity:1; }
   .pl-base{ height:14px; margin:0 -30px; border-radius:0 0 14px 14px; background:linear-gradient(#2a3446, #111925); box-shadow:0 22px 30px -18px rgba(0,0,0,.85); }
   .pl-base::before{ content:""; display:block; width:18%; height:5px; margin:0 auto; border-radius:0 0 8px 8px; background:#0b111a; }
-  .pl-phone{ position:absolute; right:0; bottom:0; z-index:2; width:clamp(96px, 26%, 190px); aspect-ratio:440 / 952; padding:7px; border-radius:24px;
+  .pl-screen picture, .pl-phone picture{ display:contents; }
+  .pl-phone{ position:absolute; right:0; bottom:0; z-index:2; width:clamp(96px, 26%, 190px); aspect-ratio:390 / 844; padding:7px; border-radius:24px;
     background:#1b2433; box-shadow:0 30px 60px -22px rgba(0,0,0,.9), 0 0 0 1px rgba(212,175,55,.25); }
   .pl-phone img{ display:block; width:100%; height:100%; object-fit:cover; object-position:top; border-radius:18px; }
   .pl-phone::before{ content:""; position:absolute; top:12px; left:50%; width:28%; height:12px; translate:-50% 0; border-radius:10px; background:#1b2433; z-index:1; }
@@ -792,10 +810,17 @@
       <h2>Peça uma proposta de <em>voo</em></h2>
       <p>Conte-nos de onde você parte e para onde quer ir. Preparamos uma proposta personalizada e respondemos por e-mail em até 48 horas.</p>
       <ul class="qb-points">
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10.5h19M6.5 15h3"/></svg>Pagamento em dinheiro ou em milhas</li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Datas fixas ou flexíveis</li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 6.5V12l3.5 2"/></svg>Resposta por e-mail em até 48 horas</li>
       </ul>
+      <div class="qb-pay">
+        <p class="qb-pay-kicker">Formas de pagamento</p>
+        <div class="qb-pay-methods">
+          <span class="qb-pay-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><path d="M14 14h3v3h-3zM20.5 14v.01M14 20.5h.01M17.5 20.5h3v-3"/></svg>Pix</span>
+          <span class="qb-pay-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6.5 14.5h3"/></svg>Cartão de crédito em até <b>12x</b></span>
+        </div>
+        <p class="qb-pay-safe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8V6a2.5 2.5 0 0 1 2.5-2.5h2M16 3.5h2A2.5 2.5 0 0 1 20.5 6v2M20.5 16v2a2.5 2.5 0 0 1-2.5 2.5h-2M8 20.5H6A2.5 2.5 0 0 1 3.5 18v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9.5 15.5a3.6 3.6 0 0 0 5 0"/></svg><span>Link de pagamento seguro da Cielo, com validação facial. A compra é fechada com você pelo WhatsApp.</span></p>
+      </div>
     </div>
     <form class="qb-form" action="/proposta-voo.html" method="get">
       <p class="qb-form-kicker">Pedido de proposta</p>
@@ -865,12 +890,12 @@
     <div class="pl-showcase">
       <div class="pl-stage">
         <div class="pl-laptop"><div class="pl-screen">
-          <img class="pl-shot is-on" src="/assets/home/planner-visao-geral.jpg" alt="Visão geral do Planner com itinerário, lugares, orçamento e checklist" width="1280" height="800" loading="lazy" decoding="async">
-          <img class="pl-shot" src="/assets/home/planner-itinerario.jpg" alt="Itinerário dia a dia de uma viagem de exemplo a Lisboa e ao Porto" width="1280" height="800" loading="lazy" decoding="async">
-          <img class="pl-shot" src="/assets/home/planner-lugares.jpg" alt="Lugares salvos com o mapa da viagem" width="1280" height="800" loading="lazy" decoding="async">
-          <img class="pl-shot" src="/assets/home/planner-orcamento.jpg" alt="Orçamento da viagem com o total gasto e o saldo" width="1280" height="800" loading="lazy" decoding="async">
+          <picture><source type="image/webp" srcset="/assets/home/planner-visao-geral-1x.webp 1024w, /assets/home/planner-visao-geral.webp 2048w" sizes="(min-width: 1000px) 700px, 92vw"><img class="pl-shot is-on" src="/assets/home/planner-visao-geral.jpg" alt="Visão geral do Planner com itinerário, lugares, orçamento e checklist" width="1024" height="640" loading="lazy" decoding="async"></picture>
+          <picture><source type="image/webp" srcset="/assets/home/planner-itinerario-1x.webp 1024w, /assets/home/planner-itinerario.webp 2048w" sizes="(min-width: 1000px) 700px, 92vw"><img class="pl-shot" src="/assets/home/planner-itinerario.jpg" alt="Itinerário dia a dia de uma viagem de exemplo a Lisboa e ao Porto" width="1024" height="640" loading="lazy" decoding="async"></picture>
+          <picture><source type="image/webp" srcset="/assets/home/planner-lugares-1x.webp 1024w, /assets/home/planner-lugares.webp 2048w" sizes="(min-width: 1000px) 700px, 92vw"><img class="pl-shot" src="/assets/home/planner-lugares.jpg" alt="Lugares salvos com o mapa da viagem e o botão Como chegar" width="1024" height="640" loading="lazy" decoding="async"></picture>
+          <picture><source type="image/webp" srcset="/assets/home/planner-orcamento-1x.webp 1024w, /assets/home/planner-orcamento.webp 2048w" sizes="(min-width: 1000px) 700px, 92vw"><img class="pl-shot" src="/assets/home/planner-orcamento.jpg" alt="Orçamento da viagem com o total gasto e o saldo" width="1024" height="640" loading="lazy" decoding="async"></picture>
         </div><div class="pl-base"></div></div>
-        <div class="pl-phone"><img src="/assets/home/planner-celular.jpg" alt="Itinerário do Planner no celular" width="440" height="952" loading="lazy" decoding="async"></div>
+        <div class="pl-phone"><picture><source type="image/webp" srcset="/assets/home/planner-celular.webp"><img src="/assets/home/planner-celular.jpg" alt="Itinerário do Planner no celular" width="780" height="1688" loading="lazy" decoding="async"></picture></div>
       </div>
       <div class="pl-tabs" role="group" aria-label="Telas do Planner">
         <button type="button" class="pl-tab" aria-pressed="true">Visão geral</button>
@@ -888,7 +913,12 @@
     <div class="sec-head center" data-reveal>
       <p class="sec-eyebrow">Planejador Rota Certa</p>
       <h2>Escolha como quer <em>planejar</em> a sua viagem</h2>
-      <p>Planeje você mesmo com o Planner, ou deixe tudo nas mãos da nossa equipe.</p>
+      <p>Monte a sua viagem completa no Planner: hospedagens, voos, pontos turísticos, ingressos de museus, passeios e aluguel de carro, tudo organizado dia a dia e com o controle total direto no seu celular.</p>
+      <ul class="plans-highlights">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18.5" r="2.5"/><path d="M18 11.5c-1.9-2.2-3-3.9-3-5.3a3 3 0 0 1 6 0c0 1.4-1.1 3.1-3 5.3z"/><path d="M8.5 18.5H16a2.5 2.5 0 0 0 0-5h-4.5a2.5 2.5 0 0 1 0-5H13"/></svg>Rota de onde você está até cada lugar, pelo Google Maps</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 9.5h-5a2.5 2.5 0 0 0 0 5h5z"/><path d="M16.5 12h.01"/></svg>Todos os custos no controle financeiro</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>Online no celular e no computador</li>
+      </ul>
     </div>
     <div class="plans-grid" data-reveal-group>
       <div class="plan-card">

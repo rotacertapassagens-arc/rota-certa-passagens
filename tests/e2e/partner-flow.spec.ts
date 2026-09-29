@@ -151,7 +151,7 @@ test.describe.serial('partner referral program — real browser smoke chain', ()
     await page.locator('#cabinClass').selectOption('Econômica');
     await page.locator('#baggage').selectOption('Bagagem despachada');
     await page.locator('#flexibility').selectOption('Datas fixas');
-    await page.locator('#paymentPreference').selectOption('Dinheiro');
+    await page.locator('#paymentPreference').selectOption('Pix');
     await page.locator('#contactConsent').check();
     await page.locator('#quoteForm button[type=submit]').click();
     await expect(page.locator('#quoteStatus')).toContainText(/protocolo/i, { timeout: 10_000 });
