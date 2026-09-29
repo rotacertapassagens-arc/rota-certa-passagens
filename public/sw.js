@@ -39,12 +39,52 @@ async function networkFirst(request, cacheName, cacheKey) {
   }
 }
 
+// Viagem do Planner: guarda com e sem o número da viagem (?tripId=), para trocar de aba sem internet.
+async function plannerData(event) {
+  const request = event.request;
+  const cache = await caches.open(DADOS);
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const copy = response.clone();
+      event.waitUntil((async () => {
+        const body = await copy.json();
+        const json = JSON.stringify(body);
+        const headers = { 'content-type': 'application/json' };
+        await cache.put(request, new Response(json, { headers }));
+        if (body?.trip?.id) {
+          const url = new URL(request.url);
+          url.search = `?tripId=${encodeURIComponent(body.trip.id)}`;
+          await cache.put(url.toString(), new Response(json, { headers }));
+        }
+      })().catch(() => undefined));
+    }
+    return response;
+  } catch (error) {
+    const cached = (await cache.match(request)) || (await cache.match(new URL('/api/planner', request.url).toString()));
+    if (cached) return cached;
+    throw error;
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   const p = url.pathname;
+
+  // Bilhetes e vouchers (antes das páginas: tocar no anexo abre como página nova): não mudam depois de enviados, então o que já está no aparelho abre na hora.
+  if (/^\/api\/planner\/[0-9a-f-]+\/attachments\/[0-9a-f-]+$/i.test(p)) {
+    event.respondWith((async () => {
+      const cached = await caches.match(request, { cacheName: ANEXOS });
+      if (cached) return cached;
+      const response = await fetch(request);
+      if (response.ok) (await caches.open(ANEXOS)).put(request, response.clone());
+      return response;
+    })());
+    return;
+  }
 
   // Páginas: rede primeiro. Sem conexão, a página inicial (onde mora o Planner) sai do aparelho.
   if (request.mode === 'navigate') {
@@ -64,21 +104,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Bilhetes e vouchers: não mudam depois de enviados, então o que já está no aparelho abre na hora.
-  if (/^\/api\/planner\/[0-9a-f-]+\/attachments\/[0-9a-f-]+$/i.test(p)) {
-    event.respondWith((async () => {
-      const cached = await caches.match(request, { cacheName: ANEXOS });
-      if (cached) return cached;
-      const response = await fetch(request);
-      if (response.ok) (await caches.open(ANEXOS)).put(request, response.clone());
-      return response;
-    })());
+  // Sessão e dados do Planner: rede primeiro, cópia do aparelho sem conexão.
+  if (p === '/api/auth/session') {
+    event.respondWith(networkFirst(request, DADOS));
     return;
   }
-
-  // Sessão e dados do Planner: rede primeiro, cópia do aparelho sem conexão.
-  if (p === '/api/auth/session' || p === '/api/planner') {
-    event.respondWith(networkFirst(request, DADOS));
+  if (p === '/api/planner') {
+    event.respondWith(plannerData(event));
     return;
   }
   if (p.startsWith('/api/')) return;
