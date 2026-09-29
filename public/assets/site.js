@@ -193,7 +193,29 @@ function addTripManager(element, key) {
 }
 
 function renderOverview(element) {
-  element.innerHTML = `<div class="overview-grid"><a class="overview-card" href="#/planner/itinerario"><div class="icon">📅</div><h3>Itinerário</h3><p>${data.itinerary.length} atividades planejadas</p><strong>Organizar roteiro →</strong></a><a class="overview-card" href="#/planner/lugares"><div class="icon">📍</div><h3>Lugares</h3><p>${data.places.length} lugares salvos</p><strong>Ver mapa →</strong></a><a class="overview-card" href="#/planner/orcamento"><div class="icon">€</div><h3>Orçamento</h3><p>${money(data.expenses.reduce((sum, item) => sum + Number(item.value || 0), 0))} gastos</p><strong>Controlar despesas →</strong></a><a class="overview-card" href="#/planner/checklist"><div class="icon">✓</div><h3>Checklist</h3><p>${data.checklist.filter((item) => item.done).length} de ${data.checklist.length} concluídos</p><strong>Preparar viagem →</strong></a></div>`;
+  const icon = (d) => `<span class="ov-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg></span>`;
+  const spent = data.expenses.reduce((sum, item) => sum + Number(item.value || 0), 0);
+  const budget = Number(data.budget || 0);
+  const budgetPct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+  const done = data.checklist.filter((item) => item.done).length;
+  const total = data.checklist.length;
+  const days = new Set(data.itinerary.map((item) => Number(item.day) || 1)).size;
+  const agenda = [...data.itinerary].sort((a, b) => (Number(a.day) - Number(b.day)) || String(a.time || '99:99').localeCompare(String(b.time || '99:99'))).slice(0, 5);
+  const tally = (list, weight) => [...list.reduce((acc, item) => acc.set(item.type, (acc.get(item.type) || 0) + weight(item)), new Map())].sort((x, y) => y[1] - x[1]);
+  const placeTypes = tally(data.places, () => 1).slice(0, 3);
+  const costTypes = tally(data.expenses, (item) => Number(item.value || 0)).slice(0, 4);
+  const pending = data.checklist.filter((item) => !item.done).slice(0, 5);
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  element.innerHTML = `<div class="ov-stats">`
+    + `<a class="ov-stat" href="#/planner/itinerario"><span class="ov-stat-head">${icon('<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>')}Roteiro</span><span class="ov-value">${data.itinerary.length}<small>${data.itinerary.length === 1 ? 'atividade' : 'atividades'}</small></span><span class="ov-meta">${data.itinerary.length ? `em ${plural(days, 'dia', 'dias')} de viagem` : 'Nada planejado ainda'}</span><span class="ov-more">Organizar roteiro →</span></a>`
+    + `<a class="ov-stat" href="#/planner/lugares"><span class="ov-stat-head">${icon('<path d="M12 21.5s-7-6.1-7-11.5a7 7 0 0 1 14 0c0 5.4-7 11.5-7 11.5z"/><circle cx="12" cy="10" r="2.5"/>')}Lugares</span><span class="ov-value">${data.places.length}<small>${data.places.length === 1 ? 'lugar salvo' : 'lugares salvos'}</small></span>${placeTypes.length ? `<span class="ov-chips">${placeTypes.map(([type, n]) => `<span>${esc(type)} ${n}</span>`).join('')}</span>` : '<span class="ov-meta">Guarde atrações e restaurantes</span>'}<span class="ov-more">Ver no mapa →</span></a>`
+    + `<a class="ov-stat" href="#/planner/orcamento"><span class="ov-stat-head">${icon('<path d="M19 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 9.5h-5a2.5 2.5 0 0 0 0 5h5z"/>')}Orçamento</span><span class="ov-value">${money(spent)}<small>gastos</small></span>${budget > 0 ? `<span class="progress"><span style="width:${budgetPct.toFixed(0)}%"></span></span><span class="ov-meta">${budgetPct.toFixed(0)}% de ${money(budget)} · saldo ${money(budget - spent)}</span>` : '<span class="ov-meta">Defina um orçamento para a viagem</span>'}<span class="ov-more">Controlar gastos →</span></a>`
+    + `<a class="ov-stat" href="#/planner/checklist"><span class="ov-stat-head">${icon('<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="m8.5 12.2 2.4 2.4 4.8-5"/>')}Checklist</span><span class="ov-value">${done}/${total}<small>concluídos</small></span>${total ? `<span class="progress"><span style="width:${((done / total) * 100).toFixed(0)}%"></span></span><span class="ov-meta">${done === total ? 'Tudo pronto para viajar' : `Faltam ${plural(total - done, 'item', 'itens')}`}</span>` : '<span class="ov-meta">Monte a lista do que levar e resolver</span>'}<span class="ov-more">Preparar viagem →</span></a>`
+    + `</div><div class="ov-panels">`
+    + `<section class="planner-card ov-panel ov-agenda-wrap"><h2>Roteiro da viagem</h2>${agenda.length ? `<ul class="ov-agenda">${agenda.map((item) => `<li><span class="ov-when">Dia ${esc(item.day)}<b>${esc(item.time || '--:--')}</b></span><div><strong>${esc(item.what)}</strong><small>${esc(item.type)}${item.notes ? ` · ${esc(item.notes)}` : ''}</small></div></li>`).join('')}</ul>` : '<p class="ov-empty">Adicione a primeira atividade: o voo, o hotel ou um passeio.</p>'}<a class="ov-link" href="#/planner/itinerario">${data.itinerary.length > agenda.length ? `Ver as ${data.itinerary.length} atividades →` : 'Abrir o roteiro →'}</a></section>`
+    + `<section class="planner-card ov-panel"><h2>Para onde vai o dinheiro</h2>${costTypes.length ? `<ul class="ov-bars">${costTypes.map(([type, value]) => `<li><span>${esc(type)}</span><b>${money(value)}</b><span class="ov-bar"><i style="width:${spent ? ((value / spent) * 100).toFixed(0) : 0}%"></i></span></li>`).join('')}</ul>` : '<p class="ov-empty">Nenhum gasto registrado ainda.</p>'}<a class="ov-link" href="#/planner/orcamento">Ver orçamento →</a></section>`
+    + `<section class="planner-card ov-panel"><h2>O que falta preparar</h2>${pending.length ? `<ul class="ov-todo">${pending.map((item) => `<li>${esc(item.text)}</li>`).join('')}</ul>` : `<p class="ov-empty">${total ? 'Tudo pronto. Boa viagem!' : 'Seu checklist ainda está vazio.'}</p>`}<a class="ov-link" href="#/planner/checklist">Abrir checklist →</a></section>`
+    + `</div>`;
 }
 
 function renderItinerary(element) {

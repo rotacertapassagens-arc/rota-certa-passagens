@@ -112,6 +112,8 @@
   .hero-inner{ position:relative; z-index:2; display:grid; grid-template-columns: 1.1fr 0.9fr; gap:50px; align-items:center; }
   .eyebrow{ color: var(--gold); font-size:0.78rem; letter-spacing:0.22em; text-transform:uppercase; font-weight:600; margin-bottom:22px; display:flex; align-items:center; gap:10px; }
   .eyebrow::before{ content:''; width:34px; height:1px; background: var(--gold); }
+  @media (max-width: 520px){ .eyebrow-extra{ display:none; } }
+  @media (max-width: 400px){ #top .eyebrow{ letter-spacing:0.14em; } }
   .hero h1{ color: var(--off-white); font-size: clamp(2.2rem, 4.3vw, 3.6rem); max-width: 640px; margin-bottom:22px; }
   .hero h1 em{ font-style:italic; color: var(--gold); }
   .hero p.lede{ color: rgba(244,244,244,0.82); font-size:1.08rem; max-width:520px; margin-bottom:36px; font-weight:300; }
@@ -587,6 +589,13 @@
   .foot-logo .logo-img{ width:42px; height:42px; }
   @media (max-width:760px){ .foot-grid > div:first-child{ grid-column:1 / -1; } }
   .foot-tag{ font-size:0.9rem; max-width:280px; margin-bottom:20px; }
+  .foot-pay{ margin-top:30px; }
+  .foot-pay h2{ margin-bottom:14px; }
+  .foot-pay p{ font-size:0.82rem; margin-bottom:10px; }
+  .foot-pay-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+  .foot-grid .foot-pay-row li{ display:grid; place-items:center; width:44px; height:44px; margin:0; border-radius:50%;
+    background:rgba(244,244,244,0.1); border:1px solid rgba(244,244,244,0.14); }
+  .foot-pay-row img{ width:30px; height:19px; object-fit:contain; opacity:0.92; }
   .foot-bottom{ border-top:1px solid rgba(244,244,244,0.1); padding-top:24px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font-size:0.78rem; }
 
   /* ---------- WHATSAPP FLOAT ---------- */
@@ -647,6 +656,43 @@
   .planner-lock{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;background:var(--navy);color:var(--off-white);border-radius:10px;padding:20px 24px;margin-bottom:24px}.planner-lock strong{display:block;margin-bottom:4px;font-size:.98rem}.planner-lock p{font-size:.85rem;color:rgba(244,244,244,.75);margin:0}.planner-lock .btn{flex-shrink:0}
   .trip-manager{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:18px 20px}.trip-manager-main{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.trip-manager-main>div{display:grid;gap:3px}.trip-manager-main strong{font-size:1.05rem}.trip-manager-main span{font-size:.78rem;color:#77818c}.trip-manager-main label{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:#66717e;font-weight:700}.trip-manager select{display:block;min-width:210px;margin-top:5px;padding:10px 34px 10px 11px;border:1px solid rgba(13,27,42,.14);border-radius:7px;background:#fff;color:var(--navy);font:inherit;text-transform:none}.trip-manager-actions{display:flex;gap:8px;flex-wrap:wrap}.trip-plan-badge{width:max-content;background:rgba(212,175,55,.15);color:#816b18;border-radius:99px;padding:3px 8px;font-weight:800;letter-spacing:.05em}
   .overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.overview-card{background:var(--white);border:1px solid rgba(13,27,42,.08);border-radius:10px;padding:24px;transition:.2s}.overview-card:hover{transform:translateY(-2px);box-shadow:0 14px 30px -25px rgba(13,27,42,.5)}.overview-card .icon{font-size:1.5rem;margin-bottom:15px}.overview-card h3{font-size:1.1rem;margin-bottom:5px}.overview-card p{font-size:.86rem;color:#697481;margin-bottom:16px}
+.ov-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}
+.ov-stat{display:flex;flex-direction:column;gap:7px;background:var(--white);border:1px solid rgba(13,27,42,.08);border-radius:12px;padding:18px 20px;color:var(--navy);text-decoration:none;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.ov-stat:hover{transform:translateY(-2px);border-color:rgba(212,175,55,.55);box-shadow:0 16px 30px -24px rgba(13,27,42,.55)}
+.ov-stat-head{display:flex;align-items:center;gap:10px;font-size:.74rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#5d6978}
+.ov-ico{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:9px;background:rgba(212,175,55,.15);color:#8a6a0c}
+.ov-ico svg{width:19px;height:19px}
+.ov-value{font-family:var(--font-display);font-size:1.75rem;font-weight:700;line-height:1.1;margin-top:3px}
+.ov-value small{font-family:'Montserrat',system-ui,sans-serif;font-size:.8rem;font-weight:600;color:#697481;margin-left:7px}
+.ov-meta{font-size:.8rem;color:#697481;line-height:1.4}
+.ov-stat .progress{height:7px;margin-top:2px}
+.ov-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ov-chips span{font-size:.74rem;font-weight:600;padding:3px 9px;border-radius:99px;background:#edf2f5;color:var(--blue)}
+.ov-more{margin-top:auto;padding-top:6px;font-size:.8rem;font-weight:700}
+.ov-stat:hover .ov-more{color:#8a6a0c}
+.ov-panels{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:start}
+.ov-panel{margin-bottom:0;padding:22px}
+.ov-panel h2{font-size:1.12rem;margin-bottom:14px}
+.ov-agenda-wrap{grid-row:span 2}
+.ov-agenda{display:grid;gap:9px}
+.ov-agenda li{display:grid;grid-template-columns:62px 1fr;gap:12px;align-items:center;padding:9px 12px 9px 9px;border-radius:10px;background:#f6f7f9}
+.ov-when{display:grid;justify-items:center;gap:1px;padding:6px 4px;border-radius:8px;background:var(--navy);color:rgba(244,244,244,.75);font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.ov-when b{font-size:.88rem;letter-spacing:0;color:var(--gold)}
+.ov-agenda strong{display:block;font-size:.88rem;line-height:1.3}
+.ov-agenda small{display:block;margin-top:2px;font-size:.75rem;color:#697481}
+.ov-bars{display:grid;gap:12px}
+.ov-bars li{display:grid;grid-template-columns:1fr auto;gap:6px 10px;font-size:.82rem}
+.ov-bars b{font-weight:700}
+.ov-bar{grid-column:1/-1;height:8px;border-radius:99px;background:#edf1f4;overflow:hidden}
+.ov-bar i{display:block;height:100%;border-radius:inherit;background:var(--gold)}
+.ov-todo{display:grid;gap:10px}
+.ov-todo li{display:flex;gap:10px;align-items:center;font-size:.86rem;line-height:1.35}
+.ov-todo li::before{content:"";width:16px;height:16px;flex:0 0 16px;border:1.6px solid rgba(13,27,42,.3);border-radius:5px}
+.ov-link{display:inline-block;margin-top:14px;font-size:.82rem;font-weight:700;color:var(--navy)}
+.ov-link:hover{color:#8a6a0c}
+.ov-empty{font-size:.86rem;color:#697481}
+@media(max-width:900px){.ov-panels{grid-template-columns:1fr}.ov-agenda-wrap{grid-row:auto}}
+@media(max-width:640px){.ov-stats{grid-template-columns:1fr;gap:12px}.ov-stat{padding:16px 18px}}
   .planner-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}.planner-form{background:var(--white);border:1px solid rgba(13,27,42,.08);border-radius:10px;padding:20px;margin-bottom:20px}.planner-form-grid{display:grid;grid-template-columns:100px 150px 1fr 170px;gap:12px}.planner-form-grid input,.planner-form-grid select,.planner-form-grid textarea,.inline-input{width:100%;padding:12px;border:1px solid rgba(13,27,42,.14);border-radius:7px;font:inherit;color:var(--navy);background:#fff}.planner-form-grid textarea{grid-column:1/-1;min-height:80px}.item-list{display:grid;gap:10px}.planner-item{display:flex;align-items:center;justify-content:space-between;gap:15px;background:var(--white);border:1px solid rgba(13,27,42,.08);border-radius:8px;padding:15px}.planner-item-main{display:flex;gap:12px;align-items:center}.planner-item-badge{font-size:.72rem;padding:5px 8px;border-radius:999px;background:#edf2f5;color:var(--blue)}.planner-item strong{display:block;line-height:1.35}.planner-item small{display:block;margin-top:2px;color:#5d6978}.delete-item{border:0;background:none;color:#9b4b4b;cursor:pointer;font-size:.8rem}
   .places-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:20px}.place-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.place-form-grid .full{grid-column:1/-1}.place-form-grid input,.place-form-grid select,.place-form-grid textarea{width:100%;padding:12px;border:1px solid rgba(13,27,42,.14);border-radius:7px;font:inherit}.place-form-grid textarea{min-height:70px}.map-frame{width:100%;height:420px;border:0;border-radius:10px}.place-list{display:grid;gap:10px;margin-top:15px}.place-row{padding:14px;border:1px solid rgba(13,27,42,.08);border-radius:8px;background:#fff;display:flex;justify-content:space-between;gap:12px;transition:border-color .2s ease,box-shadow .2s ease}.place-row.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}.place-row strong{display:block}.place-row small{color:#77818c}.place-actions{display:flex;flex-wrap:wrap;gap:16px;margin-top:8px}.place-map{border:0;background:none;padding:0;color:var(--blue);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}.place-map:hover,.place-route:hover{color:var(--navy)}.place-route{color:var(--blue);font-size:.8rem;font-weight:700;text-decoration:underline;text-underline-offset:2px}
   .budget-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}.budget-box{background:var(--white);border:1px solid rgba(13,27,42,.08);border-radius:9px;padding:18px}.budget-box small{display:block;color:#77818c;margin-bottom:5px}.budget-box strong{font-size:1.5rem;color:var(--navy)}.budget-box.expense strong{color:#c64b5b}.budget-box.balance strong{color:#22945a}.progress{height:9px;background:#edf1f4;border-radius:99px;overflow:hidden}.progress span{display:block;height:100%;background:var(--gold);width:0}
@@ -676,17 +722,9 @@
             <a href="/blog/">Guias de viagem</a>
           </div>
         </li>
-        <li class="nav-group"><button class="nav-parent" type="button" aria-expanded="false">Planejador <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          <div class="nav-dropdown">
-            <a href="#/planner">Visão geral</a>
-            <a href="#/planner/itinerario">Itinerário</a>
-            <a href="#/planner/lugares">Lugares + mapa</a>
-            <a href="#/planner/orcamento">Orçamento</a>
-            <a href="#/planner/checklist">Checklist</a>
-          </div>
-        </li>
-        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#/planner">Planejador</a></li>
         <li><a href="#sobre">Sobre nós</a></li>
+        <li><a href="#faq">FAQ</a></li>
         <li><a href="#contato">Contato</a></li>
         <li class="nav-mobile-only"><a href="#/cliente">Área do cliente</a></li>
       </ul>
@@ -707,7 +745,7 @@
   </svg>
   <div class="wrap hero-inner">
     <div>
-      <p class="eyebrow">Rota Certa Passagens</p>
+      <p class="eyebrow"><span>Passagens e planejamento<span class="eyebrow-extra"> de viagem</span></span></p>
       <h1>Você não precisa complicar a sua viagem — só precisa da <em>rota certa</em>.</h1>
       <p class="lede">Da passagem ao roteiro, cuidamos de cada detalhe para que possa viajar com mais tranquilidade, segurança e confiança.</p>
       <div class="hero-ctas">
@@ -1183,6 +1221,22 @@
       <div>
         <a href="#top" class="logo foot-logo"><img src="/assets/logo-simbolo-claro.png" alt="" class="logo-img" width="46" height="46" loading="lazy">Rota Certa <span>Passagens</span></a>
         <p class="foot-tag">Você escolhe o destino. Nós tratamos da rota.</p>
+        <div class="foot-pay">
+          <h2>Formas de pagamento</h2>
+          <p>Cartão de crédito em até 12x</p>
+          <ul class="foot-pay-row" aria-label="Bandeiras de cartão aceitas">
+            <li><img src="/assets/pagamento/mastercard.svg" alt="Mastercard" title="Mastercard" width="30" height="19" loading="lazy" decoding="async"></li>
+            <li><img src="/assets/pagamento/visa.svg" alt="Visa" title="Visa" width="30" height="19" loading="lazy" decoding="async"></li>
+            <li><img src="/assets/pagamento/amex.svg" alt="American Express" title="American Express" width="30" height="19" loading="lazy" decoding="async"></li>
+            <li><img src="/assets/pagamento/hipercard.svg" alt="Hipercard" title="Hipercard" width="30" height="19" loading="lazy" decoding="async"></li>
+            <li><img src="/assets/pagamento/elo.svg" alt="Elo" title="Elo" width="30" height="19" loading="lazy" decoding="async"></li>
+            <li><img src="/assets/pagamento/aura.svg" alt="Aura" title="Aura" width="30" height="19" loading="lazy" decoding="async"></li>
+          </ul>
+          <p>Pagamento via Pix</p>
+          <ul class="foot-pay-row" aria-label="Pix">
+            <li><img src="/assets/pagamento/pix.svg" alt="Pix" title="Pix" width="30" height="19" loading="lazy" decoding="async"></li>
+          </ul>
+        </div>
       </div>
       <div>
         <h2>Explorar</h2>
