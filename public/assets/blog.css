@@ -137,7 +137,7 @@ h1,h2,h3,h4{ font-family:var(--font-display); font-weight:600; line-height:1.15;
 .post-body a:not(.btn){ color:var(--blue); text-decoration:underline; text-underline-offset:3px; }
 .post-body a:not(.btn):hover{ color:var(--gold-deep); }
 .post-body figure{ margin:34px 0; }
-.post-body figure img{ width:100%; border-radius:14px; box-shadow:0 30px 60px -40px rgba(13,27,42,.6); }
+.post-body figure img{ width:100%; height:auto; border-radius:14px; box-shadow:0 30px 60px -40px rgba(13,27,42,.6); }
 .post-body figcaption{ margin-top:10px; font-size:.84rem; color:#6b7684; text-align:center; }
 .tip{ background:var(--white); border:1px solid rgba(13,27,42,.08); border-left:4px solid var(--gold); border-radius:10px; padding:22px 24px; font-size:.98rem; }
 .tip h3{ margin:0 0 10px; font-size:1.1rem; }
