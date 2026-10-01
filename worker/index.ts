@@ -53,6 +53,8 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 function secureResponse(response: Response) {
+  // Respostas dos arquivos estáticos (env.ASSETS) têm cabeçalhos imutáveis: copia antes de mexer.
+  try { response.headers.set('x-content-type-options', 'nosniff'); } catch { response = new Response(response.body, response); }
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('x-frame-options', 'DENY');
