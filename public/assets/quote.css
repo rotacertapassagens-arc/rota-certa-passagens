@@ -23,3 +23,20 @@ body{background:#e8ecf1}
 main{padding-top:40px}
 .quote-form{border-radius:14px;box-shadow:0 1px 2px rgba(13,27,42,.06),0 24px 48px -32px rgba(13,27,42,.55)}
 @media(max-width:700px){.qv-band{background-image:url(/assets/telas/proposta-voo-m.jpg)}.qv-band::before{background:linear-gradient(180deg,rgba(13,27,42,.9),rgba(13,27,42,.72))}.qv-band .intro{padding:14px 0 36px}}
+
+/* Dica do WhatsApp e tela de pedido recebido (WHA-04) */
+.field-hint{font-size:.74rem;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);line-height:1.5}
+.quote-success{background:#fff;border:1px solid rgba(13,27,42,.1);border-top:4px solid var(--gold);border-radius:14px;padding:42px;box-shadow:0 1px 2px rgba(13,27,42,.06),0 24px 48px -32px rgba(13,27,42,.55);text-align:center}
+.quote-success:focus{outline:none}
+.quote-success h2{font:700 clamp(1.7rem,4vw,2.3rem)/1.15 var(--display);margin:0 0 24px}
+.success-facts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 24px;text-align:left}
+.success-facts div{background:var(--off);border:1px solid rgba(13,27,42,.08);border-radius:10px;padding:16px 18px}
+.success-facts dt{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:6px}
+.success-facts dd{margin:0;font-weight:600;line-height:1.5}
+.success-protocol{font:700 1.35rem var(--body);letter-spacing:.04em;user-select:all}
+.success-text{max-width:560px;margin:0 auto 22px;color:#4d5967;line-height:1.7}
+.wa-button{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:460px;padding:16px 22px;border-radius:6px;background:#1f8f4e;color:#fff;font:700 .95rem var(--body);text-decoration:none}
+.wa-button:hover,.wa-button:focus-visible{background:#18733e}
+.success-note{color:var(--muted);font-size:.8rem;margin:16px auto 6px}
+.link-button{border:0;background:none;color:var(--blue);font:600 .82rem var(--body);text-decoration:underline;cursor:pointer;padding:6px}
+@media(max-width:680px){.quote-success{padding:28px 20px}.success-facts{grid-template-columns:1fr}}

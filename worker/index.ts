@@ -7,6 +7,8 @@ import { calculateSaleProfit, isValidIssuanceTransition, sumIssuanceDirectCostCe
 import { allocationCostCents, unitCostMicros } from '../shared/mileageCost.js';
 import { buildCsv } from '../shared/financeCsv.js';
 import { blogAdmin, blogPublic, type BlogDeps } from './blog.js';
+import { internalApi, type InternalApiDeps } from './proposal-handoff.js';
+import { customerPhoneDigits, QUOTE_CONSENT_VERSION, RECEIVED_STATUS, RECEIVED_STATUS_LABEL, stopsPreferenceOf, submissionIdOf, visitSourceOf, whatsappHandoffUrl } from '../shared/proposalHandoff.js';
 
 type Row = Record<string, unknown>;
 type Auth = { userId: string; sessionId: string; email: string; name: string; roles: string[] };
@@ -54,9 +56,12 @@ function secureResponse(response: Response) {
 }
 
 const blogDeps: BlogDeps = { reply, getAuth, mutationAuth, audit };
+const internalApiDeps: InternalApiDeps = { reply, safeEqual, rateLimit, rateLimitBlocked };
 
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
+  // Servidor para servidor (WHA-04): toda rota /api/internal/ exige o token antes de qualquer outra resposta.
+  if (p.startsWith('/api/internal/')) return internalApi(req, env, url, internalApiDeps);
   if (p.startsWith('/api/admin/blog')) { const blog = await blogAdmin(req, env, url, blogDeps); if (blog) return blog; }
   if (req.method === 'POST' && p === '/api/partner-applications') return partnerApplicationCreate(req, env);
   if (req.method === 'GET' && p === '/api/admin/partner-applications') return adminPartnerApplications(req, env);
@@ -315,12 +320,24 @@ async function resolveAttribution(req: Request, env: Env, manualCode?: string | 
   return null;
 }
 
+/** CURRENT_TIMESTAMP do SQLite ('AAAA-MM-DD HH:MM:SS') é UTC; sem isso, Date.parse lê como hora local (só muda fora da Cloudflare). */
+function sqliteUtcMs(value: string) {
+  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value) ? Date.parse(`${value.replace(' ', 'T')}Z`) : Date.parse(value);
+}
+function rateLimitKey(req: Request, env: Env, scope: string, target: string) {
+  return sha(`${env.RATE_LIMIT_SECRET}|${scope}|${target}|${clientKey(req)}`);
+}
+/** Só consulta se o balde está bloqueado, sem contar tentativa. */
+async function rateLimitBlocked(req: Request, env: Env, scope: string, target: string) {
+  const row = await env.DB.prepare('SELECT blocked_until FROM rate_limit_buckets WHERE key_hash=?').bind(await rateLimitKey(req, env, scope, target)).first<{blocked_until:string|null}>();
+  return Boolean(row?.blocked_until && Date.parse(row.blocked_until) > Date.now());
+}
 async function rateLimit(req: Request, env: Env, scope: string, target: string, max: number, windowSeconds: number) {
-  const key = await sha(`${env.RATE_LIMIT_SECRET}|${scope}|${target}|${clientKey(req)}`);
+  const key = await rateLimitKey(req, env, scope, target);
   const current = await env.DB.prepare('SELECT attempts,window_started_at,blocked_until FROM rate_limit_buckets WHERE key_hash=?').bind(key).first<{attempts:number;window_started_at:string;blocked_until:string|null}>();
   const now = Date.now();
   if (current?.blocked_until && Date.parse(current.blocked_until) > now) return false;
-  if (!current || now - Date.parse(current.window_started_at) >= windowSeconds * 1000) {
+  if (!current || now - sqliteUtcMs(current.window_started_at) >= windowSeconds * 1000) {
     await env.DB.prepare('INSERT INTO rate_limit_buckets(key_hash,window_started_at,attempts,blocked_until) VALUES(?,CURRENT_TIMESTAMP,1,NULL) ON CONFLICT(key_hash) DO UPDATE SET window_started_at=CURRENT_TIMESTAMP,attempts=1,blocked_until=NULL').bind(key).run();
     return true;
   }
@@ -672,40 +689,72 @@ async function adminLeadUpdate(req:Request,env:Env,id:string){
 
 async function flightQuoteLead(req:Request,env:Env){
   const b=await body(req);
-  const name=text(b?.name,120,2),email=emailOf(b?.email),phone=phoneOf(b?.phone),origin=text(b?.origem,160,2),destination=text(b?.destino,160,2);
+  const name=text(b?.name,120,2),email=emailOf(b?.email),phoneDigits=customerPhoneDigits(b?.phone),phone=phoneDigits?`+${phoneDigits}`:null,origin=text(b?.origem,160,2),destination=text(b?.destino,160,2);
   const outbound=dateOf(b?.ida),returnOn=b?.volta?dateOf(b.volta):null,adults=intOf(b?.adults,1,20),children=intOf(b?.children,0,20),infants=intOf(b?.infants,0,20);
   const tripType=b?.tipo==='Ida e volta'||b?.tipo==='Somente ida'?b.tipo:null;
   const cabin=['Econômica','Premium Economy','Executiva','Primeira classe'].includes(String(b?.cabinClass))?String(b?.cabinClass):null;
   const baggage=['Somente item pessoal','Bagagem de mão','Bagagem despachada','Ainda não sei'].includes(String(b?.baggage))?String(b?.baggage):null;
   const flexibility=['Datas fixas','Até 3 dias','Até 7 dias','Datas flexíveis'].includes(String(b?.flexibility))?String(b?.flexibility):null;
   const payment=['Pix','Cartão de crédito em até 12x','Ainda não sei','Dinheiro','Milhas','Dinheiro ou milhas'].includes(String(b?.paymentPreference))?String(b?.paymentPreference):null,notes=text(b?.observacoes,3000);
-  if(b?.type!=='quote'||!name||!email||!phone||!origin||!destination||!outbound||adults===null||children===null||infants===null||!tripType||!cabin||!baggage||!flexibility||!payment||b?.contactConsent!==true||(tripType==='Ida e volta'&&!returnOn)||(returnOn&&returnOn<outbound))return reply({error:'invalid_request'},400);
+  const stops=stopsPreferenceOf(b?.stopsPreference),submissionId=submissionIdOf(b?.submissionId),source=visitSourceOf(b?.source);
+  // O aceite só vale para o WhatsApp quando veio do texto atual do formulário (que cita o WhatsApp).
+  const whatsappConsent=b?.contactConsent===true&&b?.consentVersion===QUOTE_CONSENT_VERSION;
+  if(typeof b?.phone==='string'&&b.phone.trim()&&!phoneDigits)return reply({error:'invalid_phone'},400);
+  if(b?.type!=='quote'||!name||!email||!phone||!phoneDigits||!origin||!destination||!outbound||adults===null||children===null||infants===null||!tripType||!cabin||!baggage||!flexibility||!payment||stops===false||submissionId===false||b?.contactConsent!==true||(tripType==='Ida e volta'&&!returnOn)||(returnOn&&returnOn<outbound))return reply({error:'invalid_request'},400);
+  // Reenvio do mesmo envio (clique duplo, rede caiu, recarregou): devolve o protocolo já gravado, sem novo pedido nem novo e-mail.
+  const submissionHash=submissionId?await sha(JSON.stringify([name,email,phoneDigits,origin,destination,outbound,returnOn,adults,children,infants,tripType,cabin,baggage,flexibility,payment,notes,stops])):null;
+  if(submissionId){const prior=await priorSubmission(env,submissionId,submissionHash!);if(prior)return prior;}
   if(!(await rateLimit(req,env,'flight_quote',email,4,1800)))return reply({error:'try_again_later'},429);
-  const id=crypto.randomUUID(),protocol=`RC-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${id.replaceAll('-','').slice(0,6).toUpperCase()}`,deadline=isoAfter(48*3600);
+  const id=crypto.randomUUID(),deadline=isoAfter(48*3600),year=new Date().getUTCFullYear();
   const howHeard=typeof b?.howHeard==='string'?b.howHeard:null;
   const manualCode=howHeard==='Indicação de um parceiro/influenciador'&&typeof b?.referralCode==='string'?b.referralCode:null;
   const attribution=await resolveAttribution(req,env,manualCode);
-  await env.DB.prepare(`INSERT INTO lead_requests
-    (id,kind,protocol,customer_name,customer_email,customer_phone,origin,destination,outbound_on,return_on,
-     passengers,adults,children,infants,trip_type,cabin_class,baggage,date_flexibility,payment_preference,notes,
-     contact_consent,status,deadline_at,ip_hash,updated_at,
-     partner_id,referral_code_snapshot,referral_source,referral_captured_at,attribution_expires_at)
-    VALUES (?,'flight_quote',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,'new',?,?,CURRENT_TIMESTAMP,?,?,?,?,?)`)
-    .bind(id,protocol,name,email,phone,origin,destination,outbound,returnOn,`${adults} adulto(s), ${children} criança(s), ${infants} bebê(s)`,adults,children,infants,tripType,cabin,baggage,flexibility,payment,notes,deadline,await sha(clientKey(req)),
-      attribution?.partnerId??null,attribution?.code??null,attribution?.source??'none',attribution?.capturedAtIso??null,attribution?.expiresAtIso??null).run();
+  const fields:Record<string,unknown>={id,kind:'flight_quote',customer_name:name,customer_email:email,customer_phone:phone,customer_phone_digits:phoneDigits,
+    origin,destination,outbound_on:outbound,return_on:returnOn,passengers:`${adults} adulto(s), ${children} criança(s), ${infants} bebê(s)`,adults,children,infants,
+    trip_type:tripType,cabin_class:cabin,baggage,date_flexibility:flexibility,payment_preference:payment,notes,stops_preference:stops,
+    contact_consent:1,consent_version:whatsappConsent?QUOTE_CONSENT_VERSION:null,status:'new',deadline_at:deadline,ip_hash:await sha(clientKey(req)),
+    partner_id:attribution?.partnerId??null,referral_code_snapshot:attribution?.code??null,referral_source:attribution?.source??'none',
+    referral_captured_at:attribution?.capturedAtIso??null,attribution_expires_at:attribution?.expiresAtIso??null,
+    submission_id:submissionId,submission_hash:submissionHash,...source};
+  const columns=Object.keys(fields);
+  // Protocolo RC-AAAA-NNNNN: contador do ano e pedido na mesma transação (D1 batch), então não há número repetido nem pulado por falha.
+  let protocol:string;
+  try{
+    const results=await env.DB.batch([
+      env.DB.prepare('INSERT INTO protocol_counters(year,last_value) VALUES(?,1) ON CONFLICT(year) DO UPDATE SET last_value=last_value+1').bind(year),
+      env.DB.prepare(`INSERT INTO lead_requests (${columns.join(',')},protocol,updated_at,whatsapp_consent_at)
+        VALUES (${columns.map(()=>'?').join(',')},(SELECT printf('RC-%04d-%05d',year,last_value) FROM protocol_counters WHERE year=?),CURRENT_TIMESTAMP,${whatsappConsent?'CURRENT_TIMESTAMP':'NULL'}) RETURNING protocol`)
+        .bind(...Object.values(fields),year),
+    ]);
+    protocol=String((results[1]?.results?.[0] as Row|undefined)?.protocol??'');
+  }catch(error){
+    // Dois envios iguais ao mesmo tempo: o índice único de submission_id barra o segundo, que devolve o protocolo do primeiro.
+    if(submissionId&&String(error instanceof Error?error.message:error).includes('UNIQUE')){const prior=await priorSubmission(env,submissionId,submissionHash!);if(prior)return prior;}
+    throw error;
+  }
+  if(!protocol)throw new Error('protocol_not_generated');
   if(attribution){
     await env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'referral_confirmed',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
       .bind(crypto.randomUUID(),`referral_confirmed:${id}`,attribution.partnerId,JSON.stringify({leadId:id,protocol,destination})).run();
   }
   const masters=await env.DB.prepare("SELECT u.id,u.email FROM users u JOIN user_roles r ON r.user_id=u.id WHERE r.role='master' AND u.status='active' AND u.email_verified_at IS NOT NULL").all<Row>();
   const route=`${origin} → ${destination}`,adminUrl=`${env.APP_ORIGIN.replace(/\/$/,'')}/admin.html`;
-  const customerHtml=`<p>Olá, ${html(name)}.</p><p>Recebemos sua solicitação de proposta para <strong>${html(route)}</strong>.</p><p>Protocolo: <strong>${protocol}</strong></p><p>Nossa equipe analisará as melhores opções e responderá por e-mail em até 48 horas.</p><p>Rota Certa Passagens</p>`;
-  const customerText=`Olá, ${name}. Recebemos sua solicitação para ${route}. Protocolo: ${protocol}. Nossa equipe responderá por e-mail em até 48 horas.`;
+  const whatsappUrl=whatsappHandoffUrl(protocol);
+  const customerHtml=`<p>Olá, ${html(name)}.</p><p>Recebemos sua solicitação de proposta para <strong>${html(route)}</strong>.</p><p>Protocolo: <strong>${protocol}</strong></p><p>O atendimento continua pelo WhatsApp. Se ainda não enviou a mensagem com o seu protocolo, é só tocar aqui: <a href="${html(whatsappUrl)}">Continuar atendimento pelo WhatsApp</a>.</p><p>Rota Certa Passagens</p>`;
+  const customerText=`Olá, ${name}. Recebemos sua solicitação para ${route}. Protocolo: ${protocol}. O atendimento continua pelo WhatsApp: ${whatsappUrl}`;
   const masterHtml=`<p>Nova proposta de voo recebida.</p><p><strong>${protocol}</strong> — ${html(route)}</p><p>Cliente: ${html(name)} (${html(email)})</p><p>Prazo: ${html(deadline)}</p><p><a href="${html(adminUrl)}">Abrir Central de Propostas</a></p>`;
   const masterText=`Nova proposta ${protocol}: ${route}. Cliente: ${name} (${email}). Prazo: ${deadline}. Painel: ${adminUrl}`;
   const customer=await Promise.allSettled([sendEmail(env,null,email,'flight_quote_customer',`Recebemos sua solicitação ${protocol}`,customerHtml,customerText)]);
   const masterResults=await Promise.allSettled(masters.results.map(m=>sendEmail(env,String(m.id),String(m.email),'flight_quote_master',`Nova proposta de voo ${protocol}`,masterHtml,masterText)));
-  return reply({ok:true,protocol,responseDeadlineHours:48,confirmationEmailSent:customer[0]?.status==='fulfilled',mastersNotified:masterResults.filter(x=>x.status==='fulfilled').length},201);
+  return reply({...quoteReceived(protocol),responseDeadlineHours:48,confirmationEmailSent:customer[0]?.status==='fulfilled',mastersNotified:masterResults.filter(x=>x.status==='fulfilled').length},201);
+}
+function quoteReceived(protocol:string){return {ok:true,protocol,status:RECEIVED_STATUS,statusLabel:RECEIVED_STATUS_LABEL,whatsappUrl:whatsappHandoffUrl(protocol)};}
+async function priorSubmission(env:Env,submissionId:string,submissionHash:string){
+  const prior=await env.DB.prepare("SELECT protocol,submission_hash FROM lead_requests WHERE submission_id=? AND kind='flight_quote'").bind(submissionId).first<{protocol:string;submission_hash:string|null}>();
+  if(!prior)return null;
+  // Mesmo identificador com dados diferentes: a página gera outro identificador e envia como pedido novo.
+  if(prior.submission_hash!==submissionHash)return reply({error:'submission_conflict'},409);
+  return reply({...quoteReceived(prior.protocol),replayed:true});
 }
 
 async function audit(env:Env,actor:string|null,action:string,targetType:string,targetId:string|null){await env.DB.prepare('INSERT INTO audit_events(id,actor_user_id,action,target_type,target_id) VALUES(?,?,?,?,?)').bind(crypto.randomUUID(),actor,action,targetType,targetId).run();}
