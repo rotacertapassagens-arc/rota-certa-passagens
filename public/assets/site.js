@@ -96,6 +96,9 @@ function notify(message) {
 }
 
 async function refreshSession() {
+  // O login grava rc_csrf junto com o cookie da sessão (mesma validade). Sem ele, o visitante não está logado:
+  // pula a consulta, que só devolveria 401 (erro no console e uma requisição a mais em toda visita).
+  if (!csrfToken()) { session = null; plannerLocked = true; return; }
   try {
     session = await api('/api/auth/session');
     if (!session.authenticated) session = null;
@@ -106,7 +109,7 @@ async function refreshSession() {
 }
 
 function setHomeMode(isHome) {
-  document.querySelectorAll('body>section,body>header,body>footer,body>.strip,body>.wa-float').forEach((element) => {
+  document.querySelectorAll('body>main>section,body>main>.strip,body>header,body>footer,body>.wa-float').forEach((element) => {
     if (!element.matches('#plannerApp,#clientApp')) element.style.display = isHome ? '' : 'none';
   });
   const planner = document.getElementById('plannerApp');

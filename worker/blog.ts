@@ -30,7 +30,7 @@ type Post = {
 };
 
 const WHATSAPP = 'https://wa.me/351925307391';
-const CSP = "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' blob:; frame-src https://www.google.com; connect-src 'self'; upgrade-insecure-requests";
+const CSP = "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self' blob:; frame-src https://www.google.com; connect-src 'self'; upgrade-insecure-requests";
 const MEDIA_URL = /^\/media\/blog\/[0-9a-f-]{36}\/(g|m)$/;
 const ASSET_URL = /^\/assets\/blog\/[a-z0-9-]+\.(jpg|jpeg|png|webp)$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -143,9 +143,9 @@ function head(env: Env, o: { titulo: string; descricao: string; url: string; ima
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="/assets/favicon.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Montserrat:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=optional" rel="stylesheet">
+<link rel="preload" href="/assets/fonts/montserrat-300-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/playfair-display-400-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/fonts/fontes.css">
 <link rel="stylesheet" href="/assets/blog.css">${o.jsonLd ? `\n<script type="application/ld+json">${JSON.stringify(o.jsonLd).replace(/</g, '\\u003c')}</script>` : ''}
 </head>
 <body>`;
@@ -243,10 +243,18 @@ function titleHtml(p: Pick<Post, 'title' | 'title_highlight'>) {
   return `${esc(t.slice(0, i))}<em>${esc(h)}</em>${esc(t.slice(i + h.length))}`;
 }
 
+// As fotos fixas dos guias (public/assets/blog/<nome>-m.jpg, 900 px) têm uma versão de 600 px em WebP para os cards.
+// Fotos enviadas pelo editor (/media/blog/...) seguem como estão.
+function cardSrcset(img: string, destaque: boolean) {
+  const m = img.match(/^\/assets\/blog\/([a-z0-9-]+?)(?:-m)?\.jpg$/);
+  if (!m) return '';
+  return ` srcset="/assets/blog/${m[1]}-p.webp 600w, ${esc(img)} 900w" sizes="${destaque ? '(max-width: 700px) calc(100vw - 40px), 640px' : '(max-width: 700px) calc(100vw - 40px), 400px'}"`;
+}
+
 function card(p: Post, tituloTag: 'h2' | 'h3', destaque = false) {
   const img = p.cover_url_small || p.cover_url;
   return `        <a class="post-card${destaque ? ' pc-featured' : ''}" href="/blog/${esc(p.slug)}" data-regiao="${esc(p.region_id)}"${p.featured ? ' data-destaque="sim"' : ''}>
-          <div class="pc-img">${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async">` : ''}<span class="pc-tag">${esc(p.region_name)}</span></div>
+          <div class="pc-img">${img ? `<img src="${esc(img)}"${cardSrcset(img, destaque)} alt="" loading="lazy" decoding="async">` : ''}<span class="pc-tag">${esc(p.region_name)}</span></div>
           <div class="pc-body">
             <p class="pc-meta">${p.reading_minutes} min de leitura</p>
             <${tituloTag}>${esc(p.title)}</${tituloTag}>
@@ -407,7 +415,7 @@ async function publishedPosts(env: Env) {
 async function sitemap(env: Env) {
   const posts = await env.DB.prepare(`SELECT slug, updated_at FROM blog_posts WHERE status='published' ORDER BY published_at DESC`).all<{ slug: string; updated_at: string }>();
   const hoje = new Date().toISOString().slice(0, 10);
-  const fixas = ['/', '/app', '/proposta-voo', '/parceiros', '/politica-privacidade-parceiros.html', '/blog/'];
+  const fixas = ['/', '/app', '/proposta-voo', '/parceiros', '/politica-privacidade-parceiros', '/blog/'];
   const urls = [
     ...fixas.map((u) => ({ loc: u, lastmod: hoje })),
     ...posts.results.map((p) => ({ loc: `/blog/${p.slug}`, lastmod: p.updated_at.slice(0, 10) })),

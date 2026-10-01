@@ -15,9 +15,9 @@
   <meta name="apple-mobile-web-app-title" content="Rota Certa">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,700&display=swap" rel="stylesheet">
+  <link rel="preload" href="/assets/fonts/montserrat-300-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/playfair-display-400-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/fonts/fontes.css">
   <style>
     :root{--navy:#0d1b2a;--gold:#d4af37;--off:#f4f4f4;--muted:#5d6978;--display:"Playfair Display",Georgia,serif;--body:Montserrat,Arial,sans-serif}
     *{box-sizing:border-box;margin:0}
@@ -56,7 +56,7 @@
     .step ol{padding:18px 22px 22px 44px;display:grid;gap:10px}.step li{font-size:.95rem}
     .privacy{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid rgba(13,27,42,.1);border-left:4px solid #1e7f74;border-radius:14px;padding:20px 22px;margin-top:22px}
     .privacy svg{width:24px;height:24px;flex:0 0 24px;color:#1e7f74;margin-top:2px}.privacy p{font-size:.92rem;color:#37424f}
-    footer{background:var(--navy);color:rgba(244,244,244,.75);text-align:center;padding:34px 16px;font-size:.85rem}footer a{color:var(--gold)}
+    footer{background:var(--navy);color:rgba(244,244,244,.75);text-align:center;padding:34px 16px;font-size:.85rem}footer a{color:var(--gold);text-decoration:underline;text-underline-offset:3px}
     [hidden]{display:none!important}
     @media(max-width:860px){.grid,.steps{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}}
     @media(max-width:560px){.band{background-image:url(/assets/telas/app-m.jpg);padding-bottom:44px}.band::before{background:linear-gradient(180deg,rgba(13,27,42,.92),rgba(13,27,42,.75))}.cards{grid-template-columns:1fr}.top{margin-bottom:30px}section{padding:44px 0}}

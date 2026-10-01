@@ -1,7 +1,7 @@
 // App Rota Certa (service worker): abre sem internet a última versão do site, do Planner e dos anexos já baixados.
 // Regras: páginas e dados da API sempre tentam a rede primeiro; o que fica no aparelho é só cópia para quando não há conexão.
 // Os dados da conta (rc-dados, rc-anexos) são apagados pelo site ao sair da conta.
-const VERSAO = 'v1';
+const VERSAO = 'v2';
 const SHELL = `rc-shell-${VERSAO}`;
 const DADOS = 'rc-dados';
 const ANEXOS = 'rc-anexos';
@@ -11,6 +11,7 @@ const PRECACHE = [
   '/assets/planner/visao-geral-m.jpg', '/assets/planner/itinerario-m.jpg', '/assets/planner/lugares-m.jpg',
   '/assets/planner/orcamento-m.jpg', '/assets/planner/checklist-m.jpg',
   '/assets/telas/cliente-entrar-m.jpg', '/assets/telas/cliente-logado-m.jpg',
+  '/assets/fonts/fontes.css', '/assets/fonts/montserrat-300-700-latin.woff2', '/assets/fonts/playfair-display-400-700-latin.woff2',
 ];
 const OFFLINE_HTML = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sem internet | Rota Certa</title></head>'
   + '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0d1b2a;color:#f4f4f4;font:16px/1.5 Arial,sans-serif;text-align:center;padding:24px">'

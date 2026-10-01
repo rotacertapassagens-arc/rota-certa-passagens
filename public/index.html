@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rota Certa Passagens | Você escolhe o destino. Nós tratamos da rota.</title>
 <meta name="description" content="Planejamento de viagens personalizado, atendimento humano e toda a sua viagem organizada em um só lugar. Passagens, hospedagem e roteiros entre Brasil, Portugal e Europa.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Montserrat:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=optional" rel="stylesheet">
+<link rel="preload" href="/assets/fonts/montserrat-300-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/playfair-display-400-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/fonts/fontes.css">
 <link rel="preload" as="image" href="/assets/hero/rota-card-inicio.jpg" media="(min-width: 901px)" fetchpriority="high">
 <style>
   :root{
@@ -908,6 +908,7 @@ button.pl-pill{font:inherit;cursor:pointer}
   </div>
 </header>
 
+<main id="conteudo">
 <section class="hero" id="top">
   <div class="wrap hero-inner">
     <div>
@@ -915,7 +916,7 @@ button.pl-pill{font:inherit;cursor:pointer}
       <p class="lede">Da passagem ao roteiro, cuidamos de cada detalhe para que possa viajar com mais tranquilidade, segurança e confiança.</p>
       <div class="hero-ctas">
         <a href="#/planner" class="btn btn-gold">Quero planejar a minha viagem</a>
-        <a href="/proposta-voo.html" class="btn btn-outline">Pedir proposta de voo</a>
+        <a href="/proposta-voo" class="btn btn-outline">Pedir proposta de voo</a>
       </div>
       <p class="hero-note">Propostas de voo respondidas em até 48 horas.</p>
     </div>
@@ -924,7 +925,7 @@ button.pl-pill{font:inherit;cursor:pointer}
       <div class="hm-card">
         <div class="hm-screen">
           <video class="hm-video" muted playsinline loop preload="none" poster="/assets/hero/rota-card-inicio.jpg" width="1600" height="904" aria-hidden="true" tabindex="-1"></video>
-          <a class="hm-ticket" href="/proposta-voo.html" aria-hidden="true" tabindex="-1">
+          <a class="hm-ticket" href="/proposta-voo" aria-hidden="true" tabindex="-1">
             <span class="tk-card">
               <span class="tk-main">
                 <span class="tk-head"><span class="tk-kicker">Cartão de embarque</span><span class="tk-brand">Rota Certa</span></span>
@@ -1272,9 +1273,9 @@ button.pl-pill{font:inherit;cursor:pointer}
         <a href="#/planner/lugares" data-tone="trans"><span class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><strong>Lugares</strong><small>Mapa e rota até cada lugar</small></a>
         <a href="#/planner/orcamento" data-tone="ativ"><span class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 9.5h-5a2.5 2.5 0 0 0 0 5h5z"/></svg></span><strong>Orçamento</strong><small>Gastos e saldo da viagem</small></a>
         <a href="#/planner/checklist" data-tone="ok"><span class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="m8.5 12.2 2.4 2.4 4.8-5"/></svg></span><strong>Checklist</strong><small>O que falta preparar</small></a>
-        <a href="/proposta-voo.html" data-tone="hosp"><span class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></span><strong>Pedir proposta de voo</strong><small>Atendimento pelo WhatsApp com protocolo</small></a>
+        <a href="/proposta-voo" data-tone="hosp"><span class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></span><strong>Pedir proposta de voo</strong><small>Atendimento pelo WhatsApp com protocolo</small></a>
         <a href="#" data-install-app hidden data-tone="trans"><span class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7.5v7M9 11.5l3 3 3-3"/></svg></span><strong>Instalar o app Rota Certa</strong><small>Na tela do celular, até sem internet</small></a>
-        <a class="hidden" id="masterPanelLink" href="/admin.html" data-tone="comp"><span class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.4 7.5 10 4.3-1.6 7.5-5.4 7.5-10v-6z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.4"/></svg></span><strong>Painel master</strong><small>Propostas, usuários e acessos</small></a>
+        <a class="hidden" id="masterPanelLink" href="/admin" data-tone="comp"><span class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.4 7.5 10 4.3-1.6 7.5-5.4 7.5-10v-6z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.4"/></svg></span><strong>Painel master</strong><small>Propostas, usuários e acessos</small></a>
       </div>
     </div>
   </div>
@@ -1385,7 +1386,7 @@ button.pl-pill{font:inherit;cursor:pointer}
       <h3 class="faq-group">Viagens e atendimento</h3>
       <details>
         <summary>Posso pedir só a passagem aérea?</summary>
-        <p>Sim. É só <a href="/proposta-voo.html">pedir uma proposta de voo</a>, sem contratar o planejamento completo. Você recebe um protocolo e o atendimento continua pelo WhatsApp.</p>
+        <p>Sim. É só <a href="/proposta-voo">pedir uma proposta de voo</a>, sem contratar o planejamento completo. Você recebe um protocolo e o atendimento continua pelo WhatsApp.</p>
       </details>
       <details>
         <summary>Que destinos atendem?</summary>
@@ -1426,11 +1427,13 @@ button.pl-pill{font:inherit;cursor:pointer}
     <p>Conte para nós o que você pretende e receba um planejamento feito especialmente para você.</p>
     <div class="hero-ctas">
       <a href="#/planner" class="btn btn-gold">Quero planejar a minha viagem</a>
-      <a href="/proposta-voo.html" class="btn btn-outline">Pedir proposta de voo</a>
+      <a href="/proposta-voo" class="btn btn-outline">Pedir proposta de voo</a>
     </div>
     <p class="cta-alt">Prefere conversar? <a href="https://wa.me/351925307391" target="_blank" rel="noopener">Fale com um especialista no WhatsApp</a></p>
   </div>
 </section>
+
+</main>
 
 <footer id="contato">
   <div class="wrap">
