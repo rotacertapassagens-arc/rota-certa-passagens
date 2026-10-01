@@ -22,6 +22,20 @@ if (navToggle && mainNav) {
   });
 }
 
+// Origem da visita (UTMs, página de entrada, site de onde veio e horário), lida pelo pedido de proposta
+// em quote.js. Fica só nesta aba; uma campanha nova (com UTM) substitui a anterior.
+(function captureVisitSource() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const utm = {};
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach((key) => { const value = params.get(key); if (value) utm[key] = value.trim().slice(0, 200); });
+    if (sessionStorage.getItem('rc_origem_visita') && !Object.keys(utm).length) return;
+    let referrer = null;
+    if (document.referrer) { const from = new URL(document.referrer); if (from.host !== location.host) referrer = from.hostname; }
+    sessionStorage.setItem('rc_origem_visita', JSON.stringify({ ...utm, page: location.pathname.slice(0, 300), referrer, capturedAt: new Date().toISOString() }));
+  } catch { /* sem sessionStorage: o pedido só não leva a origem */ }
+})();
+
 const legacyPlannerKey = 'rotaCertaPlanner_v2';
 const starterData = {
   trip: { id: null, name: 'Demonstração do Planner' },

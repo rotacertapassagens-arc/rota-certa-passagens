@@ -20,7 +20,7 @@
   <section class="intro">
       <p class="eyebrow">Passagens</p>
       <h1>Peça uma proposta de voo</h1>
-      <p>Preencha os dados abaixo. Você receberá a confirmação por e-mail e nossa equipe responderá em até 48 horas.</p>
+      <p>Preencha os dados abaixo. Você recebe um protocolo na hora e continua o atendimento pelo WhatsApp.</p>
     </section>
   </div>
 
@@ -34,7 +34,7 @@
         <div class="form-grid">
           <label>Nome completo<input type="text" id="quoteName" autocomplete="name" maxlength="120" required></label>
           <label>E-mail<input type="email" id="quoteEmail" autocomplete="email" maxlength="254" required></label>
-          <label class="full">Telefone com código do país<input type="tel" id="quotePhone" autocomplete="tel" placeholder="+351 912 345 678" maxlength="30" required></label>
+          <label class="full">WhatsApp com código do país<input type="tel" id="quotePhone" autocomplete="tel" placeholder="+351 912 345 678" maxlength="32" pattern="\s*(\+|00)[0-9 \(\)\.\-]{7,30}\s*" title="Comece com + e o código do país, por exemplo +55 11 91234 5678" aria-describedby="quotePhoneHint" required><small class="field-hint" id="quotePhoneHint">Use o número do WhatsApp com + e o código do país, por exemplo +55 11 91234 5678 ou +351 912 345 678.</small></label>
           <label class="full">Como você conheceu a Rota Certa?
             <select id="howHeard">
               <option value="">Prefiro não dizer</option>
@@ -63,16 +63,30 @@
           <label>Classe<select id="cabinClass"><option>Econômica</option><option>Premium Economy</option><option>Executiva</option><option>Primeira classe</option></select></label>
           <label>Bagagem<select id="baggage"><option>Somente item pessoal</option><option>Bagagem de mão</option><option>Bagagem despachada</option><option>Ainda não sei</option></select></label>
           <label>Flexibilidade nas datas<select id="flexibility"><option>Datas fixas</option><option>Até 3 dias</option><option>Até 7 dias</option><option>Datas flexíveis</option></select></label>
+          <label>Escalas<select id="stopsPreference"><option>Sem preferência</option><option>Aceito escalas</option><option>Somente voo direto</option></select></label>
           <label>Preferência de pagamento<select id="paymentPreference"><option>Pix</option><option>Cartão de crédito em até 12x</option><option>Ainda não sei</option></select></label>
           <label class="full">Detalhes adicionais<textarea id="observacoes" maxlength="3000" placeholder="Preferências de horários, escalas ou outras informações importantes"></textarea></label>
         </div>
       </fieldset>
 
-      <label class="consent"><input type="checkbox" id="contactConsent" required><span>Autorizo a Rota Certa Passagens a usar estes dados para preparar a proposta e entrar em contato por e-mail ou telefone.</span></label>
+      <label class="consent"><input type="checkbox" id="contactConsent" required><span>Autorizo a Rota Certa Passagens a usar estes dados para preparar a proposta e a falar comigo pelo WhatsApp, por telefone ou por e-mail sobre este pedido.</span></label>
       <button type="submit">Pedir proposta de voo</button>
-      <p class="form-note">Seu pedido recebe um protocolo. A proposta chega por e-mail em até 48 horas e a compra é fechada com você pelo WhatsApp, com pagamento por Pix ou cartão de crédito em até 12x.</p>
+      <p class="form-note">Seu pedido recebe um protocolo. Com ele, você continua o atendimento pelo WhatsApp, onde a compra é fechada com pagamento por Pix ou cartão de crédito em até 12x.</p>
       <p class="form-status" id="quoteStatus" aria-live="polite"></p>
     </form>
+
+    <section class="quote-success hidden" id="quoteSuccess" tabindex="-1" aria-labelledby="quoteSuccessTitle">
+      <p class="eyebrow">Pedido salvo</p>
+      <h2 id="quoteSuccessTitle">Solicitação recebida</h2>
+      <dl class="success-facts">
+        <div><dt>Protocolo</dt><dd class="success-protocol" id="successProtocol"></dd></div>
+        <div><dt>Estado</dt><dd id="successStatus">Recebida — aguardando início no WhatsApp</dd></div>
+      </dl>
+      <p class="success-text">Toque no botão para abrir o WhatsApp da Rota Certa com a mensagem pronta e o seu protocolo. É por lá que o atendimento começa.</p>
+      <a class="wa-button" id="successWhatsapp" href="https://wa.me/351925307391" target="_blank" rel="noopener">Continuar atendimento pelo WhatsApp</a>
+      <p class="success-note">Se preferir enviar depois, o seu pedido continua salvo com este protocolo.</p>
+      <button type="button" class="link-button" id="newQuote">Fazer outro pedido</button>
+    </section>
   </main>
 
   <footer>© 2026 Rota Certa Passagens</footer>
