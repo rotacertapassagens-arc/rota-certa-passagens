@@ -44,12 +44,23 @@ function runCode(jsCode: string, input: Json[], nodes: Record<string, Json>, env
   return (new Function('$input', '$', '$env', jsCode)($input, $, env) as Array<{ json: Json }>)[0]!.json;
 }
 
-/** Notion em memória com a mesma regra do WHA-04: busca por Submission ID antes de criar. */
+/**
+ * Notion em memória. A busca devolve TODAS as páginas no formato bruto do nó Notion (simple=false),
+ * como o nó vivo fazia quando ignorava o filtro: o WHA-04 tem de achar a página certa sozinho.
+ */
 class FakeNotion {
   pages = new Map<string, Json>();
   creates = 0;
-  find(submissionId: string) { return this.pages.get(submissionId) ?? {}; }
-  create(draft: Json) { this.creates += 1; const page = { id: `page-${this.creates}`, ...draft.notion, title: draft.title }; this.pages.set(draft.submissionId, page); return page; }
+  constructor() {
+    this.pages.set('whatsapp:outro-cliente', { id: 'page-antiga-de-outro-cliente', properties: { 'Submission ID': { rich_text: [{ plain_text: 'whatsapp:outro-cliente' }] } } });
+  }
+  search() { return this.pages.size ? [...this.pages.values()] : [{}]; }
+  create(draft: Json) {
+    this.creates += 1;
+    const page = { id: `page-${this.creates}`, ...draft.notion, title: draft.title, properties: { 'Submission ID': { rich_text: [{ plain_text: draft.submissionId }] } } };
+    this.pages.set(draft.submissionId, page);
+    return page;
+  }
 }
 
 describe('WHA-04 integrado: site → WHA-01 → WHA-04 → Notion → resposta', () => {
@@ -94,7 +105,7 @@ describe('WHA-04 integrado: site → WHA-01 → WHA-04 → Notion → resposta',
       draft = runCode(nodeCode(wha04, 'Preparar Pedido Direto'), [normalized], nodes);
     }
     nodes['Preparar Rascunho'] = draft;
-    const decided = runCode(nodeCode(wha04, 'Decidir Idempotência'), [notion.find(draft.submissionId)], nodes);
+    const decided = runCode(nodeCode(wha04, 'Decidir Idempotência'), notion.search(), nodes);
     if (decided.alreadyExists) return runCode(nodeCode(wha04, 'Retornar Pedido Existente'), [decided], nodes);
     return runCode(nodeCode(wha04, 'Confirmar Persistência'), [notion.create(draft)], nodes);
   }
@@ -200,5 +211,8 @@ describe('WHA-04 integrado: site → WHA-01 → WHA-04 → Notion → resposta',
     // Rodar o build de novo não duplica nós.
     expect(buildWha01(wha01).nodes.length).toBe(wha01.nodes.length);
     expect(wha04.nodes.find((n: Json) => n.type === 'n8n-nodes-base.executeWorkflowTrigger').parameters).toEqual({ inputSource: 'passthrough' });
+    expect(wha04.nodes.find((n: Json) => n.name === 'Buscar Pedido Existente').parameters).toMatchObject({ filterType: 'manual', matchType: 'allFilters' });
+    const volta = wha04.nodes.find((n: Json) => n.name === 'Criar Rascunho de Orçamento').parameters.propertiesUi.propertyValues.find((v: Json) => v.key === 'Data volta|date');
+    expect(volta.date).toContain("|| ''");
   });
 });
