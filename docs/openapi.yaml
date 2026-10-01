@@ -27,6 +27,10 @@ components:
       type: http
       scheme: bearer
       description: NOTIFICATIONS_CRON_TOKEN, for unattended scheduler calls with no session cookie.
+    internalApiToken:
+      type: http
+      scheme: bearer
+      description: ROTA_CERTA_SITE_API_TOKEN, segredo do Worker usado só pelo n8n (WHA-04). Nunca vai para o navegador.
   schemas:
     Error:
       type: object
@@ -55,7 +59,7 @@ components:
         type: { type: string, const: quote }
         name: { type: string, minLength: 2, maxLength: 120 }
         email: { type: string, format: email }
-        phone: { type: string }
+        phone: { type: string, description: "WhatsApp com código do país (+ ou 00). Guardado como +dígitos e só dígitos (customer_phone_digits). Sem código do país → 400 invalid_phone (Worker)." }
         origem: { type: string }
         destino: { type: string }
         ida: { type: string, format: date }
@@ -72,6 +76,49 @@ components:
         contactConsent: { type: boolean, const: true }
         howHeard: { type: string, enum: [Instagram, "Indicação de um amigo", "Indicação de um parceiro/influenciador", Google, Outro] }
         referralCode: { type: string, maxLength: 64, description: "Código digitado manualmente; sempre revalidado no servidor e nunca prioritário sobre o link/cookie." }
+        stopsPreference: { type: string, enum: ["Sem preferência", "Aceito escalas", "Somente voo direto"] }
+        consentVersion: { type: string, description: "Versão do texto de consentimento que cita o WhatsApp (QUOTE_CONSENT_VERSION). Sem ela, o pedido é salvo mas o aceite do WhatsApp não é registrado." }
+        submissionId: { type: string, format: uuid, description: "Gerado pela página, um por envio. Reenvio com os mesmos dados devolve o mesmo protocolo (200, replayed=true); mesmo id com dados diferentes → 409 submission_conflict." }
+        source:
+          type: object
+          description: Origem da visita, toda opcional; valor fora do formato é descartado.
+          properties:
+            utm_source: { type: string, maxLength: 200 }
+            utm_medium: { type: string, maxLength: 200 }
+            utm_campaign: { type: string, maxLength: 200 }
+            utm_content: { type: string, maxLength: 200 }
+            utm_term: { type: string, maxLength: 200 }
+            page: { type: string, maxLength: 300, description: "Caminho da página de entrada na aba." }
+            referrer: { type: string, description: "Host do site externo de onde a visita veio." }
+            capturedAt: { type: string, format: date-time }
+    InternalProposal:
+      type: object
+      description: Contrato do WHA-04. Só campos mínimos; nada de e-mail, pagamento, observações, UTMs ou notas internas.
+      required: [protocol, phone, name, contactName, collected, classificacao]
+      properties:
+        protocol: { type: string, pattern: "^RC-\\d{4}-\\d{5,}$" }
+        phone: { type: string, description: "Só dígitos, com código do país." }
+        name: { type: string }
+        contactName: { type: string }
+        collected:
+          type: object
+          properties:
+            origem: { type: string, description: "Texto livre digitado no formulário (cidade ou aeroporto), não necessariamente código IATA." }
+            destino: { type: string, description: "Texto livre digitado no formulário (cidade ou aeroporto), não necessariamente código IATA." }
+            tipoViagem: { type: [string, "null"], enum: [ida_e_volta, so_ida, null] }
+            dataIda: { type: [string, "null"], format: date }
+            dataVolta: { type: [string, "null"], format: date }
+            adultos: { type: integer }
+            criancas: { type: integer }
+            bebes: { type: integer }
+            cabine: { type: [string, "null"], enum: [economica, premium_economica, executiva, primeira, null] }
+            bagagem: { type: [string, "null"], enum: [item_pessoal, bagagem_de_mao, bagagem_despachada, null], description: "null quando o cliente escolheu 'Ainda não sei'." }
+            aceitaEscalas: { type: [boolean, "null"], description: "null quando o cliente não tem preferência." }
+            vooDireto: { type: [boolean, "null"], description: "null quando o cliente não tem preferência." }
+            companhiaPreferida: { type: "null", description: "O formulário não coleta; sempre null." }
+            maxEscalas: { type: "null", description: "O formulário não coleta; sempre null." }
+            consentimento: { type: boolean, description: "true só quando o aceite do texto que cita o WhatsApp foi gravado neste pedido." }
+        classificacao: { type: string, enum: [normal], description: "O site não classifica pedidos; sempre normal." }
     Partner:
       type: object
       required: [id, code, displayName, email, commissionType, currency, attributionWindowDays, active]
@@ -186,8 +233,33 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/FlightQuote" }
       responses:
-        "201": { description: Pedido registrado com protocolo e prazo de 48 horas }
+        "201": { description: "Pedido registrado. Worker: protocolo RC-AAAA-NNNNN, status received_awaiting_whatsapp, statusLabel e whatsappUrl (wa.me da Rota Certa com a mensagem pronta e o protocolo). A página nunca abre o WhatsApp sozinha." }
+        "200": { description: "Reenvio do mesmo submissionId com os mesmos dados: mesmo protocolo, replayed=true, sem novo pedido nem novo e-mail." }
         "400": { description: Dados inválidos }
+        "409": { description: "submission_conflict: o submissionId já foi usado com outros dados." }
+        "429": { description: Limite excedido }
+  /api/internal/proposals/{protocol}:
+    get:
+      tags: [Internal]
+      summary: "WHA-04: consulta de servidor para servidor de um pedido por protocolo + telefone"
+      description: >
+        Só no Worker. Exige Authorization: Bearer com o segredo ROTA_CERTA_SITE_API_TOKEN (mínimo 32
+        caracteres; sem o segredo configurado, toda chamada recebe 401). Comparação em tempo
+        constante. O telefone é reduzido a dígitos e comparado com o número inteiro guardado; final
+        igual ou número sem código do país não servem. Rate limit por IP: 120 chamadas por minuto, e
+        10 credenciais erradas em 15 minutos bloqueiam aquele IP por 15 minutos. Só leitura.
+      security: [{ internalApiToken: [] }]
+      parameters:
+        - { name: protocol, in: path, required: true, schema: { type: string, pattern: "^RC-\\d{4}-\\d{5,}$" } }
+        - { name: phone, in: query, required: true, schema: { type: string }, description: "Número do WhatsApp; qualquer formatação vira só dígitos." }
+      responses:
+        "200":
+          description: Pedido correto, só com os campos do contrato
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InternalProposal" }
+        "401": { description: Sem credencial válida }
+        "404": { description: "Protocolo + telefone não conferem (ou protocolo fora do formato RC-AAAA-NNNNN)" }
         "429": { description: Limite excedido }
   /i/{code}:
     get:
