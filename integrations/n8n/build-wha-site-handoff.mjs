@@ -63,10 +63,13 @@ const permitido = deteccao.matched && siteHandoffAllowed(mensagem.phone, {
   mode: $env.WHATSAPP_SITE_HANDOFF_MODE || 'off',
   testNumber: $env.WHATSAPP_TEST_NUMBER || null,
 });
+// Este item vai inteiro para o WHA-04 (gatilho "passthrough"): source, protocol e phone são a entrada dele.
 return [{ json: {
   ...$input.first().json,
   siteHandoff: permitido,
   siteProtocol: permitido ? deteccao.protocol : null,
+  source: 'SITE_FORM',
+  protocol: permitido ? deteccao.protocol : null,
   phone: mensagem.phone,
   contactName: mensagem.contactName || null,
 } }];`;
