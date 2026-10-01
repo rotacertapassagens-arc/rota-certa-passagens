@@ -272,6 +272,28 @@ async function loadLeads(){
   document.getElementById('leads').innerHTML=currentLeads.length?currentLeads.map(renderLead).join(''):'<p class="muted">Nenhuma proposta encontrada.</p>';
 }
 
+// Voo emitido: vai para o roteiro do cliente no Planner (ou fica esperando ele criar a conta).
+function plannerFlightBlock(lead){
+  const id=escapeHtml(lead.id);
+  return `<div class="planner-flight"><button type="button" class="pf-toggle" data-planner-flight="${id}">Enviar voo ao Planner do cliente</button><form class="pf-form hidden" data-planner-form="${id}"><p class="muted">O voo entra no roteiro de ${escapeHtml(lead.customer_email)} com as datas e o código da reserva. Se o cliente ainda não tiver conta, entra assim que ele criar a conta com este e-mail. Ele recebe um aviso por e-mail.</p><div class="pf-grid"><label>Ida<input type="date" name="outboundDate" required value="${escapeHtml(lead.outbound_on||'')}"></label><label>Horário da ida<input type="time" name="outboundTime"></label><label>Voo de ida<input name="flightOut" maxlength="40" placeholder="Ex.: TP 088"></label><label>Volta<input type="date" name="returnDate" value="${escapeHtml(lead.return_on||'')}"></label><label>Horário da volta<input type="time" name="returnTime"></label><label>Voo de volta<input name="flightBack" maxlength="40"></label><label>Código da reserva<input name="bookingCode" maxlength="80"></label><label class="pf-wide">Observações para o cliente<input name="notes" maxlength="500" placeholder="Ex.: 1 mala de 23 kg incluída"></label></div><button type="submit">Enviar ao Planner</button> <span class="pf-status" aria-live="polite"></span></form></div>`;
+}
+document.getElementById('leads')?.addEventListener('click',(event)=>{
+  const toggle=event.target.closest('[data-planner-flight]');
+  if(!toggle)return;
+  toggle.closest('.planner-flight').querySelector('.pf-form').classList.toggle('hidden');
+});
+document.getElementById('leads')?.addEventListener('submit',async(event)=>{
+  const form=event.target.closest('[data-planner-form]');
+  if(!form)return;
+  event.preventDefault();
+  const status=form.querySelector('.pf-status');
+  const body=Object.fromEntries([...new FormData(form).entries()].filter(([,v])=>String(v).trim()!==''));
+  status.textContent='Enviando...';
+  try{
+    const result=await api(`/api/admin/leads/${form.dataset.plannerForm}/planner-flight`,{method:'POST',body:JSON.stringify(body)});
+    status.textContent=result.applied?'Pronto: o voo já está no Planner do cliente.':'Cliente ainda sem conta: o voo entra no Planner quando ele criar a conta com este e-mail.';
+  }catch{status.textContent='Não foi possível enviar. Confira as datas e os horários.';}
+});
 function renderLead(lead){
   const overdue=lead.deadline_at && new Date(lead.deadline_at)<new Date() && !['sent','converted','lost','canceled','closed'].includes(lead.status);
   const options=Object.entries(statusLabels).map(([value,label])=>`<option value="${value}" ${lead.status===value?'selected':''}>${label}</option>`).join('');
@@ -279,7 +301,7 @@ function renderLead(lead){
   const commissionActions=lead.commission_status==='pending'?`<button type="button" data-commission-action="approve" data-commission-id="${lead.commission_id||''}">Aprovar comissão</button>`
     :lead.commission_status==='approved'?`<button type="button" data-commission-action="pay" data-commission-id="${lead.commission_id||''}">Marcar como paga</button>`:'';
   const commissionInfo=lead.commission_status?`<span>Comissão: ${fmtMoney(lead.commission_amount_cents,lead.commission_currency)} · ${escapeHtml(commissionLabels[lead.commission_status]||lead.commission_status)} ${commissionActions}</span>`:'';
-  return `<article class="lead-card ${overdue?'overdue':''}" data-partner-id="${lead.partner_id||''}"><div class="lead-title"><div><span class="protocol">${escapeHtml(lead.protocol)}</span><h3>${escapeHtml(lead.origin)} → ${escapeHtml(lead.destination)}</h3></div><span class="deadline">${overdue?'Prazo vencido':'Responder até'}<strong>${fmtDate(lead.deadline_at)}</strong></span></div><div class="lead-details"><div><small>Cliente</small><strong>${escapeHtml(lead.customer_name)}</strong><a href="mailto:${encodeURIComponent(lead.customer_email)}">${escapeHtml(lead.customer_email)}</a><span>${escapeHtml(lead.customer_phone)}</span></div><div><small>Viagem</small><strong>${fmtDay(lead.outbound_on)}${lead.return_on?` — ${fmtDay(lead.return_on)}`:''}</strong><span>${lead.adults} adulto(s), ${lead.children} criança(s), ${lead.infants} bebê(s)</span><span>${escapeHtml(lead.trip_type)} · ${escapeHtml(lead.cabin_class)}</span></div><div><small>Origem</small><span>${originLabel}</span>${commissionInfo}</div></div>${lead.notes?`<p class="customer-notes"><strong>Observações:</strong> ${escapeHtml(lead.notes)}</p>`:''}<div class="lead-actions"><label>Status<select data-lead-status>${options}</select></label><label class="sale-amount hidden" data-sale-fields>Valor da venda<input type="number" min="0" step="0.01" data-sale-amount value="${lead.sale_amount_cents!=null?(lead.sale_amount_cents/100).toFixed(2):''}"></label><label class="sale-currency hidden" data-sale-fields>Moeda<input maxlength="3" data-sale-currency value="${escapeHtml(lead.sale_currency||lead.partner_code?'EUR':'')}"></label><label class="notes-label">Notas internas<textarea data-lead-notes maxlength="3000" placeholder="Visíveis somente para masters">${escapeHtml(lead.internal_notes||'')}</textarea></label><label class="assign"><input type="checkbox" data-lead-assign> Assumir atendimento${lead.assigned_name?` · atual: ${escapeHtml(lead.assigned_name)}`:''}</label><button data-save-lead="${escapeHtml(lead.id)}">Salvar</button><span class="lead-feedback" aria-live="polite"></span></div></article>`;
+  return `<article class="lead-card ${overdue?'overdue':''}" data-partner-id="${lead.partner_id||''}"><div class="lead-title"><div><span class="protocol">${escapeHtml(lead.protocol)}</span><h3>${escapeHtml(lead.origin)} → ${escapeHtml(lead.destination)}</h3></div><span class="deadline">${overdue?'Prazo vencido':'Responder até'}<strong>${fmtDate(lead.deadline_at)}</strong></span></div><div class="lead-details"><div><small>Cliente</small><strong>${escapeHtml(lead.customer_name)}</strong><a href="mailto:${encodeURIComponent(lead.customer_email)}">${escapeHtml(lead.customer_email)}</a><span>${escapeHtml(lead.customer_phone)}</span></div><div><small>Viagem</small><strong>${fmtDay(lead.outbound_on)}${lead.return_on?` — ${fmtDay(lead.return_on)}`:''}</strong><span>${lead.adults} adulto(s), ${lead.children} criança(s), ${lead.infants} bebê(s)</span><span>${escapeHtml(lead.trip_type)} · ${escapeHtml(lead.cabin_class)}</span></div><div><small>Origem</small><span>${originLabel}</span>${commissionInfo}</div></div>${lead.notes?`<p class="customer-notes"><strong>Observações:</strong> ${escapeHtml(lead.notes)}</p>`:''}<div class="lead-actions"><label>Status<select data-lead-status>${options}</select></label><label class="sale-amount hidden" data-sale-fields>Valor da venda<input type="number" min="0" step="0.01" data-sale-amount value="${lead.sale_amount_cents!=null?(lead.sale_amount_cents/100).toFixed(2):''}"></label><label class="sale-currency hidden" data-sale-fields>Moeda<input maxlength="3" data-sale-currency value="${escapeHtml(lead.sale_currency||lead.partner_code?'EUR':'')}"></label><label class="notes-label">Notas internas<textarea data-lead-notes maxlength="3000" placeholder="Visíveis somente para masters">${escapeHtml(lead.internal_notes||'')}</textarea></label><label class="assign"><input type="checkbox" data-lead-assign> Assumir atendimento${lead.assigned_name?` · atual: ${escapeHtml(lead.assigned_name)}`:''}</label><button data-save-lead="${escapeHtml(lead.id)}">Salvar</button><span class="lead-feedback" aria-live="polite"></span></div>${plannerFlightBlock(lead)}</article>`;
 }
 
 document.getElementById('leads')?.addEventListener('change',(event)=>{
@@ -289,6 +311,12 @@ document.getElementById('leads')?.addEventListener('change',(event)=>{
   card.querySelectorAll('[data-sale-fields]').forEach((field)=>field.classList.toggle('hidden',select.value!=='converted'||!card.dataset.partnerId));
 });
 
+document.getElementById('grantForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault(); const status=document.getElementById('grantStatus');
+  const messages={user_not_found:'Não achamos uma conta confirmada com este e-mail. Peça para o cliente criar a conta e confirmar o código.',invalid_grant:'Confira o e-mail e os dias (1 a 366).'};
+  try{ const r=await api('/api/admin/subscriptions/grant',{method:'POST',body:JSON.stringify({email:document.getElementById('grantEmail').value.trim(),days:Number(document.getElementById('grantDays').value)})}); status.textContent=`Premium liberado até ${new Date(r.endsAt.replace(' ','T')+'Z').toLocaleDateString('pt-BR')}. O cliente recebeu um e-mail.`; event.target.reset(); document.getElementById('grantDays').value='30'; }
+  catch(error){ status.textContent=messages[error?.body?.error||error?.message]||'Não foi possível liberar agora.'; }
+});
 document.getElementById('inviteForm')?.addEventListener('submit',async(event)=>{
   event.preventDefault(); const status=document.getElementById('inviteStatus');
   try { await api('/api/admin/master-invites',{method:'POST',body:JSON.stringify({name:document.getElementById('inviteName').value,email:document.getElementById('inviteEmail').value})}); status.textContent='Convite criado e encaminhado pelo provedor configurado.'; event.target.reset(); }

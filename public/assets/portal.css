@@ -256,3 +256,17 @@ html { overflow-x:clip; }
 .panel { border-radius:14px; box-shadow:0 1px 2px rgba(13,27,42,.06),0 18px 36px -28px rgba(13,27,42,.5); }
 body { background:#e8ecf1; }
 @media (max-width:600px) { .top { min-height:0; padding-top:18px; padding-bottom:20px; } .top .brand { font-size:1.2rem; } }
+
+/* Painel: enviar voo emitido ao Planner do cliente */
+.planner-flight { margin-top:14px; padding-top:14px; border-top:1px solid rgba(13,27,42,.12); }
+.pf-toggle { background:var(--navy); color:var(--gold); }
+.pf-form { margin-top:12px; }
+.pf-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:10px 0; }
+.pf-grid label { margin:0; font-size:.8rem; }
+.pf-grid .pf-wide { grid-column:span 2; }
+.pf-status { margin-left:10px; font-size:.86rem; color:var(--blue); }
+@media (max-width:700px) { .pf-grid { grid-template-columns:1fr 1fr; } }
+
+.grant-form { display:grid; grid-template-columns:minmax(0,1fr) 110px auto; gap:12px; align-items:end; margin-top:12px; }
+.grant-form label { margin:0; }
+@media (max-width:640px) { .grant-form { grid-template-columns:1fr 1fr; } .grant-form label:first-child { grid-column:1 / -1; } }

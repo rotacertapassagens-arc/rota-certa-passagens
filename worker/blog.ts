@@ -198,6 +198,7 @@ function footer(scripts: string[]) {
           <li><a href="/#planner">Rota Certa Planner</a></li>
           <li><a href="/#destinos">Destinos</a></li>
           <li><a href="/blog/">Guias de viagem</a></li>
+          <li><a href="/app">App Rota Certa</a></li>
         </ul>
       </div>
       <div>
@@ -406,7 +407,7 @@ async function publishedPosts(env: Env) {
 async function sitemap(env: Env) {
   const posts = await env.DB.prepare(`SELECT slug, updated_at FROM blog_posts WHERE status='published' ORDER BY published_at DESC`).all<{ slug: string; updated_at: string }>();
   const hoje = new Date().toISOString().slice(0, 10);
-  const fixas = ['/', '/proposta-voo', '/parceiros', '/politica-privacidade-parceiros.html', '/blog/'];
+  const fixas = ['/', '/app', '/proposta-voo', '/parceiros', '/politica-privacidade-parceiros.html', '/blog/'];
   const urls = [
     ...fixas.map((u) => ({ loc: u, lastmod: hoje })),
     ...posts.results.map((p) => ({ loc: `/blog/${p.slug}`, lastmod: p.updated_at.slice(0, 10) })),

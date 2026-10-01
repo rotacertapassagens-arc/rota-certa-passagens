@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>App Rota Certa | Sua viagem no celular, até sem internet</title>
+  <meta name="description" content="Instale o app da Rota Certa: roteiro, reservas, bilhetes, mapa e orçamento da viagem no celular, abrindo até sem internet. Grátis por 10 dias.">
+  <link rel="canonical" href="https://rotacertapassagens.com/app">
+  <meta property="og:title" content="App Rota Certa: sua viagem abre até sem internet">
+  <meta property="og:description" content="Roteiro, reservas e bilhetes no celular. Grátis por 10 dias.">
+  <meta property="og:image" content="https://rotacertapassagens.com/assets/telas/app.jpg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0d1b2a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Rota Certa">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,700&display=swap" rel="stylesheet">
+  <style>
+    :root{--navy:#0d1b2a;--gold:#d4af37;--off:#f4f4f4;--muted:#5d6978;--display:"Playfair Display",Georgia,serif;--body:Montserrat,Arial,sans-serif}
+    *{box-sizing:border-box;margin:0}
+    html{overflow-x:clip}
+    body{font-family:var(--body);color:var(--navy);background:#e8ecf1;line-height:1.55}
+    a{color:inherit;text-decoration:none}
+    .wrap{width:min(1120px,calc(100% - 32px));margin:0 auto}
+    .band{position:relative;isolation:isolate;background:var(--navy) url(/assets/telas/app.jpg) center/cover no-repeat;color:#fff;border-bottom:3px solid var(--gold);padding:22px 0 64px}
+    .band::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(13,27,42,.95) 0%,rgba(13,27,42,.84) 45%,rgba(13,27,42,.35) 100%)}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:48px}
+    .brand{display:flex;align-items:center;gap:10px;font:700 1.3rem var(--display)}.brand span{color:var(--gold)}.brand img{width:38px;height:38px}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:99px;font-size:.86rem;font-weight:600;color:#fff;background:rgba(13,27,42,.45);border:1px solid rgba(244,244,244,.3)}
+    .pill:hover{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+    .eyebrow{color:var(--gold);font-size:.78rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase}
+    h1{font:700 clamp(2.3rem,5vw,3.8rem)/1.08 var(--display);margin:12px 0 16px;max-width:640px}h1 em{color:var(--gold)}
+    .lede{max-width:540px;color:rgba(244,244,244,.88);font-size:1.08rem}
+    .ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:16px 26px;border-radius:8px;font:700 .98rem var(--body);cursor:pointer;border:0}
+    .btn-gold{background:var(--gold);color:var(--navy)}.btn-gold:hover{background:#c6a22d}
+    .btn-ghost{background:rgba(13,27,42,.4);color:#fff;border:1px solid rgba(244,244,244,.4)}
+    .btn svg{width:20px;height:20px}
+    .free{margin-top:14px;font-size:.9rem;color:rgba(244,244,244,.8)}.free b{color:var(--gold)}
+    section{padding:64px 0}
+    h2{font:700 clamp(1.7rem,3.4vw,2.4rem)/1.15 var(--display);margin-bottom:12px}h2 em{color:#8a6a0c}
+    .sub{color:var(--muted);max-width:620px;margin-bottom:30px}
+    .grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:40px;align-items:center}
+    .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .card{background:#fff;border:1px solid rgba(13,27,42,.1);border-top:4px solid var(--tone);border-radius:14px;padding:22px;box-shadow:0 18px 36px -28px rgba(13,27,42,.5)}
+    .card .ico{display:grid;place-items:center;width:42px;height:42px;border-radius:11px;background:var(--bg);color:var(--tone);margin-bottom:12px}.card .ico svg{width:22px;height:22px}
+    .card h3{font-size:1.02rem;margin-bottom:4px}.card p{font-size:.88rem;color:var(--muted)}
+    .phone{justify-self:center;width:min(300px,80vw);aspect-ratio:390/844;border-radius:42px;background:#111a26;padding:12px;box-shadow:0 40px 80px -30px rgba(13,27,42,.7),0 0 0 2px rgba(212,175,55,.35)}
+    .phone img{width:100%;height:100%;object-fit:cover;object-position:top;border-radius:32px;display:block}
+    .steps{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .step{background:#fff;border:1px solid rgba(13,27,42,.1);border-radius:14px;overflow:hidden;box-shadow:0 18px 36px -28px rgba(13,27,42,.5)}
+    .step h3{background:var(--navy);color:#fff;padding:14px 22px;font-size:1.05rem}.step h3 span{color:var(--gold)}
+    .step ol{padding:18px 22px 22px 44px;display:grid;gap:10px}.step li{font-size:.95rem}
+    .privacy{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid rgba(13,27,42,.1);border-left:4px solid #1e7f74;border-radius:14px;padding:20px 22px;margin-top:22px}
+    .privacy svg{width:24px;height:24px;flex:0 0 24px;color:#1e7f74;margin-top:2px}.privacy p{font-size:.92rem;color:#37424f}
+    footer{background:var(--navy);color:rgba(244,244,244,.75);text-align:center;padding:34px 16px;font-size:.85rem}footer a{color:var(--gold)}
+    [hidden]{display:none!important}
+    @media(max-width:860px){.grid,.steps{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}}
+    @media(max-width:560px){.band{background-image:url(/assets/telas/app-m.jpg);padding-bottom:44px}.band::before{background:linear-gradient(180deg,rgba(13,27,42,.92),rgba(13,27,42,.75))}.cards{grid-template-columns:1fr}.top{margin-bottom:30px}section{padding:44px 0}}
+  </style>
+</head>
+<body>
+  <header class="band">
+    <div class="wrap">
+      <div class="top">
+        <a class="brand" href="/" aria-label="Rota Certa Passagens: voltar ao site"><img src="/assets/logo-simbolo-claro.png" alt="" width="38" height="38">Rota Certa <span>Passagens</span></a>
+        <a class="pill" href="/">Voltar ao site</a>
+      </div>
+      <p class="eyebrow">App Rota Certa</p>
+      <h1>Sua viagem no celular, até <em>sem internet</em></h1>
+      <p class="lede">Roteiro, reservas, bilhetes, mapa e orçamento num app só. No exterior, sem dados, o seu cartão de embarque continua abrindo.</p>
+      <div class="ctas">
+        <button type="button" class="btn btn-gold" data-install-app><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7.5v7M9 11.5l3 3 3-3"/></svg>Instalar o app</button>
+        <a class="btn btn-ghost" href="/#/cliente?plan=gratis">Criar conta grátis</a>
+      </div>
+      <p class="free"><b>Grátis por 10 dias.</b> Sem cartão de crédito.</p>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="wrap grid">
+        <div>
+          <h2>Tudo da viagem <em>num lugar só</em></h2>
+          <p class="sub">O Planner da Rota Certa organiza a sua viagem dia a dia e guarda o que você vai precisar na hora certa.</p>
+          <div class="cards">
+            <div class="card" style="--tone:#1f5fa8;--bg:#e3edf8"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg></span><h3>Roteiro com reservas</h3><p>Voo, hotel, passeios e aluguel de carro, com o código e o link de cada reserva.</p></div>
+            <div class="card" style="--tone:#9a7410;--bg:#f6efd9"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l8.6-8.6a4 4 0 0 1 5.7 5.7l-8.6 8.6a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></span><h3>Bilhetes anexados</h3><p>Cartão de embarque e vouchers em PDF ou foto, dentro de cada item.</p></div>
+            <div class="card" style="--tone:#1e7f74;--bg:#e0f1ef"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01M3 3l18 18"/></svg></span><h3>Abre sem internet</h3><p>A última versão da viagem e os bilhetes ficam guardados no celular.</p></div>
+            <div class="card" style="--tone:#c0612b;--bg:#f9ebe2"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 9.5h-5a2.5 2.5 0 0 0 0 5h5z"/></svg></span><h3>Mapa e orçamento</h3><p>Rota até cada lugar pelo Google Maps e os gastos da viagem somados.</p></div>
+          </div>
+        </div>
+        <div class="phone"><img src="/assets/home/planner-celular.webp" alt="Itinerário do app Rota Certa no celular" width="780" height="1688" loading="lazy"></div>
+      </div>
+    </section>
+
+    <section style="padding-top:0">
+      <div class="wrap">
+        <h2>Como <em>instalar</em></h2>
+        <p class="sub">Não precisa de loja de aplicativos: o app instala direto pelo navegador e ocupa pouco espaço.</p>
+        <div class="steps">
+          <div class="step"><h3><span>Android</span> no Chrome</h3><ol><li>Abra <b>rotacertapassagens.com/app</b> no Chrome.</li><li>Toque em <b>Instalar o app</b>, no topo desta página.</li><li>Confirme. O ícone da Rota Certa aparece na tela inicial.</li></ol></div>
+          <div class="step"><h3><span>iPhone</span> no Safari</h3><ol><li>Abra <b>rotacertapassagens.com/app</b> no Safari.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a seta para cima).</li><li>Escolha <b>Adicionar à Tela de Início</b> e depois <b>Adicionar</b>.</li></ol></div>
+        </div>
+        <div class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><p><b>A sua viagem é só sua.</b> Reservas e anexos ficam na sua conta e só você, com a sua senha, consegue abrir. O que fica guardado no celular para usar sem internet é apagado quando você sai da conta.</p></div>
+        <div class="ctas" style="margin-top:28px"><a class="btn btn-gold" href="/#/cliente?plan=gratis">Criar conta grátis</a><a class="btn" style="background:#fff;border:1px solid rgba(13,27,42,.2)" href="/#/planner">Conhecer o Planner</a></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>© 2026 Rota Certa Passagens · <a href="/">rotacertapassagens.com</a></footer>
+  <script type="module" src="/assets/app-page.js"></script>
+</body>
+</html>
