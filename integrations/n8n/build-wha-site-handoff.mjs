@@ -18,10 +18,28 @@ export const WHA04_WORKFLOW_ID = 'zFwChhC71hrf6Ycx';
 
 const one = (parsed) => (Array.isArray(parsed) ? parsed[0] : parsed);
 
+// A busca no Notion pode devolver páginas que não são do pedido (achado real em 2026-10-01: sem
+// filterType "manual" o nó ignorava o filtro e devolvia a primeira página da base). Só conta como
+// "já existe" a página cujo Submission ID é exatamente o deste pedido.
+const DECIDE_IDEMPOTENCY = `const draft = $('Preparar Rascunho').first().json;
+function submissionOf(page) {
+  const prop = page && page.properties ? page.properties['Submission ID'] : null;
+  const parts = (prop && (prop.rich_text || prop.title)) || [];
+  return parts.map((part) => part.plain_text || (part.text && part.text.content) || '').join('').trim();
+}
+const match = $input.all().map((item) => item.json).find((page) => page && page.id && submissionOf(page) === draft.submissionId);
+const existingPageId = match ? match.id : null;
+return [{ json: { ...draft, alreadyExists: Boolean(existingPageId), existingPageId } }];`;
+
 export function buildWha04(source) {
   const wf = structuredClone(one(source));
   for (const node of wf.nodes) {
     if (node.type === 'n8n-nodes-base.executeWorkflowTrigger') node.parameters = { inputSource: 'passthrough' };
+    if (node.name === 'Buscar Pedido Existente') Object.assign(node.parameters, { filterType: 'manual', matchType: 'allFilters' });
+    if (node.name === 'Decidir Idempotência') node.parameters.jsCode = DECIDE_IDEMPOTENCY;
+    // Só ida: o nó Notion só deixa a data vazia com '' (null vira "Invalid date" e o Notion recusa).
+    const volta = node.parameters?.propertiesUi?.propertyValues?.find((value) => value.key === 'Data volta|date');
+    if (volta) volta.date = "={{ $('Preparar Rascunho').item.json.notion.dataVolta || '' }}";
     const code = node.parameters?.jsCode;
     if (typeof code !== 'string' || !code.includes('function buildSafeResult')) continue;
     const start = code.lastIndexOf('\nfunction buildSafeResult');

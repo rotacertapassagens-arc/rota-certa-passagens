@@ -17,6 +17,8 @@ export function wha04Skeleton() {
       code('Preparar Pedido Direto', '\nreturn [{ json: buildNotionDraft($input.first().json) }];'),
       code('Retornar Pedido Existente', '\nconst item = $input.first().json;\nreturn [{ json: buildSafeResult(item, item.existingPageId, true) }];'),
       code('Confirmar Persistência', "\nconst draft = $('Preparar Rascunho').item.json;\nconst created = $input.first()?.json || {};\nreturn [{ json: buildSafeResult(draft, created.id, false) }];"),
+      { id: 'b', name: 'Buscar Pedido Existente', type: 'n8n-nodes-base.notion', typeVersion: 3, position: [0, 0], parameters: { resource: 'databasePage', operation: 'getAll', filters: { conditions: [{ key: 'Submission ID|rich_text', condition: 'equals', richTextValue: '={{ $json.submissionId }}' }] }, returnAll: true, simple: false } },
+      { id: 'c', name: 'Criar Rascunho de Orçamento', type: 'n8n-nodes-base.notion', typeVersion: 3, position: [0, 0], parameters: { resource: 'databasePage', operation: 'create', propertiesUi: { propertyValues: [{ key: 'Data volta|date', date: "={{ $('Preparar Rascunho').item.json.notion.dataVolta || null }}", includeTime: false }] } } },
       { id: 'd', name: 'Decidir Idempotência', type: 'n8n-nodes-base.code', typeVersion: 2, position: [0, 0], parameters: { jsCode: "const draft = $('Preparar Rascunho').item.json;\nconst candidate = $input.first()?.json || {};\nconst existingPageId = candidate.id || null;\nreturn [{ json: { ...draft, alreadyExists: Boolean(existingPageId), existingPageId } }];" } },
     ],
     connections: {},
