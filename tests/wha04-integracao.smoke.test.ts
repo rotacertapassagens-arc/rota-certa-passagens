@@ -116,7 +116,8 @@ describe('WHA-04 integrado: site → WHA-01 → WHA-04 → Notion → resposta',
     const detected = runCode(nodeCode(wha01, 'Detectar Protocolo do Site'), [{ already_processed: false }], { 'Guardas de Entrada': guards }, { WHATSAPP_SITE_HANDOFF_MODE: mode, WHATSAPP_TEST_NUMBER: '351900000000' });
     if (!detected.siteHandoff) return { detected, reply: null };
     let result: Json;
-    try { result = await runWha04({ source: 'SITE_FORM', protocol: detected.siteProtocol, phone: detected.phone, contactName: detected.contactName }); }
+    // O n8n passa o item do nó de detecção inteiro para o WHA-04 (gatilho passthrough).
+    try { result = await runWha04(detected); }
     catch (error) { result = { error: { message: (error as Error).message, code: (error as { code?: string }).code } }; }
     const reply = runCode(nodeCode(wha01, 'Preparar Resposta do Site'), [result], { 'Detectar Protocolo do Site': detected });
     return { detected, reply, result };
@@ -126,7 +127,7 @@ describe('WHA-04 integrado: site → WHA-01 → WHA-04 → Notion → resposta',
   it('cidade em texto livre, ida e volta, econômica, item pessoal, sem preferência de escalas: cria uma vez e responde', async () => {
     const lead = await createLead({ baggage: 'Somente item pessoal' });
     const { detected, reply } = await whatsappMessage(messageOf(lead), '351912345678');
-    expect(detected).toMatchObject({ siteHandoff: true, siteProtocol: lead.protocol });
+    expect(detected).toMatchObject({ siteHandoff: true, siteProtocol: lead.protocol, source: 'SITE_FORM', protocol: lead.protocol });
     expect(reply).toMatchObject({ ok: true, text: SUCCESS(lead.protocol), humanHandoff: false, teamAlert: null });
     expect(reply!.nextState).toMatchObject({ step: 'concluido', collected: { origemPedido: 'SITE_FORM', protocolo: lead.protocol } });
     const page = notion.pages.get(`site:${lead.protocol}`)!;
