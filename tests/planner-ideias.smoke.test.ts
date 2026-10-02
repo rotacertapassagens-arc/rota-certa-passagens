@@ -150,6 +150,14 @@ describe('Planner: moedas, divisão, compartilhar, datas, lembrete e voo emitido
     expect((await worker.fetch('/viagem/')).status).toBe(404);
     expect((await worker.fetch('/viagem/curto')).status).toBe(404);
     expect((await worker.fetch('/media/blog/nao-existe.jpg')).status).toBe(404);
+    // Página 404 da marca para qualquer endereço inexistente.
+    const perdida = await worker.fetch('/pagina-que-nao-existe');
+    expect(perdida.status).toBe(404);
+    expect(await perdida.text()).toContain('Erro 404');
+    // Home com prévia de compartilhamento e dados estruturados.
+    const home = await (await worker.fetch('/')).text();
+    expect(home).toContain('<meta property="og:image" content="https://rotacertapassagens.com/assets/compartilhar/home.jpg">');
+    expect(JSON.parse(home.match(/<script type="application\/ld\+json">(.*?)<\/script>/)?.[1] ?? '{}')['@graph'][0]['@type']).toBe('TravelAgency');
 
     // --- ideia 3: voo emitido entra no roteiro do cliente ---------------------------------------------
     const b = await convidar(a, 'bruno@example.com', '727272', senha);

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Página não encontrada | Rota Certa Passagens</title>
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preload" href="/assets/fonts/montserrat-300-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/playfair-display-400-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/fonts/fontes.css">
+  <style>
+    *{box-sizing:border-box;margin:0}
+    body{min-height:100vh;display:flex;flex-direction:column;font-family:Montserrat,Arial,sans-serif;color:#f4f4f4;background:#0d1b2a url(/assets/home/final-nuvens-m.jpg) center/cover fixed;line-height:1.55}
+    body::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(13,27,42,.94),rgba(13,27,42,.78))}
+    .wrap{width:min(720px,calc(100% - 32px));margin:0 auto}
+    header{padding:22px 0}
+    .brand{display:inline-flex;align-items:center;gap:10px;color:#fff;text-decoration:none;font:700 1.25rem "Playfair Display",Georgia,serif}
+    .brand span{color:#d4af37}
+    main{flex:1;display:flex;align-items:center;padding:40px 0 64px}
+    .code{color:#d4af37;font-weight:700;font-size:.8rem;letter-spacing:.2em;text-transform:uppercase}
+    h1{margin:12px 0 14px;font:700 clamp(2rem,6vw,3rem)/1.15 "Playfair Display",Georgia,serif}
+    h1 em{color:#d4af37}
+    p{color:rgba(244,244,244,.86);max-width:560px}
+    .links{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px;margin-top:30px}
+    .links a{display:block;padding:16px 18px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(212,175,55,.35);color:#fff;text-decoration:none;font-weight:600;transition:background .2s,border-color .2s}
+    .links a small{display:block;margin-top:2px;font-weight:400;font-size:.82rem;color:rgba(244,244,244,.72)}
+    .links a:hover,.links a:focus-visible{background:rgba(212,175,55,.16);border-color:#d4af37}
+    .links a.gold{background:#d4af37;border-color:#d4af37;color:#0d1b2a}
+    .links a.gold small{color:rgba(13,27,42,.78)}
+    footer{padding:22px 0;font-size:.82rem;color:rgba(244,244,244,.7)}
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><a class="brand" href="/"><img src="/assets/logo-simbolo-claro.png" alt="" width="38" height="38">Rota Certa <span>Passagens</span></a></div></header>
+  <main>
+    <div class="wrap">
+      <p class="code">Erro 404</p>
+      <h1>Essa rota não existe, mas a <em>rota certa</em> está aqui</h1>
+      <p>A página que você procurou mudou de endereço ou saiu do ar. Escolha por onde quer seguir:</p>
+      <nav class="links" aria-label="Para onde ir">
+        <a class="gold" href="/">Página inicial<small>Conheça a Rota Certa</small></a>
+        <a href="/proposta-voo">Pedir proposta de voo<small>Atendimento pelo WhatsApp</small></a>
+        <a href="/blog/">Guias de viagem<small>Dicas por destino</small></a>
+        <a href="/#/planner">Planejador<small>Sua viagem organizada</small></a>
+      </nav>
+    </div>
+  </main>
+  <footer><div class="wrap">© 2026 Rota Certa Passagens · <a href="https://wa.me/351925307391" style="color:#d4af37">Falar no WhatsApp</a></div></footer>
+</body>
+</html>
