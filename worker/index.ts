@@ -39,11 +39,11 @@ export default {
     // Guias de viagem (blog), fotos do blog e sitemap são montados pelo Worker a partir do D1.
     const isBlog = p === '/blog' || p.startsWith('/blog/') || p.startsWith('/media/blog/') || p === '/sitemap.xml';
     const isShared = p.startsWith('/viagem/');
-    if (!p.startsWith('/api/') && !p.startsWith('/i/') && !isBlog && !isShared) return env.ASSETS.fetch(request);
+    if (!p.startsWith('/api/') && !p.startsWith('/i/') && !isBlog && !isShared) return assetOr404(request, env);
     try {
       if (request.method === 'OPTIONS') return secureResponse(new Response(null, { status: 204 }));
-      if (isBlog) return secureResponse(await blogPublic(request, env, url, blogDeps) ?? await env.ASSETS.fetch(request));
-      if (isShared) return secureResponse(await sharedTripPage(request, env, url) ?? await env.ASSETS.fetch(request));
+      if (isBlog) return secureResponse(await blogPublic(request, env, url, blogDeps) ?? await assetOr404(request, env));
+      if (isShared) return secureResponse(await sharedTripPage(request, env, url) ?? await assetOr404(request, env));
       return secureResponse(await route(request, env, url));
     } catch (error) {
       console.error(JSON.stringify({ message: 'request_failed', error: error instanceof Error ? error.message : 'unknown', path: url.pathname }));
@@ -52,7 +52,21 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
+// Arquivo estático inexistente: páginas recebem a 404 da marca (public/404.html), com os cabeçalhos dela.
+// Arquivos de /assets/ e outros métodos seguem com o 404 simples.
+async function assetOr404(request: Request, env: Env) {
+  const response = await env.ASSETS.fetch(request);
+  if (response.status !== 404 || request.method !== 'GET' || new URL(request.url).pathname.startsWith('/assets/')) return response;
+  const page = await env.ASSETS.fetch(new Request(new URL('/404', request.url)));
+  if (!page.ok) return response;
+  const headers = new Headers(page.headers);
+  headers.set('cache-control', 'no-store');
+  return secureResponse(new Response(page.body, { status: 404, headers }));
+}
+
 function secureResponse(response: Response) {
+  // Respostas dos arquivos estáticos (env.ASSETS) têm cabeçalhos imutáveis: copia antes de mexer.
+  try { response.headers.set('x-content-type-options', 'nosniff'); } catch { response = new Response(response.body, response); }
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('x-frame-options', 'DENY');

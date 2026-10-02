@@ -114,7 +114,7 @@ export async function sharedTripPage(req: Request, env: Env, url: URL): Promise<
   if (!m || req.method !== 'GET') return null;
   const trip = await env.DB.prepare('SELECT t.id,t.name,t.starts_on,t.ends_on,t.owner_user_id,pr.display_name owner_name FROM trips t LEFT JOIN profiles pr ON pr.user_id=t.owner_user_id WHERE t.share_token=?').bind(m[1]).first<Row>();
   const headers = { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow',
-    'content-security-policy': "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" };
+    'content-security-policy': "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" };
   if (!trip) return new Response(page('Link indisponível', '<section class="empty"><h2>Este link não está mais disponível</h2><p>Quem compartilhou a viagem pode ter desligado o link.</p></section>'), { status: 404, headers });
   const [items, places] = await Promise.all([
     env.DB.prepare('SELECT day_number,starts_at,title,kind FROM itinerary_items WHERE trip_id=? AND owner_user_id=? ORDER BY day_number,sort_order,starts_at').bind(trip.id, trip.owner_user_id).all<Row>(),
@@ -131,7 +131,7 @@ export async function sharedTripPage(req: Request, env: Env, url: URL): Promise<
   return new Response(page(`${String(trip.name)} | Rota Certa`, body), { headers });
 }
 function page(title: string, body: string) {
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${esc(title)}</title><link rel="icon" href="/assets/favicon.png"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"><style>
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${esc(title)}</title><link rel="icon" href="/assets/favicon.png"><link rel="preload" href="/assets/fonts/montserrat-300-700-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/assets/fonts/fontes.css"><style>
 *{box-sizing:border-box;margin:0}body{font-family:Montserrat,Arial,sans-serif;color:#0d1b2a;background:#e8ecf1;line-height:1.5}a{color:inherit}.wrap{width:min(860px,calc(100% - 32px));margin:0 auto}
 .band{position:relative;isolation:isolate;background:#0d1b2a url(/assets/planner/itinerario.jpg) center/cover;color:#fff;padding:22px 0 40px;border-bottom:3px solid #d4af37}.band::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(13,27,42,.95),rgba(13,27,42,.6))}
 .brand{display:flex;align-items:center;gap:10px;font:700 1.2rem "Playfair Display",Georgia,serif;text-decoration:none;margin-bottom:28px}.brand span{color:#d4af37}.eyebrow{color:#d4af37;font-size:.78rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
