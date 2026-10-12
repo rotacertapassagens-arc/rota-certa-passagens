@@ -18,6 +18,7 @@
         <a href="#/vendas" data-nav="vendas">Vendas e recibos</a>
         <a href="#/voos" data-nav="voos">Lucro por voo</a>
         <span class="group">Dinheiro</span>
+        <a href="#/contas" data-nav="contas">Contas e saldos</a>
         <a href="#/receber" data-nav="receber">Contas a receber</a>
         <a href="#/pagar" data-nav="pagar">Contas a pagar</a>
         <a href="#/alertas" data-nav="alertas">Alertas <span class="badge" id="alertBadge"></span></a>
@@ -81,6 +82,13 @@
             <label>Moeda<select id="flightsCurrency"><option value="">Todas</option><option value="EUR">Euro</option><option value="BRL">Real</option><option value="USD">Dólar</option><option value="GBP">Libra</option></select></label>
           </div>
           <section class="panel"><div class="table-wrap"><table class="fin-table"><thead><tr><th>Voo</th><th>Cliente e rota</th><th class="num">Recebido do cliente</th><th class="num">Custo</th><th class="num">Lucro</th><th>Custo</th><th>Ações</th></tr></thead><tbody id="flights"></tbody></table></div></section>
+        </section>
+
+        <section class="fin-view" data-view="contas" hidden>
+          <div class="fin-head"><div><h1>Contas e saldos</h1><p class="muted">O saldo de cada conta na moeda dela (por exemplo, o cofrinho do Mercado Pago em reais), para você conferir com o app do banco. A conversão para euros usa o câmbio do dia (Banco Central Europeu).</p></div><a class="button ghost small" href="#/cadastros">Criar ou editar contas</a></div>
+          <div id="contasKpis"></div>
+          <section class="panel"><div class="table-wrap"><table class="fin-table"><thead><tr><th>Conta</th><th class="num">Saldo na moeda da conta</th><th class="num">Em euros (convertido)</th><th class="num">Entradas</th><th class="num">Saídas</th><th>Saldo inicial</th></tr></thead><tbody id="accountBalances"></tbody></table></div></section>
+          <p class="muted" id="contasRate"></p>
         </section>
 
         <section class="fin-view" data-view="receber" hidden>
@@ -170,6 +178,8 @@
                 <label>Moeda<select id="accountCurrency"><option value="EUR">Euro</option><option value="BRL">Real</option><option value="USD">Dólar</option><option value="GBP">Libra</option></select></label>
                 <label>Instituição (opcional)<input id="accountInstitution" maxlength="160"></label>
                 <label>Últimos 4 dígitos (opcional)<input id="accountLast4" maxlength="4" pattern="\d{4}"></label>
+                <label>Saldo inicial na moeda da conta (opcional)<input id="accountOpening" inputmode="decimal" placeholder="Ex.: 3250,00 (o que o app do banco mostra hoje)"></label>
+                <label>Data do saldo inicial<input id="accountOpeningAt" type="date"></label>
               </div>
               <button type="submit">Criar conta</button>
               <p class="status" id="accountStatus" aria-live="polite"></p>

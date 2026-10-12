@@ -112,6 +112,7 @@ const errorMessages = {
   invalid_request: 'Confira os campos: algum dado está faltando ou inválido.',
   invalid_alt_amount: 'O valor equivalente precisa estar em outra moeda e ser maior que zero.',
   sale_creation_failed: 'Não foi possível criar a venda. Nada foi gravado.',
+  account_amount_required: 'A conta é em outra moeda. Informe o valor que entrou ou saiu na moeda da conta (ex.: em R$).',
   invalid_receipt: 'Recibo inválido. Confira número, data, cliente e as linhas de valor.',
   receipt_currency_must_match_sale: 'A moeda do recibo precisa ser a mesma da venda.',
   receipt_number_taken: 'Já existe um recibo com esse número.',

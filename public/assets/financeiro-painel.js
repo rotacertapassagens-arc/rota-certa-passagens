@@ -63,7 +63,7 @@ async function fetchSales() {
 
 // --- acesso e rotas -----------------------------------------------------------------------------------
 const VIEWS = {
-  geral: loadGeral, vendas: loadSales, voos: loadFlights, receber: loadReceivables, alertas: loadAlerts,
+  geral: loadGeral, vendas: loadSales, voos: loadFlights, contas: loadAccountBalances, receber: loadReceivables, alertas: loadAlerts,
   pagar: () => loadObligations(), milhas: () => loadMileageLots(), assinaturas: async () => {}, cadastros: async () => {},
 };
 function route() {
@@ -353,6 +353,16 @@ async function newSale() {
   if (!values) return;
   if (!values.gross || values.gross < 1) { flash('Informe o valor cobrado do cliente.', true); return; }
   if (Boolean(values.altCurrency) !== Boolean(values.altAmount)) { flash('Para o equivalente, informe a moeda e o valor juntos.', true); return; }
+  // Conta em outra moeda (ex.: cofrinho em R$ recebendo venda em €): o equivalente digitado é o que entrou na conta.
+  const account = state.accounts.find((item) => item.id === values.accountId);
+  let accountAmountCents;
+  if (values.received && account && account.currency !== values.currency) {
+    if (values.altCurrency !== account.currency || !values.altAmount) {
+      flash(`A conta "${account.name}" é em ${account.currency}. Preencha o equivalente em ${account.currency}: é o valor que entrou na conta.`, true);
+      return;
+    }
+    accountAmountCents = values.altAmount;
+  }
   try {
     const result = await api('/api/admin/finance/sales/direct', {
       method: 'POST',
@@ -361,7 +371,7 @@ async function newSale() {
         origin: values.origin.toUpperCase(), destination: values.destination.toUpperCase(), passengerCount: values.passengerCount || 1,
         saleDate: values.saleDate, currency: values.currency, grossAmountCents: values.gross, discountCents: values.discount || 0,
         altCurrency: values.altCurrency || undefined, altAmountCents: values.altAmount || undefined, notes: values.notes,
-        payment: { received: values.received, method: values.method, accountId: values.accountId },
+        payment: { received: values.received, method: values.method, accountId: values.accountId, accountAmountCents },
       }),
     });
     flash(`Venda ${result.protocol} criada.`);
@@ -431,17 +441,21 @@ async function collectPayment({ title, currency, remaining, receivable, saleId }
       { name: 'receivedOn', label: 'Data do recebimento', type: 'date', value: today(), required: true },
       { name: 'method', label: 'Forma de pagamento', type: 'select', options: methodOptions, value: receivable?.method || 'pix' },
       { name: 'accountId', label: 'Recebido na conta', type: 'select', options: accountOptions(currency) },
+      { name: 'accountAmount', label: 'Valor que entrou na conta (só se a conta for em outra moeda)', type: 'money', hint: 'Ex.: o valor em R$ que apareceu no Mercado Pago.', wide: true },
     ],
   });
   if (!values) return;
   if (!values.amount || values.amount < 1 || values.amount > remaining) { flash(`Informe um valor de até ${money(remaining, currency)}.`, true); return; }
+  const account = state.accounts.find((item) => item.id === values.accountId);
+  const accountAmountCents = account && account.currency !== currency ? values.accountAmount : undefined;
+  if (account && account.currency !== currency && !accountAmountCents) { flash(`A conta "${account.name}" é em ${account.currency}. Informe o valor que entrou na conta.`, true); return; }
   try {
     let receivableId = receivable?.id;
     if (!receivableId) {
       const created = await api(`/api/admin/finance/sales/${saleId}/receivables`, { method: 'POST', body: JSON.stringify({ installments: [{ dueDate: values.receivedOn, expectedAmountCents: values.amount, method: values.method, accountId: values.accountId }] }) });
       receivableId = created.ids[0];
     }
-    await api(`/api/admin/finance/receivables/${receivableId}/payments`, { method: 'POST', body: JSON.stringify({ receivedAmountCents: values.amount, currency, accountId: values.accountId, receivedAt: `${values.receivedOn}T12:00:00Z` }) });
+    await api(`/api/admin/finance/receivables/${receivableId}/payments`, { method: 'POST', body: JSON.stringify({ receivedAmountCents: values.amount, currency, accountId: values.accountId, receivedAt: `${values.receivedOn}T12:00:00Z`, accountAmountCents }) });
     flash('Recebimento registrado.');
     const view = document.querySelector('.fin-view:not([hidden])')?.dataset.view;
     if (view === 'receber') await loadReceivables(); else await loadSales();
@@ -481,6 +495,40 @@ async function loadReceivables() {
 }
 
 // --- alertas ------------------------------------------------------------------------------------------------
+// --- contas e saldos ----------------------------------------------------------------------------------------
+// Saldo de cada conta na moeda dela (para conferir com o app do banco) e a conversão automática para euros.
+const accountTypeLabels = { bank: 'Banco', cash: 'Dinheiro', card: 'Cartão', digital_wallet: 'Carteira digital', other: 'Outro' };
+async function loadAccountBalances() {
+  try {
+    const [result, rates] = await Promise.all([api('/api/admin/finance/accounts/balances'), api('/api/planner/rates').catch(() => null)]);
+    const rate = (code) => (code === 'EUR' ? 1 : rates?.rates?.[code] || null);
+    const convert = (cents, from, to) => { const a = rate(from); const b = rate(to); return a && b ? Math.round((cents / a) * b) : null; };
+    const rows = result.accounts.filter((account) => account.active).map((account) => {
+      let estimated = 0; let hasEstimate = false;
+      for (const [code, cents] of Object.entries(account.estimatedIn)) { const v = convert(cents, code, account.currency); if (v !== null) { estimated += v; hasEstimate = true; } }
+      for (const [code, cents] of Object.entries(account.estimatedOut)) { const v = convert(cents, code, account.currency); if (v !== null) { estimated -= v; hasEstimate = true; } }
+      const balance = account.balanceCents + estimated;
+      return { account, balance, hasEstimate, eur: convert(balance, account.currency, 'EUR') };
+    });
+    const perCurrency = new Map();
+    rows.forEach((row) => perCurrency.set(row.account.currency, (perCurrency.get(row.account.currency) || 0) + row.balance));
+    const totalEur = rows.length && rows.every((row) => row.eur !== null) ? rows.reduce((sum, row) => sum + row.eur, 0) : null;
+    $('contasKpis').innerHTML = rows.length
+      ? `<div class="kpi-row">${sortCurrencies([...perCurrency.keys()]).map((code) => kpi(`Saldo em ${CURRENCY_NAMES[code] || code}`, money(perCurrency.get(code), code), 'confira com o app do banco', code === 'EUR' ? '' : 'accent')).join('')}${totalEur === null ? '' : kpi('Total em euros', money(totalEur, 'EUR'), 'tudo convertido pelo câmbio de hoje', 'accent')}</div>`
+      : '<p class="fin-note info">Nenhuma conta cadastrada ainda. Crie a conta (por exemplo, o cofrinho do Mercado Pago em reais) em Cadastros.</p>';
+    $('accountBalances').innerHTML = rows.map(({ account, balance, hasEstimate, eur }) => `<tr>
+      <td><span class="main">${esc(account.name)}</span><span class="alt">${esc(accountTypeLabels[account.type] || account.type)}${account.institution ? ` · ${esc(account.institution)}` : ''} · ${esc(account.currency)}</span></td>
+      <td class="num"><span class="main ${balance < 0 ? 'neg' : ''}">${money(balance, account.currency)}</span>${hasEstimate ? '<span class="alt">inclui valores estimados pelo câmbio</span>' : ''}</td>
+      <td class="num">${eur === null ? '<span class="alt">câmbio indisponível</span>' : `${account.currency === 'EUR' ? '' : '≈ '}${money(eur, 'EUR')}`}</td>
+      <td class="num">${money(account.inCents, account.currency)}</td>
+      <td class="num">${money(account.outCents, account.currency)}</td>
+      <td>${account.openingBalanceAt ? `${money(account.openingBalanceCents, account.currency)}<span class="alt">em ${fmtDay(account.openingBalanceAt)}</span>` : '<span class="alt">não informado</span>'}</td></tr>`).join('') || '<tr><td colspan="6">Nenhuma conta ativa.</td></tr>';
+    const used = sortCurrencies([...perCurrency.keys()]).filter((code) => code !== 'EUR');
+    $('contasRate').textContent = !rates ? 'Câmbio indisponível agora: a conversão para euros não pôde ser calculada.'
+      : used.length ? `Câmbio usado: ${used.map((code) => `1 € = ${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(rates.rates[code])} ${code}`).join(' · ')} (Banco Central Europeu, ${rates.date}).` : '';
+  } catch (error) { showError('accountBalances', error, 'Não foi possível carregar os saldos.'); }
+}
+
 async function loadAlerts() {
   const container = $('dashboardAlerts');
   try {

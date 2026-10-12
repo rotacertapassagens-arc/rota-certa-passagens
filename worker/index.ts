@@ -1867,18 +1867,22 @@ async function financeObligationPaymentCreate(req: Request, env: Env, obligation
   const paidAt = typeof b?.paidAt === 'string' && !Number.isNaN(Date.parse(b.paidAt)) ? b.paidAt : null;
   const accountId = typeof b?.accountId === 'string' && UUID_RE.test(b.accountId) ? b.accountId : null;
   const reference = text(b?.reference, 120) || null;
-  if (!paidAmountCents || !currency || !validCurrency(currency) || !accountId) return reply({ error: 'invalid_payment' }, 400);
+  const accountAmountInput = b?.accountAmountCents === undefined || b?.accountAmountCents === null ? null : intOf(b.accountAmountCents, 1, 100_000_000_00);
+  if (!paidAmountCents || !currency || !validCurrency(currency) || !accountId || (b?.accountAmountCents != null && accountAmountInput === null)) return reply({ error: 'invalid_payment' }, 400);
 
-  const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first();
+  const account = await env.DB.prepare('SELECT currency FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first<{ currency: string }>();
   if (!account) return reply({ error: 'account_not_found' }, 422);
-  const obligation = await env.DB.prepare('SELECT status,currency,amount_cents FROM fin_obligations WHERE id=?').bind(obligationId).first<{ status: string; currency: string; amount_cents: number }>();
+  // Conta em outra moeda (ex.: cofrinho em R$ pagando conta em €): o valor debitado na moeda da conta é obrigatório.
+  if (account.currency !== currency && !accountAmountInput) return reply({ error: 'account_amount_required' }, 422);
+  const accountAmountCents = account.currency !== currency ? accountAmountInput : null;
+  const obligation =await env.DB.prepare('SELECT status,currency,amount_cents FROM fin_obligations WHERE id=?').bind(obligationId).first<{ status: string; currency: string; amount_cents: number }>();
   if (!obligation) return reply({ error: 'not_found' }, 404);
   if (obligation.status === 'canceled' || obligation.status === 'reversed' || obligation.status === 'paid') return reply({ error: 'obligation_not_payable' }, 409);
   if (currency !== obligation.currency) return reply({ error: 'payment_currency_must_match_obligation' }, 422);
 
   const paymentId = crypto.randomUUID();
-  await env.DB.prepare('INSERT INTO fin_obligation_payments (id,obligation_id,paid_amount_cents,currency,paid_at,account_id,reference,created_by) VALUES (?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP),?,?,?)')
-    .bind(paymentId, obligationId, paidAmountCents, currency, paidAt, accountId, reference, auth.userId).run();
+  await env.DB.prepare('INSERT INTO fin_obligation_payments (id,obligation_id,paid_amount_cents,currency,paid_at,account_id,reference,created_by,account_amount_cents) VALUES (?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP),?,?,?,?)')
+    .bind(paymentId, obligationId, paidAmountCents, currency, paidAt, accountId, reference, auth.userId, accountAmountCents).run();
   const total = await env.DB.prepare('SELECT COALESCE(sum(paid_amount_cents),0) n FROM fin_obligation_payments WHERE obligation_id=?').bind(obligationId).first<{ n: number }>();
   const totalPaid = total?.n ?? 0;
   const newStatus = totalPaid >= obligation.amount_cents ? 'paid' : totalPaid > 0 ? 'partial' : 'open';
@@ -1892,7 +1896,7 @@ async function financeObligationPaymentReverse(req: Request, env: Env, paymentId
   const b = await body(req);
   const reasonValue = text(b?.reason, 500, 3);
   if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
-  const payment = await env.DB.prepare('SELECT obligation_id,paid_amount_cents,currency,account_id FROM fin_obligation_payments WHERE id=?').bind(paymentId).first<{ obligation_id: string; paid_amount_cents: number; currency: string; account_id: string }>();
+  const payment = await env.DB.prepare('SELECT obligation_id,paid_amount_cents,currency,account_id,account_amount_cents FROM fin_obligation_payments WHERE id=?').bind(paymentId).first<{ obligation_id: string; paid_amount_cents: number; currency: string; account_id: string; account_amount_cents: number | null }>();
   if (!payment) return reply({ error: 'not_found' }, 404);
   if (payment.paid_amount_cents < 0) return reply({ error: 'cannot_reverse_a_reversal' }, 409);
   const obligation = await env.DB.prepare('SELECT amount_cents FROM fin_obligations WHERE id=?').bind(payment.obligation_id).first<{ amount_cents: number }>();
@@ -1900,8 +1904,8 @@ async function financeObligationPaymentReverse(req: Request, env: Env, paymentId
 
   const reversalId = crypto.randomUUID();
   try {
-    await env.DB.prepare('INSERT INTO fin_obligation_payments (id,obligation_id,paid_amount_cents,currency,account_id,reversal_of,reversal_reason,created_by) VALUES (?,?,?,?,?,?,?,?)')
-      .bind(reversalId, payment.obligation_id, -payment.paid_amount_cents, payment.currency, payment.account_id, paymentId, reasonValue, auth.userId).run();
+    await env.DB.prepare('INSERT INTO fin_obligation_payments (id,obligation_id,paid_amount_cents,currency,account_id,reversal_of,reversal_reason,created_by,account_amount_cents) VALUES (?,?,?,?,?,?,?,?,?)')
+      .bind(reversalId, payment.obligation_id, -payment.paid_amount_cents, payment.currency, payment.account_id, paymentId, reasonValue, auth.userId, payment.account_amount_cents === null ? null : -payment.account_amount_cents).run();
   } catch (error) {
     return reply({ error: 'payment_already_reversed' }, 409);
   }
@@ -2151,18 +2155,22 @@ async function financeReceivablePaymentCreate(req: Request, env: Env, receivable
   const accountId = typeof b?.accountId === 'string' && UUID_RE.test(b.accountId) ? b.accountId : null;
   const gatewayFeeCents = Number.isInteger(b?.gatewayFeeCents) ? Number(b?.gatewayFeeCents) : null;
   const reference = text(b?.reference, 120) || null;
-  if (!receivedAmountCents || !currency || !validCurrency(currency) || !accountId) return reply({ error: 'invalid_payment' }, 400);
+  const accountAmountInput = b?.accountAmountCents === undefined || b?.accountAmountCents === null ? null : intOf(b.accountAmountCents, 1, 100_000_000_00);
+  if (!receivedAmountCents || !currency || !validCurrency(currency) || !accountId || (b?.accountAmountCents != null && accountAmountInput === null)) return reply({ error: 'invalid_payment' }, 400);
 
-  const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first();
+  const account = await env.DB.prepare('SELECT currency FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first<{ currency: string }>();
   if (!account) return reply({ error: 'account_not_found' }, 422);
-  const receivable = await env.DB.prepare('SELECT status,currency,expected_amount_cents FROM fin_receivables WHERE id=?').bind(receivableId).first<{ status: string; currency: string; expected_amount_cents: number }>();
+  // Conta em outra moeda (ex.: cofrinho em R$ recebendo venda em €): o valor creditado na moeda da conta é obrigatório.
+  if (account.currency !== currency && !accountAmountInput) return reply({ error: 'account_amount_required' }, 422);
+  const accountAmountCents = account.currency !== currency ? accountAmountInput : null;
+  const receivable =await env.DB.prepare('SELECT status,currency,expected_amount_cents FROM fin_receivables WHERE id=?').bind(receivableId).first<{ status: string; currency: string; expected_amount_cents: number }>();
   if (!receivable) return reply({ error: 'not_found' }, 404);
   if (receivable.status === 'canceled' || receivable.status === 'refunded' || receivable.status === 'paid') return reply({ error: 'receivable_not_payable' }, 409);
   if (currency !== receivable.currency) return reply({ error: 'payment_currency_must_match_receivable' }, 422);
 
   const paymentId = crypto.randomUUID();
-  await env.DB.prepare('INSERT INTO fin_receivable_payments (id,receivable_id,received_amount_cents,currency,received_at,account_id,gateway_fee_cents,reference,created_by) VALUES (?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP),?,?,?,?)')
-    .bind(paymentId, receivableId, receivedAmountCents, currency, receivedAt, accountId, gatewayFeeCents, reference, auth.userId).run();
+  await env.DB.prepare('INSERT INTO fin_receivable_payments (id,receivable_id,received_amount_cents,currency,received_at,account_id,gateway_fee_cents,reference,created_by,account_amount_cents) VALUES (?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP),?,?,?,?,?)')
+    .bind(paymentId, receivableId, receivedAmountCents, currency, receivedAt, accountId, gatewayFeeCents, reference, auth.userId, accountAmountCents).run();
   const total = await env.DB.prepare('SELECT COALESCE(sum(received_amount_cents),0) n FROM fin_receivable_payments WHERE receivable_id=?').bind(receivableId).first<{ n: number }>();
   const totalReceived = total?.n ?? 0;
   const newStatus = totalReceived >= receivable.expected_amount_cents ? 'paid' : totalReceived > 0 ? 'partial' : 'open';
@@ -2176,7 +2184,7 @@ async function financeReceivablePaymentReverse(req: Request, env: Env, paymentId
   const b = await body(req);
   const reasonValue = text(b?.reason, 500, 3);
   if (!reasonValue) return reply({ error: 'invalid_request' }, 400);
-  const payment = await env.DB.prepare('SELECT receivable_id,received_amount_cents,currency,account_id FROM fin_receivable_payments WHERE id=?').bind(paymentId).first<{ receivable_id: string; received_amount_cents: number; currency: string; account_id: string }>();
+  const payment = await env.DB.prepare('SELECT receivable_id,received_amount_cents,currency,account_id,account_amount_cents FROM fin_receivable_payments WHERE id=?').bind(paymentId).first<{ receivable_id: string; received_amount_cents: number; currency: string; account_id: string; account_amount_cents: number | null }>();
   if (!payment) return reply({ error: 'not_found' }, 404);
   if (payment.received_amount_cents < 0) return reply({ error: 'cannot_reverse_a_reversal' }, 409);
   const receivable = await env.DB.prepare('SELECT expected_amount_cents FROM fin_receivables WHERE id=?').bind(payment.receivable_id).first<{ expected_amount_cents: number }>();
@@ -2184,8 +2192,8 @@ async function financeReceivablePaymentReverse(req: Request, env: Env, paymentId
 
   const reversalId = crypto.randomUUID();
   try {
-    await env.DB.prepare('INSERT INTO fin_receivable_payments (id,receivable_id,received_amount_cents,currency,account_id,reversal_of,reversal_reason,created_by) VALUES (?,?,?,?,?,?,?,?)')
-      .bind(reversalId, payment.receivable_id, -payment.received_amount_cents, payment.currency, payment.account_id, paymentId, reasonValue, auth.userId).run();
+    await env.DB.prepare('INSERT INTO fin_receivable_payments (id,receivable_id,received_amount_cents,currency,account_id,reversal_of,reversal_reason,created_by,account_amount_cents) VALUES (?,?,?,?,?,?,?,?,?)')
+      .bind(reversalId, payment.receivable_id, -payment.received_amount_cents, payment.currency, payment.account_id, paymentId, reasonValue, auth.userId, payment.account_amount_cents === null ? null : -payment.account_amount_cents).run();
   } catch (error) {
     return reply({ error: 'payment_already_reversed' }, 409);
   }

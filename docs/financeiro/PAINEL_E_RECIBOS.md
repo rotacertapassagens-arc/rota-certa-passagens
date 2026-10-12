@@ -11,6 +11,7 @@ Data: 12/10/2026. Só o site rotacertapassagens.com (nada do FinanceHub).
 | Visão geral | Faturamento recebido, vendido, a receber, custo dos voos, lucro confirmado, margem, despesas, resultado e saldo de caixa, **uma linha de cartões por moeda** (€ e R$ nunca são somados). Gráfico mês a mês, 5 voos mais lucrativos e "atenção agora". |
 | Vendas e recibos | Todas as vendas, com situação (recebida, a receber), valor em € com o equivalente em R$ embaixo, e botão do recibo. **Nova venda** funciona com ou sem proposta. |
 | Lucro por voo | Cada voo com recebido, custo, lucro e margem. "Custo e lucro" abre a janela de emissões: lote de milhas, taxas, PNR e "marcar como emitida". |
+| Contas e saldos | O saldo de cada conta **na moeda dela** (ex.: o cofrinho do Mercado Pago em R$), para conferir com o app do banco, e a conversão automática para euros pelo câmbio do dia (Banco Central Europeu, mesma fonte do Planner). Mostra saldo inicial, entradas e saídas. |
 | Contas a receber | Parcelas ainda não recebidas, com vencimento e botão de recebimento. Começa vazia, porque hoje tudo é recebido na hora. |
 | Contas a pagar, Alertas, Milhas, Assinaturas, Cadastros | As telas que já existiam, agora separadas, com valores em reais/euros (não mais em centavos) e janelinhas no lugar das caixas do navegador. |
 
@@ -45,15 +46,31 @@ Data: 12/10/2026. Só o site rotacertapassagens.com (nada do FinanceHub).
 
 A venda direta cria uma linha em `lead_requests` com `kind='direct_sale'` só para manter a ligação que `fin_sales` exige. Ela **não aparece na Central de Propostas** e não cria comissão de parceiro.
 
-## Banco de dados: migration 0022 (só acrescenta)
+### Conta em outra moeda (cofrinho em R$)
 
-`d1/migrations/0022_financeiro_recibos.sql`: duas colunas novas em `fin_sales` (`alt_currency`, `alt_amount_cents`) e três tabelas novas (`fin_direct_sale_counters`, `fin_receipts`, `fin_receipt_files`). Nenhuma tabela, linha ou coluna existente é alterada ou apagada.
+Uma venda cobrada em € e paga em R$ por PIX no cofrinho continua em € no financeiro, mas o saldo da conta precisa subir em R$. Por isso, quando a moeda da conta é diferente da moeda do pagamento, o site **exige o valor que entrou (ou saiu) na moeda da conta**:
+
+- Nova venda: o "equivalente em R$" é o valor creditado no cofrinho.
+- Registrar recebimento e pagar conta: campo "Valor que entrou/saiu da conta".
+- Estornos devolvem exatamente o mesmo valor em R$.
+- Se faltar esse valor (pagamentos antigos), o saldo mostra "inclui valores estimados pelo câmbio".
+- O saldo inicial da conta é digitado em Cadastros (o que o app do banco mostra no dia).
+
+Rota: `GET /api/admin/finance/accounts/balances`.
+
+## Banco de dados: migrations 0022 e 0023 (só acrescentam)
+
+`d1/migrations/0022_financeiro_recibos.sql`: duas colunas novas em `fin_sales` (`alt_currency`, `alt_amount_cents`) e três tabelas novas (`fin_direct_sale_counters`, `fin_receipts`, `fin_receipt_files`).
+
+`d1/migrations/0023_saldo_na_moeda_da_conta.sql`: uma coluna nova (`account_amount_cents`) em `fin_receivable_payments` e em `fin_obligation_payments`.
+
+Nenhuma tabela, linha ou coluna existente é alterada ou apagada.
 
 ## Como publicar
 
 A ordem importa: o merge na `main` publica o site sozinho, então o banco precisa estar pronto antes.
 
-1. **Antes do merge**, no PowerShell, com o token do Cloudflare: `npm run d1:migrate:remote`. Aplica só a 0022. Como ela só acrescenta, a versão antiga do site continua funcionando normalmente depois dela.
+1. **Antes do merge**, no PowerShell, com o token do Cloudflare: `npm run d1:migrate:remote`. Aplica a 0022 e a 0023. Como ela só acrescenta, a versão antiga do site continua funcionando normalmente depois dela.
 2. Mesclar o PR na `main` (quem mescla é você, no GitHub). O site publica sozinho.
 3. Revogar o token do Cloudflare.
 4. Conferir em `/financeiro` (a lateral aparece) e lançar uma venda de teste.

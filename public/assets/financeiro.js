@@ -155,19 +155,24 @@ export async function loadObligations() {
     </tr>`).join('') || '<tr><td colspan="5">Nenhuma conta a pagar cadastrada.</td></tr>';
 
   document.querySelectorAll('[data-pay]').forEach((button) => button.addEventListener('click', async () => {
-    const accounts = state.accounts.filter((account) => account.active && account.currency === button.dataset.currency);
-    if (!accounts.length) { alert(`Cadastre uma conta em ${button.dataset.currency} (aba Cadastros) antes de registrar um pagamento.`); return; }
+    const active = state.accounts.filter((account) => account.active);
+    const accounts = [...active.filter((account) => account.currency === button.dataset.currency), ...active.filter((account) => account.currency !== button.dataset.currency)];
+    if (!accounts.length) { alert('Cadastre uma conta (aba Cadastros) antes de registrar um pagamento.'); return; }
     const values = await askForm({
       title: 'Registrar pagamento', submitLabel: 'Registrar',
       fields: [
         { name: 'amount', label: `Valor pago (${button.dataset.currency})`, type: 'money', value: centsToInput(button.dataset.amount), required: true },
-        { name: 'accountId', label: 'Pago pela conta', type: 'select', options: accounts.map((account) => ({ value: account.id, label: account.name })), value: accounts[0].id },
+        { name: 'accountId', label: 'Pago pela conta', type: 'select', options: accounts.map((account) => ({ value: account.id, label: `${account.name} (${account.currency})` })), value: accounts[0].id },
+        { name: 'accountAmount', label: 'Valor que saiu da conta (só se a conta for em outra moeda)', type: 'money', hint: 'Ex.: o valor em R$ debitado no Mercado Pago.', wide: true },
         { name: 'paidAt', label: 'Data do pagamento', type: 'date', value: today(), required: true },
       ],
     });
     if (!values) return;
+    const account = accounts.find((item) => item.id === values.accountId);
+    const differentCurrency = account && account.currency !== button.dataset.currency;
+    if (differentCurrency && !values.accountAmount) { alert(`A conta "${account.name}" é em ${account.currency}. Informe o valor que saiu da conta.`); return; }
     try {
-      await api(`/api/admin/finance/obligations/${button.dataset.pay}/payments`, { method: 'POST', body: JSON.stringify({ paidAmountCents: values.amount, currency: button.dataset.currency, accountId: values.accountId, paidAt: `${values.paidAt}T12:00:00Z` }) });
+      await api(`/api/admin/finance/obligations/${button.dataset.pay}/payments`, { method: 'POST', body: JSON.stringify({ paidAmountCents: values.amount, currency: button.dataset.currency, accountId: values.accountId, paidAt: `${values.paidAt}T12:00:00Z`, accountAmountCents: differentCurrency ? values.accountAmount : undefined }) });
       await loadObligations();
     } catch (error) { alert(financeErrorMessage(error, 'Não foi possível registrar o pagamento.')); }
   }));
@@ -229,7 +234,19 @@ function wireForms() {
     form.reset(); status.textContent = 'Categoria criada.'; await loadCategories();
   });
   submit('accountForm', 'accountStatus', async (form, status) => {
-    await api('/api/admin/finance/accounts', { method: 'POST', body: JSON.stringify({ name: byId('accountName').value, type: byId('accountType').value, currency: byId('accountCurrency').value, institution: byId('accountInstitution').value || undefined, last4: byId('accountLast4').value || undefined }) });
+    const openingText = byId('accountOpening').value.trim();
+    const openingCents = openingText ? toCents(openingText) : null;
+    const openingAt = byId('accountOpeningAt').value;
+    if (openingText && openingCents === null) { status.textContent = 'Saldo inicial inválido. Use por exemplo 3250,00.'; return; }
+    if (Boolean(openingText) !== Boolean(openingAt)) { status.textContent = 'Para o saldo inicial, informe o valor e a data juntos.'; return; }
+    await api('/api/admin/finance/accounts', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: byId('accountName').value, type: byId('accountType').value, currency: byId('accountCurrency').value,
+        institution: byId('accountInstitution').value || undefined, last4: byId('accountLast4').value || undefined,
+        openingBalanceCents: openingCents ?? undefined, openingBalanceAt: openingAt || undefined,
+      }),
+    });
     form.reset(); status.textContent = 'Conta criada.'; await loadAccounts();
   });
   submit('counterpartyForm', 'counterpartyStatus', async (form, status) => {

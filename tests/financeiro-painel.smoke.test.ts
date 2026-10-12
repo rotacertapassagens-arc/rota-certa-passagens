@@ -202,5 +202,38 @@ describe('Financeiro: painel novo, venda direta, lucro por voo e recibos (Worker
     expect((await worker.fetch(`/api/admin/finance/receipt-files/${upload.json.id}`)).status).toBe(403);
     expect((await send(jar, 'DELETE', `/api/admin/finance/receipt-files/${upload.json.id}`)).status).toBe(200);
     expect((await send(jar, 'GET', `/api/admin/finance/sales/${secondId}/receipt`)).json.files).toHaveLength(0);
+
+    // --- cofrinho em reais (Mercado Pago): saldo na moeda da conta, para conferir com o app ---------------------
+    expect((await worker.fetch('/api/admin/finance/accounts/balances')).status).toBe(403);
+    const cofre = await send(jar, 'POST', '/api/admin/finance/accounts', { name: 'Cofrinho Mercado Pago', type: 'digital_wallet', currency: 'BRL', openingBalanceCents: 100000, openingBalanceAt: today });
+    expect(cofre.status).toBe(201);
+    const cofreId = cofre.json.id as string;
+    const balanceOf = async (id: string) => ((await send(jar, 'GET', '/api/admin/finance/accounts/balances')).json.accounts as Array<Record<string, any>>).find((account) => account.id === id)!;
+    expect(await balanceOf(cofreId)).toMatchObject({ currency: 'BRL', balanceCents: 100000, inCents: 0, outCents: 0 });
+
+    // Venda em € paga em R$ para uma conta em R$: sem o valor creditado em R$ não grava.
+    const venda = { customerName: 'Amigo Teste', origin: 'LIS', destination: 'SSA', saleDate: today, currency: 'EUR', grossAmountCents: 120000 };
+    const semValor = await send(jar, 'POST', '/api/admin/finance/sales/direct', { ...venda, payment: { received: true, method: 'pix', accountId: cofreId } });
+    expect(semValor.status).toBe(422);
+    expect(semValor.json.error).toBe('account_amount_required');
+    const pix = await send(jar, 'POST', '/api/admin/finance/sales/direct', { ...venda, altCurrency: 'BRL', altAmountCents: 720000, payment: { received: true, method: 'pix', accountId: cofreId, accountAmountCents: 720000 } });
+    expect(pix.status).toBe(201);
+    expect(await balanceOf(cofreId)).toMatchObject({ balanceCents: 820000, inCents: 720000 });
+    // A conta em euros não é afetada pelo valor em reais.
+    expect(await balanceOf(accountId)).toMatchObject({ currency: 'EUR', balanceCents: 120000 });
+
+    // Conta a pagar em € paga pelo cofrinho: debita em R$.
+    const categoria = await send(jar, 'POST', '/api/admin/finance/categories', { kind: 'operating_expense', name: 'Despesas gerais' });
+    expect(categoria.status).toBe(201);
+    const obrigacao = await send(jar, 'POST', '/api/admin/finance/obligations', { kind: 'operating_expense', categoryId: categoria.json.id, competencyDate: today, dueDate: today, amountCents: 5000, currency: 'EUR' });
+    expect(obrigacao.status).toBe(201);
+    const pagarUrl = `/api/admin/finance/obligations/${obrigacao.json.id}/payments`;
+    expect((await send(jar, 'POST', pagarUrl, { paidAmountCents: 5000, currency: 'EUR', accountId: cofreId })).status).toBe(422);
+    const pago = await send(jar, 'POST', pagarUrl, { paidAmountCents: 5000, currency: 'EUR', accountId: cofreId, accountAmountCents: 31000 });
+    expect(pago.status).toBe(201);
+    expect(await balanceOf(cofreId)).toMatchObject({ balanceCents: 789000, outCents: 31000 });
+    // O estorno devolve exatamente o que saiu em R$.
+    expect((await send(jar, 'POST', `/api/admin/finance/obligation-payments/${pago.json.id}/reverse`, { reason: 'teste de estorno' })).status).toBe(201);
+    expect(await balanceOf(cofreId)).toMatchObject({ balanceCents: 820000, outCents: 0 });
   }, 120_000);
 });

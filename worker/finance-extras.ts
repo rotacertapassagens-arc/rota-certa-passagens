@@ -39,6 +39,7 @@ export async function financeExtras(req: Request, env: Env, url: URL, deps: Fina
   if (m === 'POST' && p === '/api/admin/finance/sales/direct') return directSale(req, env, deps);
   if (m === 'GET' && p === '/api/admin/finance/flights') return flights(req, env, deps);
   if (m === 'GET' && p === '/api/admin/finance/receivables') return receivablesList(req, env, url, deps);
+  if (m === 'GET' && p === '/api/admin/finance/accounts/balances') return accountBalances(req, env, deps);
   const sale = p.match(new RegExp(`^/api/admin/finance/sales/(${UUID})$`, 'i'));
   if (m === 'PATCH' && sale) return saleAltUpdate(req, env, sale[1]!, deps);
   const receipt = p.match(new RegExp(`^/api/admin/finance/sales/(${UUID})/receipt$`, 'i'));
@@ -88,9 +89,15 @@ async function directSale(req: Request, env: Env, deps: FinanceExtrasDeps) {
   const accountId = typeof payment?.accountId === 'string' && new RegExp(`^${UUID}$`, 'i').test(payment.accountId) ? payment.accountId : null;
   const receivedOn = payment?.receivedOn ? dateOk(payment.receivedOn) : saleDate;
   if (received && (!method || !accountId || !receivedOn)) return deps.reply({ error: 'invalid_payment' }, 400);
+  // Conta em outra moeda (ex.: cofrinho em R$ recebendo venda em €): o valor creditado na moeda da conta é obrigatório.
+  let accountAmountCents: number | null = null;
   if (received) {
-    const account = await env.DB.prepare('SELECT 1 FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first();
+    const account = await env.DB.prepare('SELECT currency FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first<{ currency: string }>();
     if (!account) return deps.reply({ error: 'account_not_found' }, 422);
+    if (account.currency !== currency) {
+      accountAmountCents = centsOk(payment?.accountAmountCents, 1);
+      if (!accountAmountCents) return deps.reply({ error: 'account_amount_required' }, 422);
+    }
   }
 
   const partnerId = typeof b?.partnerId === 'string' && new RegExp(`^${UUID}$`, 'i').test(b.partnerId) ? b.partnerId : null;
@@ -114,8 +121,8 @@ async function directSale(req: Request, env: Env, deps: FinanceExtrasDeps) {
     statements.push(
       env.DB.prepare("INSERT INTO fin_receivables (id,sale_id,installment_number,due_date,expected_amount_cents,currency,account_id,method,status) VALUES (?,?,1,?,?,?,?,?,'paid')")
         .bind(receivableId, saleId, saleDate, netAmountCents, currency, accountId, method),
-      env.DB.prepare('INSERT INTO fin_receivable_payments (id,receivable_id,received_amount_cents,currency,received_at,account_id,reference,created_by) VALUES (?,?,?,?,?,?,?,?)')
-        .bind(crypto.randomUUID(), receivableId, netAmountCents, currency, `${receivedOn}T12:00:00Z`, accountId, clean(payment?.reference, 120) || null, auth.userId),
+      env.DB.prepare('INSERT INTO fin_receivable_payments (id,receivable_id,received_amount_cents,currency,received_at,account_id,reference,created_by,account_amount_cents) VALUES (?,?,?,?,?,?,?,?,?)')
+        .bind(crypto.randomUUID(), receivableId, netAmountCents, currency, `${receivedOn}T12:00:00Z`, accountId, clean(payment?.reference, 120) || null, auth.userId, accountAmountCents),
     );
   }
   try { await env.DB.batch(statements); } catch { return deps.reply({ error: 'sale_creation_failed' }, 500); }
@@ -191,6 +198,48 @@ async function receivablesList(req: Request, env: Env, url: URL, deps: FinanceEx
       dueDate: r.due_date, expectedAmountCents: r.expected_amount_cents, receivedCents: r.received_cents, currency: r.currency,
       method: r.method, status: r.status, isOverdue: (r.status === 'open' || r.status === 'partial') && String(r.due_date) < today,
     })),
+  });
+}
+
+// --- saldo das contas ----------------------------------------------------------------------------
+// Saldo na moeda da própria conta: saldo inicial + entradas - saídas. Pagamento na mesma moeda da conta entra pelo valor
+// dele; pagamento em outra moeda entra pelo valor creditado/debitado informado (account_amount_cents). Quando esse valor
+// falta (pagamentos antigos), o total vai em `estimatedIn`/`estimatedOut` por moeda, para a tela estimar pelo câmbio.
+async function accountBalances(req: Request, env: Env, deps: FinanceExtrasDeps) {
+  if (!(await master(req, env, deps))) return deps.reply({ error: 'forbidden' }, 403);
+  const accounts = await env.DB.prepare('SELECT id,name,type,institution,last4,currency,opening_balance_cents,opening_balance_at,active FROM fin_accounts ORDER BY active DESC,name').all<Row>();
+  const flow = (table: string, amountColumn: string) => env.DB.prepare(
+    `SELECT account_id,currency,COALESCE(SUM(${amountColumn}),0) amount,
+            COALESCE(SUM(CASE WHEN account_amount_cents IS NOT NULL THEN account_amount_cents ELSE 0 END),0) credited,
+            COALESCE(SUM(CASE WHEN account_amount_cents IS NULL THEN ${amountColumn} ELSE 0 END),0) uncredited
+       FROM ${table} GROUP BY account_id,currency`,
+  ).all<Row>();
+  const [inflows, outflows] = await Promise.all([flow('fin_receivable_payments', 'received_amount_cents'), flow('fin_obligation_payments', 'paid_amount_cents')]);
+  const sum = (rows: Row[], account: Row) => {
+    let total = 0;
+    const estimated: Record<string, number> = {};
+    for (const row of rows) {
+      if (row.account_id !== account.id) continue;
+      if (row.currency === account.currency) total += Number(row.amount);
+      else {
+        total += Number(row.credited);
+        if (Number(row.uncredited)) estimated[String(row.currency)] = (estimated[String(row.currency)] ?? 0) + Number(row.uncredited);
+      }
+    }
+    return { total, estimated };
+  };
+  return deps.reply({
+    accounts: accounts.results.map((account) => {
+      const entradas = sum(inflows.results, account);
+      const saidas = sum(outflows.results, account);
+      const opening = Number(account.opening_balance_cents ?? 0);
+      return {
+        id: account.id, name: account.name, type: account.type, institution: account.institution, last4: account.last4, currency: account.currency,
+        active: Boolean(account.active), openingBalanceCents: opening, openingBalanceAt: account.opening_balance_at,
+        inCents: entradas.total, outCents: saidas.total, balanceCents: opening + entradas.total - saidas.total,
+        estimatedIn: entradas.estimated, estimatedOut: saidas.estimated,
+      };
+    }),
   });
 }
 
