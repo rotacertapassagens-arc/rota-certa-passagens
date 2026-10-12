@@ -1,0 +1,121 @@
+/* Página do recibo: formulário à esquerda, prévia A4 fiel ao modelo à direita e folha limpa na impressão. */
+.rc-app { width:min(1500px,calc(100% - 32px)); margin:24px auto 60px; }
+.rc-bar { display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.rc-bar-title { display:grid; gap:2px; }
+.rc-bar-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.rc-grid { display:grid; grid-template-columns:minmax(340px,500px) minmax(0,1fr); gap:24px; align-items:start; }
+.rc-form { max-height:calc(100vh - 130px); overflow:auto; position:sticky; top:12px; margin:0; }
+.rc-form h2 { margin-bottom:14px; }
+.rc-form h3 { margin:26px 0 12px; padding-top:18px; border-top:1px solid var(--line); font-family:var(--font-display); }
+.rc-two { display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+.rc-row { position:relative; border:1px solid var(--line); border-radius:10px; padding:44px 12px 2px; margin-bottom:10px; background:#fbfbfc; }
+.rc-row .rc-remove { position:absolute; top:8px; right:8px; padding:4px 9px; font-size:.75rem; }
+.rc-row-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0 10px; }
+.rc-row-grid label { margin-bottom:10px; font-size:.8rem; }
+.rc-row-grid input, .rc-row-grid select { padding:9px; }
+.rc-file { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:9px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; }
+.rc-file a { font-weight:600; word-break:break-all; }
+
+.rc-preview { min-width:0; overflow:hidden; }
+.rc-scale { transform-origin:top left; width:794px; }
+
+/* Recibo (A4 = 794 x 1123 px a 96 dpi) */
+.recibo { --rc-navy:#0b2142; --rc-gold:#c99f3b; --rc-muted:#6b7685; --rc-line:#e1e5ea;
+  width:794px; min-height:1123px; display:flex; flex-direction:column; background:#fff; color:var(--rc-navy); font-family:var(--font-body); font-size:13px; line-height:1.4; box-shadow:0 24px 60px -30px rgba(13,27,42,.6); }
+.recibo * { box-sizing:border-box; }
+.rc-head { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:32px 44px 30px; background:var(--rc-navy); color:#fff; border-bottom:10px solid var(--rc-gold); }
+.rc-brand { display:flex; align-items:center; gap:22px; }
+.rc-brand img { width:104px; height:104px; object-fit:contain; flex-shrink:0; }
+.rc-brand h1 { margin:0; font-family:var(--font-display); font-size:34px; font-weight:600; letter-spacing:.09em; line-height:1.1; color:#fff; }
+.rc-brand .sub { display:block; margin:6px 0 12px; color:var(--rc-gold); font-size:12px; font-weight:700; letter-spacing:.38em; }
+.rc-brand p { margin:2px 0 0; font-size:12px; color:rgba(255,255,255,.82); }
+.rc-brand p b { color:#fff; }
+.rc-head-right { text-align:right; }
+.rc-head-right .tag-label { color:var(--rc-gold); font-size:11px; font-weight:700; letter-spacing:.3em; }
+.rc-head-right .number { display:block; margin:8px 0 6px; font-family:var(--font-display); font-size:21px; color:#fff; }
+.rc-head-right .date { color:rgba(255,255,255,.75); font-size:12px; }
+.rc-body { flex:1; display:flex; flex-direction:column; justify-content:space-between; padding:34px 44px 10px; }
+.rc-body > * { flex-shrink:0; }
+/* Densidade automática: com mais trechos o recibo ocupa menos espaço por trecho. */
+.recibo.compact .rc-head { padding:24px 44px 22px; }
+.recibo.compact .rc-brand img { width:84px; height:84px; }
+.recibo.compact .rc-body { padding-top:24px; }
+.recibo.compact .rc-cards { margin:14px 0 16px; }
+.recibo.compact .rc-table td { padding:6px 8px; }
+.recibo.compact .rc-sign { margin-top:22px; }
+.recibo.dense .rc-head { padding:16px 44px 14px; border-bottom-width:8px; }
+.recibo.dense .rc-brand img { width:64px; height:64px; }
+.recibo.dense .rc-brand h1 { font-size:28px; }
+.recibo.dense .rc-brand .sub { margin:3px 0 6px; }
+.recibo.dense .rc-body { padding-top:16px; }
+.recibo.dense .rc-title h2 { font-size:24px; }
+.recibo.dense .rc-cards { margin:10px 0 12px; gap:14px; }
+.recibo.dense .rc-card { padding:12px 16px; }
+.recibo.dense .rc-table { font-size:12px; }
+.recibo.dense .rc-table td { padding:3px 8px; }
+.recibo.dense .rc-table td small { display:inline; margin-left:6px; font-size:11px; }
+.recibo.dense .rc-values { margin:12px 0 10px; }
+.recibo.dense .rc-value-row { padding:8px; }
+.recibo.dense .rc-total { margin:10px 0; padding:16px 22px; }
+.recibo.dense .rc-sign { margin-top:16px; padding-bottom:12px; }
+.rc-title { display:flex; justify-content:space-between; align-items:baseline; gap:16px; padding-bottom:16px; border-bottom:1px solid var(--rc-line); }
+.rc-title h2 { margin:0; font-family:var(--font-display); font-size:28px; font-weight:600; }
+.rc-title span { color:var(--rc-muted); font-size:12px; }
+.rc-cards { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:22px 0 24px; }
+.rc-card { border:1px solid var(--rc-line); border-radius:12px; padding:18px 20px; }
+.rc-card h4 { margin:0 0 12px; color:var(--rc-gold); font-size:11px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; }
+.rc-kv { display:grid; grid-template-columns:86px 1fr; gap:7px 12px; margin:0; font-size:13px; }
+.rc-kv dt { color:var(--rc-muted); }
+.rc-kv dd { margin:0; font-weight:600; }
+.rc-kv dd small { display:block; color:var(--rc-muted); font-weight:400; }
+.rc-label { margin:6px 0 8px; color:var(--rc-gold); font-size:11px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; }
+.rc-table { width:100%; border-collapse:collapse; font-size:13px; }
+.rc-table th { padding:8px 8px; border-bottom:2px solid var(--rc-navy); color:var(--rc-muted); font-size:10.5px; font-weight:600; letter-spacing:.14em; text-align:left; text-transform:uppercase; }
+.rc-table td { padding:10px 8px; border-bottom:1px solid var(--rc-line); vertical-align:top; }
+.rc-table td small { display:block; color:var(--rc-muted); }
+.rc-table .arrow { color:var(--rc-gold); font-weight:700; text-align:center; }
+.rc-note { margin:10px 8px 0; color:var(--rc-muted); font-size:12px; }
+.rc-values { margin:22px 0 18px; }
+.rc-value-row { display:flex; justify-content:space-between; gap:20px; padding:12px 8px; border-bottom:1px solid var(--rc-line); }
+.rc-value-row small { display:block; color:var(--rc-muted); }
+.rc-value-row b { white-space:nowrap; padding-left:8px; font-variant-numeric:tabular-nums; }
+.rc-total { display:flex; justify-content:space-between; align-items:center; gap:20px; margin:18px 0 16px; padding:22px 26px; border-radius:14px; background:var(--rc-navy); color:#fff; }
+.rc-total .label { color:var(--rc-gold); font-size:11px; font-weight:700; letter-spacing:.24em; text-transform:uppercase; }
+.rc-total .words { display:block; margin-top:6px; max-width:330px; color:rgba(255,255,255,.82); font-size:12px; }
+.rc-total .amount { text-align:right; font-family:var(--font-display); font-size:34px; line-height:1.1; font-variant-numeric:tabular-nums; }
+.rc-total .amount small { display:block; margin-top:4px; font-family:var(--font-body); font-size:14px; color:rgba(255,255,255,.75); }
+.rc-chips { display:flex; flex-wrap:wrap; gap:12px; margin:0 0 16px; }
+.rc-chip { padding:11px 16px; border-radius:10px; background:#f4ecd9; font-size:13px; }
+.rc-decl { margin:0 0 6px; color:var(--rc-muted); font-size:12px; }
+.rc-sign { display:flex; justify-content:space-between; align-items:flex-end; gap:30px; margin-top:40px; padding-bottom:26px; }
+.rc-sign .line { width:300px; padding-top:8px; border-top:1.5px solid var(--rc-navy); text-align:center; }
+.rc-sign .line small { display:block; color:var(--rc-muted); }
+.rc-sign .thanks { text-align:right; color:var(--rc-muted); font-size:12px; }
+.rc-sign .thanks b { display:block; color:var(--rc-navy); }
+.rc-foot { display:flex; justify-content:space-between; gap:16px; padding:15px 44px; background:var(--rc-navy); color:#fff; border-top:6px solid var(--rc-gold); font-size:12px; }
+.rc-foot b { letter-spacing:.04em; }
+
+@media (max-width:1100px) {
+  .rc-grid { grid-template-columns:1fr; }
+  .rc-form { position:static; max-height:none; }
+}
+@media (max-width:600px) {
+  .rc-two, .rc-row-grid { grid-template-columns:1fr; }
+}
+
+@page { size:A4; margin:0; }
+@media print {
+  html, body { background:#fff !important; }
+  .no-print { display:none !important; }
+  .rc-app { width:auto; margin:0; }
+  .rc-grid { display:block; }
+  .rc-preview { overflow:visible; }
+  .rc-scale { transform:none !important; height:auto !important; width:auto; }
+  /* O rodapé fica preso à borda de baixo da folha; o corpo reserva o espaço dele. */
+  .recibo { width:210mm; min-height:292mm; padding-bottom:60px; box-shadow:none; break-after:avoid; page-break-after:avoid; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .rc-foot { position:fixed; left:0; right:0; bottom:0; }
+  .rc-body { padding-top:26px; }
+  .rc-cards { margin:16px 0 18px; }
+  .rc-sign { margin-top:28px; padding-bottom:18px; }
+  .flash { display:none !important; }
+}

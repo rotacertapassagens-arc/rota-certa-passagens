@@ -9,6 +9,12 @@
 /admin*
   X-Robots-Tag: noindex, nofollow
 
+/financeiro*
+  X-Robots-Tag: noindex, nofollow
+
+/recibo*
+  X-Robots-Tag: noindex, nofollow
+
 /painel-parceiro*
   X-Robots-Tag: noindex, nofollow
 

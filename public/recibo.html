@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Recibo | Rota Certa Passagens</title>
+  <link rel="stylesheet" href="/assets/fonts/fontes.css"><link rel="stylesheet" href="/assets/portal.css"><link rel="stylesheet" href="/assets/financeiro.css"><link rel="stylesheet" href="/assets/recibo.css"><link rel="icon" href="/assets/favicon.png">
+</head>
+<body>
+<main class="rc-app">
+  <section class="panel no-print" id="accessMessage"><h1>Recibo</h1><p>Carregando...</p><a class="button" href="/#/cliente">Ir para a Área do cliente</a></section>
+  <div id="rcContent" class="hidden">
+    <header class="rc-bar no-print">
+      <a class="button ghost small" href="/financeiro#/vendas">Voltar às vendas</a>
+      <div class="rc-bar-title"><strong id="rcSaleTitle">Recibo</strong><span class="muted" id="rcSaleSub"></span></div>
+      <div class="rc-bar-actions">
+        <button type="button" id="rcSave">Salvar recibo</button>
+        <button type="button" class="ghost" id="rcPrint">Imprimir / Salvar PDF</button>
+      </div>
+    </header>
+    <p class="status no-print" id="rcStatus" aria-live="polite"></p>
+    <div class="rc-grid">
+      <form class="rc-form panel no-print" id="rcForm" autocomplete="off" novalidate>
+        <h2>Dados do recibo</h2>
+        <div class="rc-two">
+          <label>Número do recibo<input data-f="number" maxlength="40"></label>
+          <label>Data de emissão<input data-f="issuedOn" type="date"></label>
+        </div>
+
+        <h3>Cliente e reserva</h3>
+        <label>Nome do cliente / passageiro<input data-f="customerName" maxlength="120"></label>
+        <div class="rc-two">
+          <label>Tipo de passageiro<input data-f="passengerKind" maxlength="40" placeholder="Adulto"></label>
+          <label>Emitido por (companhia)<input data-f="issuedBy" maxlength="120" placeholder="Air France"></label>
+        </div>
+        <label>Bagagem<textarea data-f="baggage" maxlength="300" placeholder="Sem bagagem despachada"></textarea></label>
+        <div class="rc-two">
+          <label>Código(s) da reserva<input data-f="reservationCodes" maxlength="120" placeholder="Y859BI ou UQIMRN / FJDBKP"></label>
+          <label>Número do bilhete<input data-f="ticketNumber" maxlength="60"></label>
+        </div>
+        <label>Números de compra (opcional)<input data-f="purchaseNumbers" maxlength="160"></label>
+
+        <h3>Itinerário</h3>
+        <div id="rcSegments"></div>
+        <button type="button" class="ghost small" id="rcAddSegment">Adicionar trecho</button>
+        <label style="margin-top:14px">Observação do itinerário (opcional)<input data-f="note" maxlength="300" placeholder="Ex.: Reservas separadas: UQIMRN e FJDBKP. 1 passageiro."></label>
+
+        <h3>Valores</h3>
+        <div id="rcLines"></div>
+        <button type="button" class="ghost small" id="rcAddLine">Adicionar linha de valor</button>
+        <p class="fin-note hidden" id="rcMismatch"></p>
+        <div class="rc-two" style="margin-top:14px">
+          <label>Valor equivalente em outra moeda (opcional)<select data-f="altCurrency"><option value="">Nenhum</option><option value="BRL">Real (R$)</option><option value="EUR">Euro (€)</option><option value="USD">Dólar (US$)</option><option value="GBP">Libra (£)</option></select></label>
+          <label>Valor equivalente<input data-f="altAmount" inputmode="decimal" placeholder="0,00"></label>
+        </div>
+
+        <h3>Pagamento</h3>
+        <div class="rc-two">
+          <label>Forma de pagamento<select data-f="paymentMethod"><option value="transfer">Transferência bancária</option><option value="pix">PIX</option><option value="card">Cartão de crédito</option><option value="cash">Dinheiro</option><option value="other">Outro</option></select></label>
+          <label>Situação<select data-f="status"><option value="paid">Pago</option><option value="partial">Pago em parte</option><option value="pending">Pendente</option></select></label>
+        </div>
+        <label>Texto da forma de pagamento (opcional)<input data-f="paymentLabel" maxlength="120" placeholder="Ex.: PIX em reais"></label>
+        <label>Declaração (opcional, deixe vazio para o texto padrão)<textarea data-f="declaration" maxlength="500"></textarea></label>
+
+        <h3>PDF do recibo emitido</h3>
+        <p class="muted">Depois de salvar, use "Imprimir / Salvar PDF" e escolha "Salvar como PDF". Anexe o arquivo aqui para guardá-lo junto da venda (até 1,4 MB, 5 arquivos).</p>
+        <div id="rcFiles"></div>
+        <label>Anexar PDF ou imagem<input type="file" id="rcFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" disabled></label>
+      </form>
+
+      <section class="rc-preview">
+        <div class="rc-scale" id="rcScale">
+          <article class="recibo" id="recibo" aria-label="Prévia do recibo"></article>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<script type="module" src="/assets/recibo.js"></script>
+</body>
+</html>

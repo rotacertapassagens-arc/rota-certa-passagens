@@ -8,6 +8,7 @@ import { allocationCostCents, unitCostMicros } from '../shared/mileageCost.js';
 import { buildCsv } from '../shared/financeCsv.js';
 import { blogAdmin, blogPublic, type BlogDeps } from './blog.js';
 import { applyPendingFlights, checkinReminders, CURRENCIES, plannerExtras, reactivationReminders, sharedTripPage, type ExtrasDeps } from './planner-extras.js';
+import { financeExtras, type FinanceExtrasDeps } from './finance-extras.js';
 import { internalApi, type InternalApiDeps } from './proposal-handoff.js';
 import { customerPhoneDigits, QUOTE_CONSENT_VERSION, RECEIVED_STATUS, RECEIVED_STATUS_LABEL, stopsPreferenceOf, submissionIdOf, visitSourceOf, whatsappHandoffUrl } from '../shared/proposalHandoff.js';
 
@@ -77,13 +78,15 @@ function secureResponse(response: Response) {
 
 const blogDeps: BlogDeps = { reply, getAuth, mutationAuth, audit };
 const extrasDeps: ExtrasDeps = { reply, getAuth, mutationAuth, requirePlannerAccess, sendEmail, audit };
-const internalApiDeps: InternalApiDeps = { reply, safeEqual, rateLimit, rateLimitBlocked };
+const financeExtrasDeps: FinanceExtrasDeps = { reply, getAuth, mutationAuth, audit, profitSummary: calculateFinSaleProfitSummary };
+const internalApiDeps: InternalApiDeps ={ reply, safeEqual, rateLimit, rateLimitBlocked };
 
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
   // Servidor para servidor (WHA-04): toda rota /api/internal/ exige o token antes de qualquer outra resposta.
   if (p.startsWith('/api/internal/')) return internalApi(req, env, url, internalApiDeps);
   if (p.startsWith('/api/admin/blog')) { const blog = await blogAdmin(req, env, url, blogDeps); if (blog) return blog; }
+  if (p.startsWith('/api/admin/finance/')) { const finance = await financeExtras(req, env, url, financeExtrasDeps); if (finance) return finance; }
   if (p.startsWith('/api/planner/') || p.startsWith('/api/admin/leads/') || p === '/api/admin/subscriptions/grant') { const extra = await plannerExtras(req, env, url, extrasDeps); if (extra) return extra; }
   if (req.method === 'POST' && p === '/api/partner-applications') return partnerApplicationCreate(req, env);
   if (req.method === 'GET' && p === '/api/admin/partner-applications') return adminPartnerApplications(req, env);
