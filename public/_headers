@@ -24,3 +24,9 @@
 # Fontes: o nome do arquivo muda se a fonte mudar, então podem ficar em cache por 1 ano.
 /assets/fonts/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Guias em PDF (lead magnet do Instagram): endereço fixo, então cache curto para
+# uma versão nova chegar logo; noindex para o Google indexar o post do blog, não o PDF.
+/guias/*
+  Cache-Control: public, max-age=3600
+  X-Robots-Tag: noindex
