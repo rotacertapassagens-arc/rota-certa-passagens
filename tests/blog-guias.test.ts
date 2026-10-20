@@ -246,6 +246,45 @@ describe('guia piloto de Roma (content/guias/roma-em-3-dias.json)', () => {
   });
 });
 
+describe('guia de Madri (content/guias/madri-em-4-dias.json)', () => {
+  const conteudo = JSON.parse(readFileSync(new URL('../content/guias/madri-em-4-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
+  const tipos = conteudo.body.map((b) => b.t);
+  const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
+  it('começa pelo PDF que já existe, tem WhatsApp antes do roteiro e no fim, 4 passeios (um por dia), contato no fim e nenhum carro', () => {
+    expect(tipos[0]).toBe('pdf');
+    expect(conteudo.body[0]!.href).toBe('/guias/madri-em-4-dias.pdf');
+    expect(readFileSync(arq('/guias/madri-em-4-dias.pdf')).subarray(0, 5).toString()).toBe('%PDF-');
+    expect(conteudo.body.findIndex((b) => b.t === 'whatsapp')).toBeLessThan(conteudo.body.findIndex((b) => b.t === 'h' && b.label === 'Dia 1'));
+    expect(tipos.filter((t) => t === 'whatsapp')).toHaveLength(2);
+    expect(tipos.filter((t) => t === 'passeio')).toHaveLength(4);
+    expect(tipos.indexOf('contato')).toBeGreaterThan(tipos.lastIndexOf('passeio'));
+    expect(tipos).not.toContain('carro');
+    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
+  });
+  it('fotos: existem, pesam menos de 250 KB e têm alt, legenda e crédito do Pexels; sem foto com letreiro de marca', () => {
+    for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
+    const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
+    expect(fotos).toHaveLength(6);
+    for (const f of fotos) {
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+    }
+    expect(new Set(fotos.map((f) => f.src)).size).toBe(fotos.length);
+    expect(JSON.stringify(conteudo)).not.toMatch(/gran-via\.jpg|madri-capa/);
+  });
+  it('não tem travessão nem preço nos passeios, e a frase do Palácio Real segue a fonte oficial', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    expect(texto).toContain('cidadãos latino-americanos, entre eles brasileiros, com documento de nacionalidade');
+    expect(texto).not.toContain('Brasileiro entra de graça');
+    expect(texto).toContain('Reina Sofía');
+    expect(texto).toContain('fecha às terças');
+  });
+});
+
 /** Extrai os href dos <a> do HTML, em ordem (sem depender de DOM no Node). */
 class DOMParserLike {
   constructor(private readonly html: string) {}

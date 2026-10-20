@@ -168,7 +168,7 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(7); // 6 publicados + o rascunho do guia "Roma em 3 dias" (migration 0024)
+    expect(listaJson.posts).toHaveLength(8); // 6 publicados + os rascunhos dos guias de Roma (0024) e Madri (0030)
     expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa']);
 
     // sem o token CSRF a alteração é recusada
@@ -258,6 +258,21 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(romaPrevia).toContain('<img class="ph-bg" src="/assets/blog/roma-3-dias.jpg"');
     expect(romaPrevia.match(/<figure class="foto-cred"><img src="\/assets\/blog\/roma-[a-z-]+\.jpg"[^>]* width="\d+" height="\d+" loading="lazy"/g)).toHaveLength(6);
     expect(romaPrevia.match(/<span class="foto-credito">Foto: [^<]+ \/ Unsplash<\/span>/g)).toHaveLength(6);
+    // guia de Madri (migration 0030): rascunho com PDF no topo, WhatsApp com o destino, 4 passeios e 6 fotos com crédito do Pexels
+    const madriId = d1Query<{ id: string }>(persistTo, "SELECT id FROM blog_posts WHERE slug='madri-em-4-dias'")[0]!.id;
+    const madriPrevia = await (await worker.fetch(`/blog/preview/${madriId}`, { headers: { cookie: jar.cookieHeader() } })).text();
+    expect(madriPrevia).toContain('href="/guias/madri-em-4-dias.pdf?utm_source=rotacerta&amp;utm_medium=blog&amp;utm_campaign=madri&amp;utm_content=pdf-1"');
+    expect(madriPrevia.indexOf('cta-pdf-topo')).toBeLessThan(madriPrevia.indexOf('class="post-body"'));
+    expect(madriPrevia).toContain('https://wa.me/351925307391?text=Oi%2C%20Rota%20Certa!%20Vi%20o%20guia%20de%20Madri');
+    expect(madriPrevia.match(/cta-inativo/g)).toHaveLength(4);
+    expect(madriPrevia).not.toMatch(/—|--/);
+    expect(madriPrevia).toContain('<meta property="og:image" content="' + ORIGIN + '/assets/blog/madri-4-dias.jpg">');
+    expect(madriPrevia.match(/<figure class="foto-cred"><img src="\/assets\/blog\/madri-[a-z-]+\.jpg"[^>]* width="\d+" height="\d+" loading="lazy"/g)).toHaveLength(6);
+    expect(madriPrevia.match(/<span class="foto-credito">Foto: [^<]+ \/ Pexels<\/span>/g)).toHaveLength(6);
+    expect((await worker.fetch('/blog/madri-em-4-dias')).status).toBe(404); // rascunho: nada vai ao ar sozinho
+    const madriCurto = await worker.fetch('/guia/madri?utm_source=tiktok', { redirect: 'manual' });
+    expect(madriCurto.status).toBe(302);
+    expect(madriCurto.headers.get('location')).toBe('/blog/madri-em-4-dias?utm_source=tiktok');
     // o editor aceita e devolve os blocos novos (round-trip pela API)
     const romaPost = (await (await worker.fetch(`/api/admin/blog/posts/${romaId}`, { headers: { cookie: jar.cookieHeader() } })).json() as { post: Record<string, unknown> & { body: Array<{ t: string }> } }).post;
     expect(romaPost.body.map((b) => b.t)).toEqual(expect.arrayContaining(['pdf', 'passeio', 'whatsapp', 'contato', 'afiliado']));
@@ -294,6 +309,6 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(7);
+    expect(depois.posts).toHaveLength(8);
   }, 120_000);
 });
