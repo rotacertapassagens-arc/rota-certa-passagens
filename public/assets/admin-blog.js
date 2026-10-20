@@ -215,7 +215,8 @@ function blockHtml(b, i) {
         <div>
           <p><button type="button" class="btn-secondary" data-act="photo" data-i="${i}">${b.src ? 'Trocar foto' : 'Escolher foto'}</button></p>
           <label>Legenda <small>opcional, aparece embaixo da foto</small><input data-i="${i}" data-field="caption" maxlength="300" value="${esc(b.caption || '')}"></label>
-          <label>Descrição da foto <small>o que aparece nela</small><input data-i="${i}" data-field="alt" maxlength="200" value="${esc(b.alt || '')}"></label>
+          <label>Descrição da foto <small>o que aparece nela, para quem não vê a imagem</small><input data-i="${i}" data-field="alt" maxlength="200" value="${esc(b.alt || '')}"></label>
+          <label>Crédito <small>opcional, ex.: Foto: Nome do autor / Unsplash</small><input data-i="${i}" data-field="credit" maxlength="120" value="${esc(b.credit || '')}"></label>
         </div></div></div>`;
     case 'pdf': return `<div class="ab-block" data-type="pdf">${head}
         <p class="muted ab-small">Botão grande para baixar o PDF. Se for o primeiro bloco do guia, aparece no topo da página, sem rolar. Grátis e sem cadastro.</p>
@@ -292,7 +293,7 @@ function cleanBody() {
     return false;
   }).map((b) => {
     const out = { ...b };
-    for (const key of ['label', 'alt', 'caption', 'small', 'title']) if (out[key] === '') delete out[key];
+    for (const key of ['label', 'alt', 'caption', 'credit', 'small', 'title']) if (out[key] === '') delete out[key];
     if (ACTION_TYPES.includes(out.t)) for (const key of ['text', 'note', 'message']) if (typeof out[key] === 'string' && !out[key].trim()) delete out[key];
     if (out.t === 'pdf' || out.t === 'passeio') for (const key of ['href', 'busca']) if (typeof out[key] === 'string') out[key] = out[key].trim();
     return out;

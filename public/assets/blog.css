@@ -138,6 +138,10 @@ h1,h2,h3,h4{ font-family:var(--font-display); font-weight:600; line-height:1.15;
 .post-body figure{ margin:34px 0; }
 .post-body figure img{ width:100%; height:auto; border-radius:14px; box-shadow:0 30px 60px -40px rgba(13,27,42,.6); }
 .post-body figcaption{ margin-top:10px; font-size:.84rem; color:#6b7684; text-align:center; }
+.post-body figure.foto-cred img{ display:block; max-width:100%; background:var(--areia, #E9DCC0); }
+.post-body figure.foto-cred figcaption{ font-size:.9rem; line-height:1.45; color:#4a5663; text-align:left; }
+.post-body figure.foto-cred .foto-legenda, .post-body figure.foto-cred .foto-credito{ display:block; }
+.post-body figure.foto-cred .foto-credito{ margin-top:2px; font-size:.78rem; color:#5b6672; }
 .tip{ background:var(--white); border:1px solid rgba(13,27,42,.08); border-left:4px solid var(--gold); border-radius:10px; padding:22px 24px; font-size:.98rem; }
 .tip h3{ margin:0 0 10px; font-size:1.1rem; }
 .post-cta{ margin:48px 0 8px; padding:34px; border-radius:16px; color:var(--off-white); text-align:left;

@@ -3,7 +3,7 @@
  * parceiro sem link (escondido em produção, "inativo" na prévia e no local), parâmetros utm_* e o
  * conteúdo-piloto de Roma (content/guias/roma-em-3-dias.json). Lógica pura: não sobe o Worker.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   AVISO_AFILIADO, ctaBlock, isLocalHost, pdfDoTopo, renderBlocks, type Block, type BlogParceiros, type RenderCtx,
@@ -171,6 +171,21 @@ describe('blocos antigos continuam iguais', () => {
   });
 });
 
+describe('foto com legenda e crédito (bloco img)', () => {
+  const foto = { t: 'img', src: '/assets/blog/roma-forum.jpg', alt: 'Ruínas do Fórum Romano', caption: 'O Fórum.', credit: 'Foto: Fabio Fistarol / Unsplash', w: 1000, h: 667 };
+  it('desenha figura lazy, com largura e altura, legenda e crédito escapados', () => {
+    const html = renderBlocks([{ ...foto, credit: 'Foto: <b>X</b> / Unsplash' } as Block], ctx());
+    expect(html).toContain('<figure class="foto-cred"><img src="/assets/blog/roma-forum.jpg"');
+    expect(html).toContain('width="1000" height="667" loading="lazy" decoding="async"');
+    expect(html).toContain('<span class="foto-legenda">O Fórum.</span>');
+    expect(html).toContain('<span class="foto-credito">Foto: &lt;b&gt;X&lt;/b&gt; / Unsplash</span>');
+  });
+  it('foto antiga, sem crédito, sai exatamente como antes', () => {
+    expect(renderBlocks([{ t: 'img', src: '/assets/blog/roma.jpg', alt: 'a', caption: 'c' }], ctx()))
+      .toBe('<figure><img src="/assets/blog/roma.jpg" alt="a" loading="lazy" decoding="async"><figcaption>c</figcaption></figure>');
+  });
+});
+
 describe('guia piloto de Roma (content/guias/roma-em-3-dias.json)', () => {
   const conteudo = JSON.parse(readFileSync(new URL('../content/guias/roma-em-3-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
   const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
@@ -191,6 +206,25 @@ describe('guia piloto de Roma (content/guias/roma-em-3-dias.json)', () => {
     // cada passeio vem logo antes do título do dia seguinte (ou da seção "Como se locomover")
     for (const [i, t] of tipos.entries()) if (t === 'passeio') expect(conteudo.body[i + 1]!.t).toBe('h');
     expect(tipos.filter((t) => t === 'afiliado').length).toBeGreaterThanOrEqual(1);
+  });
+  it('fotos: capa e cada foto existem no site, pesam menos de 250 KB e têm alt, legenda e crédito do Unsplash', () => {
+    const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
+    for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
+    expect(String(conteudo.coverAlt).length).toBeGreaterThan(20);
+    const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
+    expect(fotos.length).toBeGreaterThanOrEqual(5);
+    for (const f of fotos) {
+      expect(existsSync(arq(String(f.src)))).toBe(true);
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Unsplash$/);
+      expect(f.w).toBeTypeOf('number'); expect(f.h).toBeTypeOf('number');
+    }
+    expect(new Set(fotos.map((f) => f.src)).size).toBe(fotos.length);
+  });
+  it('nenhuma foto entre o botão do PDF e o primeiro botão de passagem (WhatsApp)', () => {
+    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
   });
   it('não tem travessão nem preço de passeio, e destaca estimativas como da Rota Certa', () => {
     const texto = JSON.stringify(conteudo);

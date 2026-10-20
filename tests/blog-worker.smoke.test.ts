@@ -253,9 +253,18 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(romaPrevia).toContain('https://wa.me/351925307391?text=Oi%2C%20Rota%20Certa!%20Vi%20o%20guia%20de%20Roma');
     expect(romaPrevia.match(/cta-inativo/g)).toHaveLength(3); // 3 passeios, ainda sem ID do GetYourGuide
     expect(romaPrevia).not.toMatch(/—|--/);
+    // fotos (migration 0025): capa e og:image do próprio site, 6 fotos com crédito, lazy e com largura e altura
+    expect(romaPrevia).toContain('<meta property="og:image" content="' + ORIGIN + '/assets/blog/roma-3-dias.jpg">');
+    expect(romaPrevia).toContain('<img class="ph-bg" src="/assets/blog/roma-3-dias.jpg"');
+    expect(romaPrevia.match(/<figure class="foto-cred"><img src="\/assets\/blog\/roma-[a-z-]+\.jpg"[^>]* width="\d+" height="\d+" loading="lazy"/g)).toHaveLength(6);
+    expect(romaPrevia.match(/<span class="foto-credito">Foto: [^<]+ \/ Unsplash<\/span>/g)).toHaveLength(6);
     // o editor aceita e devolve os blocos novos (round-trip pela API)
     const romaPost = (await (await worker.fetch(`/api/admin/blog/posts/${romaId}`, { headers: { cookie: jar.cookieHeader() } })).json() as { post: Record<string, unknown> & { body: Array<{ t: string }> } }).post;
     expect(romaPost.body.map((b) => b.t)).toEqual(expect.arrayContaining(['pdf', 'passeio', 'whatsapp', 'contato', 'afiliado']));
+    const fotoRoma = romaPost.body.find((b) => b.t === 'img') as { t: string; credit?: string } | undefined;
+    expect(fotoRoma?.credit).toMatch(/^Foto: .+ \/ Unsplash$/); // o editor devolve o crédito
+    const creditoGrande = await worker.fetch(`/api/admin/blog/posts/${romaId}`, { method: 'PUT', headers: jar.json(), body: JSON.stringify({ ...romaPost, body: [{ t: 'img', src: '/assets/blog/roma-forum.jpg', credit: 'x'.repeat(121) }] }) });
+    expect(creditoGrande.status).toBe(400);
     const comCarro = await worker.fetch(`/api/admin/blog/posts/${romaId}`, { method: 'PUT', headers: jar.json(), body: JSON.stringify({ ...romaPost, body: [...romaPost.body, { t: 'carro', title: 'Alugar carro em Roma?' }] }) });
     expect(comCarro.status, await comCarro.clone().text()).toBe(200);
     const semPdfBom = await worker.fetch(`/api/admin/blog/posts/${romaId}`, { method: 'PUT', headers: jar.json(), body: JSON.stringify({ ...romaPost, body: [{ t: 'pdf', href: 'https://evil.example/x.pdf' }] }) });
