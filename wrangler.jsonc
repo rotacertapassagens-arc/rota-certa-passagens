@@ -12,7 +12,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/i/*", "/blog", "/blog/*", "/media/*", "/sitemap.xml", "/viagem/*"]
+    "run_worker_first": ["/api/*", "/i/*", "/blog", "/blog/*", "/guia/*", "/media/*", "/sitemap.xml", "/viagem/*"]
   },
   "vars": {
     "APP_ORIGIN": "https://rotacertapassagens.com",

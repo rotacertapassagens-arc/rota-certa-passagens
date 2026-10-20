@@ -37,7 +37,7 @@ export default {
     const url = new URL(request.url);
     const p = url.pathname;
     // Guias de viagem (blog), fotos do blog e sitemap são montados pelo Worker a partir do D1.
-    const isBlog = p === '/blog' || p.startsWith('/blog/') || p.startsWith('/media/blog/') || p === '/sitemap.xml';
+    const isBlog = p === '/blog' || p.startsWith('/blog/') || p.startsWith('/guia/') || p.startsWith('/media/blog/') || p === '/sitemap.xml';
     const isShared = p.startsWith('/viagem/');
     if (!p.startsWith('/api/') && !p.startsWith('/i/') && !isBlog && !isShared) return assetOr404(request, env);
     try {

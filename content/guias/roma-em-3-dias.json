@@ -1,0 +1,114 @@
+{
+  "_origem": "Fatos de rota-certa-motion-factory/guides/roma-3-dias/guide.json (v0.4, aprovado em 13/10/2026; valores conferidos em 13/10/2026). Não acrescente fato que não esteja lá.",
+  "id": "5d1b7f3a-3c6e-4c1f-9a52-7a0e4d8b2c11",
+  "slug": "roma-em-3-dias",
+  "regionId": "europa",
+  "title": "Roma em 3 dias: uma região por dia, sem correria",
+  "titleHighlight": "uma região por dia",
+  "summary": "Roteiro de Roma em 3 dias dividido em três regiões, uma por dia, com valores oficiais conferidos em 13/10/2026 e o guia em PDF para baixar de graça.",
+  "lede": "Uma região por dia, valores oficiais conferidos em outubro de 2026 e o guia completo para baixar e levar no celular.",
+  "destination": "Roma",
+  "coverUrl": "/assets/blog/roma.jpg",
+  "coverUrlSmall": "/assets/blog/roma-m.jpg",
+  "coverAlt": "Coliseu de Roma ao pôr do sol, emoldurado por árvores",
+  "body": [
+    { "t": "pdf", "href": "/guias/roma-em-3-dias.pdf", "note": "PDF de 14 páginas, feito para ler no celular. Grátis, sem cadastro." },
+    { "t": "p", "text": "O erro mais comum em Roma é tentar atravessar a cidade inteira todo dia. Este roteiro divide Roma em **três regiões, uma por dia**: você caminha mais, se desloca menos e aproveita sem correria." },
+    { "t": "tip", "title": "Como usar este roteiro", "items": [
+      "**Reserve primeiro** o que tem horário marcado: Coliseu e Museus Vaticanos. Depois encaixe os dias.",
+      "**Confira os horários na véspera**, nos sites oficiais listados no fim da página.",
+      "**Preencha o orçamento** antes de reservar a hospedagem. O guia em PDF tem a tabela pronta."
+    ] },
+    { "t": "whatsapp" },
+    { "t": "afiliado" },
+
+    { "t": "h", "label": "Dia 1", "text": "Roma antiga" },
+    { "t": "p", "text": "Coliseu, Fórum Romano e Palatino ficam lado a lado e entram no mesmo ingresso." },
+    { "t": "ul", "items": [
+      "**Manhã, Coliseu:** entrada com horário marcado. Com o ingresso padrão, você fica 75 minutos dentro. Chegue com folga: quem perde o horário pode ficar só com o Fórum e o Palatino, sem reembolso.",
+      "**Depois, Fórum Romano e Palatino:** uma entrada, válida até 24 horas antes ou depois do horário do Coliseu.",
+      "**Fim do dia, Monti:** bairro vizinho ao Coliseu, bom para jantar sem atravessar a cidade."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 1", "items": [
+      "**Como chegar:** metrô linha B, estação Colosseo.",
+      "**Reserve antes:** ingresso com horário em colosseo.it ou na bilheteria. Coliseu, Fórum e Palatino: € 18 a inteira.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 4 a 5 horas nas atrações e uns 30 minutos a pé entre as paradas (cerca de 2,3 km). Esforço alto: subidas e chão irregular nas ruínas."
+    ] },
+    { "t": "passeio", "busca": "Coliseu Roma", "title": "Passeios no Coliseu, Fórum e Palatino" },
+
+    { "t": "h", "label": "Dia 2", "text": "Vaticano" },
+    { "t": "p", "text": "Museus Vaticanos e Basílica de São Pedro no mesmo dia, sem voltar ao centro." },
+    { "t": "p", "text": "**Antes de marcar o dia:** os Museus Vaticanos fecham aos domingos. A exceção é o último domingo do mês, das 9h às 14h (última entrada 12h30), com entrada gratuita, menos quando cai na Páscoa, em 29/6, 25/12, 26/12 ou 31/12." },
+    { "t": "ul", "items": [
+      "**Manhã, Museus Vaticanos:** de segunda a sábado, das 8h às 20h, última entrada às 18h. Ingresso no site oficial. O valor é € 20 na bilheteria, ou € 20 + € 5 com reserva no site oficial.",
+      "**Depois, Basílica de São Pedro:** entrada gratuita. Reservar horário é opcional e pago, com audioguia incluído. Antes, há controle de segurança da Polícia italiana, à direita da Praça. Não entram roupas muito curtas, regatas nem chapéus. A cúpula tem ingresso à parte.",
+      "**Fim do dia, opcional, Castel Sant'Angelo:** ver por fora e atravessar a ponte é grátis. O museu tem ingresso e abre de terça a domingo e, desde agosto de 2026, também na 1ª segunda-feira do mês, à tarde."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 2", "items": [
+      "**Como chegar:** metrô linha A, estação Ottaviano.",
+      "**Reserve antes:** Museus em tickets.museivaticani.va.",
+      "**Cansou?** Deixe o Castel para outro dia: o principal do dia são os Museus e a Basílica.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 4 a 5 horas nas atrações e uns 25 minutos a pé entre as paradas (cerca de 2 km). Esforço alto: muito tempo em pé e fila de segurança."
+    ] },
+    { "t": "passeio", "busca": "Vaticano Roma", "title": "Passeios no Vaticano" },
+
+    { "t": "h", "label": "Dia 3", "text": "Centro histórico" },
+    { "t": "p", "text": "Fontes, praças e ruas antigas a pé, numa linha só: de Trevi ao Trastevere." },
+    { "t": "ul", "items": [
+      "**Manhã, Fontana di Trevi:** desde 2/2/2026, quem não mora em Roma paga € 2 para entrar na área junto à fonte, no horário de visitação. Fora desse horário, a fonte fica visível de graça, e ver da praça continua grátis.",
+      "**10 min a pé, Panteão:** todos os dias, das 9h às 19h, última entrada 18h30. Ingresso de € 7 desde 1/7/2026. No 1º domingo do mês é grátis, com bilhete retirado no local.",
+      "**6 min a pé, Piazza Navona:** praça aberta, sem ingresso. Bom ponto para uma pausa.",
+      "**Noite, 20 min a pé, Trastevere:** do outro lado do Tibre, bom para jantar: cacio e pepe, carbonara, amatriciana e suplì."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 3", "items": [
+      "**Como chegar:** este dia é todo a pé. Use sapato confortável.",
+      "**Reserve antes:** Panteão no portal Museiitaliani (ou na bilheteria) e Trevi em fontanaditrevi.roma.it.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 3 a 4 horas nas paradas e uns 35 minutos a pé entre elas (cerca de 2,6 km). Esforço moderado: calçamento de pedra."
+    ] },
+    { "t": "passeio", "busca": "Roma centro histórico a pé", "title": "Passeios pelo centro histórico" },
+
+    { "t": "h", "label": "Na prática", "text": "Como se locomover" },
+    { "t": "p", "text": "Entre atrações vizinhas, vá a pé. Para o resto, o metrô resolve." },
+    { "t": "ul", "items": [
+      "**Do aeroporto de Fiumicino:** o trem Leonardo Express vai sem paradas até a estação Roma Termini, em cerca de 32 minutos. Ele tem bilhete próprio, que não está incluído nos bilhetes da ATAC. Horários e tarifa no site da Trenitalia.",
+      "**Metrô, ônibus e bonde (ATAC):** encoste cartão, celular ou relógio no validador (Tap&Go). Cada toque gera um bilhete de 100 minutos: no metrô vale uma viagem; no ônibus e no bonde, toque de novo antes de acabar o tempo.",
+      "**Limite de gasto:** em 24 horas, contadas do primeiro toque e com o mesmo meio, você paga no máximo o bilhete Roma 24 horas, de € 8,50. Isso não cobre o trem do aeroporto de Fiumicino.",
+      "**Use sempre o mesmo meio:** segundo a ATAC, todos os toques precisam ser feitos com o meio do primeiro toque. O cartão físico e o mesmo cartão no celular contam como meios diferentes. Cada pessoa usa o próprio.",
+      "**Linhas que você vai usar:** B para o Coliseu (Colosseo) e A para o Vaticano (Ottaviano). As duas se cruzam em Termini."
+    ] },
+
+    { "t": "h", "label": "Antes de ir", "text": "Documentos, taxa e checklist" },
+    { "t": "ul", "items": [
+      "Passaporte e autorização de residência válidos.",
+      "Coliseu reservado, com horário, e Museus Vaticanos comprados no site oficial.",
+      "Nenhum dia de Museus num domingo (exceto o último do mês).",
+      "Roupa para a Basílica: nada de regata, roupa muito curta ou chapéu.",
+      "Um cartão ou celular com pagamento por aproximação para cada pessoa.",
+      "**Taxa de hospedagem:** cobrada por pessoa e por noite, até 10 noites. Varia com a categoria e costuma ser paga na hospedagem."
+    ] },
+    { "t": "tip", "title": "Para brasileiros com residência em país Schengen", "items": [
+      "Segundo o portal Your Europe, da União Europeia, uma autorização de residência válida emitida por um país do Espaço Schengen dispensa visto para entrar em outro país do espaço, como a Itália. Leve o passaporte e a autorização de residência válidos.",
+      "As regras podem variar conforme a nacionalidade e o tipo de autorização. Se tiver dúvida, confirme no Your Europe ou no consulado antes de comprar."
+    ] },
+
+    { "t": "pdf", "href": "/guias/roma-em-3-dias.pdf", "note": "Leve o roteiro, as rotas a pé no Google Maps e o orçamento no celular. Grátis, sem cadastro." },
+
+    { "t": "tip", "title": "Fontes oficiais, conferidas em 13/10/2026", "items": [
+      "[Coliseu, Fórum e Palatino](https://colosseo.it/en/tickets/colosseum-roman-forum-palatine/)",
+      "[Museus Vaticanos: horários](https://www.museivaticani.va/content/museivaticani/en/info/orari-musei-vaticani.html) e [preços](https://www.museivaticani.va/content/museivaticani/en/organizza-visita/tariffe-e-biglietti.html)",
+      "[Basílica de São Pedro: entrada gratuita](https://www.basilicasanpietro.va/en/faq/how-much-does-it-cost-to-enter-saint-peters-basilica) e [horários e regras](https://www.basilicasanpietro.va/en/opening-hours)",
+      "[Castel Sant'Angelo](https://direzionemuseiroma.cultura.gov.it/en/museo-nazionale-di-castel-santangelo/)",
+      "[Panteão](https://cultura.gov.it/luogo/pantheon)",
+      "[Fontana di Trevi](https://fontanaditrevi.roma.it/)",
+      "[ATAC Tap&Go](https://www.atac.roma.it/en/tickets-and-passes/tap-go)",
+      "[Trem do aeroporto: Trenitalia](https://www.trenitalia.com/en/connections/leonardo-express.html)",
+      "[Taxa de hospedagem: Roma Capitale](https://www.comune.roma.it/web-resources/cms/documents/Assemblea_Capitolina_34_2024.pdf)",
+      "[Documentos: Your Europe](https://europa.eu/youreurope/citizens/travel/entry-exit/non-eu-nationals/index_en.htm)"
+    ] },
+    { "t": "p", "text": "Horários, preços e regras mudam: confira nos sites acima antes de comprar. Tem mais um dia? Veja também o [roteiro de Roma em 4 dias](/blog/roma-em-4-dias)." },
+
+    { "t": "whatsapp" },
+    { "t": "contato" },
+    { "t": "afiliado" }
+  ]
+}

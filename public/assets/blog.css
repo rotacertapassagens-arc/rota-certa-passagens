@@ -145,6 +145,42 @@ h1,h2,h3,h4{ font-family:var(--font-display); font-weight:600; line-height:1.15;
 .post-cta h2{ color:var(--off-white); margin:0 0 10px; font-size:clamp(1.4rem, 2.4vw, 1.8rem); }
 .post-cta h2 em{ font-style:italic; color:var(--gold); }
 .post-cta p{ color:rgba(244,244,244,.82); margin:0 0 22px; font-size:1rem; }
+/* Botões de ação dos guias monetizados (PDF, passeios, WhatsApp, carro, contato). Mobile primeiro. */
+:root{ --areia:#E9DCC0; }
+.cta-pdf{ margin:26px 0 0; }
+.cta-pdf-topo{ margin:24px 0 0; max-width:420px; }
+.cta-pdf .btn-pdf{ width:100%; justify-content:center; gap:10px; min-height:54px; font-size:1rem; box-shadow:0 14px 30px -16px rgba(212,175,55,.8); }
+.cta-pdf .btn-pdf .ic{ flex:none; }
+.cta-pdf-note{ margin:10px 0 0; font-size:.84rem; line-height:1.4; color:rgba(244,244,244,.82); }
+.post-body .cta-pdf{ margin:26px 0; }
+.post-body .cta-pdf .cta-pdf-note{ color:#5b6672; }
+
+.cta{ display:flex; flex-direction:column; align-items:stretch; gap:16px; margin:30px 0; padding:20px 20px 22px; border-radius:12px;
+  background:var(--areia); color:var(--navy); border-left:4px solid var(--gold); font-size:1rem; line-height:1.55; }
+.post-body .cta h3{ margin:0 0 6px; font-size:1.18rem; color:var(--navy); }
+.cta p{ margin:0; font-size:.95rem; line-height:1.5; }
+.cta .btn{ width:100%; min-height:48px; justify-content:center; text-align:center; white-space:normal; line-height:1.3; }
+.cta .btn-gold:hover{ transform:none; }
+.cta .btn:focus-visible, .cta-mail:focus-visible{ outline:3px solid var(--navy); outline-offset:3px; }
+.cta-whatsapp, .cta-contato{ background:var(--navy); color:var(--off-white); box-shadow:0 24px 50px -34px rgba(13,27,42,.9); }
+.post-body .cta-whatsapp h3, .post-body .cta-contato h3{ color:var(--off-white); }
+.cta-whatsapp .btn:focus-visible, .cta-contato .btn:focus-visible, .cta-contato .cta-mail:focus-visible{ outline-color:var(--gold); }
+.cta-acoes{ display:flex; flex-direction:column; gap:12px; align-items:stretch; }
+.post-body a.cta-mail{ color:var(--off-white); font-size:.9rem; text-align:center; overflow-wrap:anywhere; text-decoration:underline; text-underline-offset:3px; padding:6px 0; }
+.post-body a.cta-mail:hover{ color:var(--gold); }
+.cta-inativo{ border:2px dashed var(--gold-deep); border-left-width:2px; background:rgba(233,220,192,.55); flex-wrap:wrap; }
+.cta-inativo .cta-badge{ order:-1; font-family:var(--mono); font-size:.72rem; font-weight:600; letter-spacing:.04em; line-height:1.45; color:#6b4e00; background:#fff7dc; border:1px solid var(--gold-deep); border-radius:6px; padding:8px 10px; }
+.cta .btn-off{ opacity:.5; cursor:not-allowed; pointer-events:none; }
+.aviso-afiliado{ margin:-10px 0 4px; font-size:.82rem; line-height:1.45; color:#5b6672; }
+@media (min-width: 640px){
+  .cta{ flex-direction:row; align-items:center; justify-content:space-between; gap:24px; padding:22px 26px; }
+  .cta-inativo{ flex-wrap:wrap; }
+  .cta-inativo .cta-badge{ flex:1 0 100%; }
+  .cta .btn{ width:auto; flex:none; }
+  .cta-acoes{ align-items:flex-end; }
+  .post-body a.cta-mail{ text-align:right; }
+  .cta-pdf .btn-pdf{ width:auto; }
+}
 .post-note{ font-size:.86rem; color:#6b7684; }
 .post-quote{ margin:34px 0; padding:4px 0 4px 22px; border-left:3px solid var(--gold); }
 .post-quote p{ font-family:var(--font-display); font-style:italic; font-size:1.3rem; line-height:1.5; color:var(--navy); }

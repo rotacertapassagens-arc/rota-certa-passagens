@@ -4,6 +4,9 @@
 // - Fotos (/media/blog/<id>/<g|m>) guardadas em base64 no D1, já reduzidas pelo navegador.
 // - /sitemap.xml gerado na hora, com os guias publicados.
 import { Buffer } from 'node:buffer';
+import { BLOG_PARCEIROS, GUIAS_CURTOS } from './blog-parceiros.js';
+import { ctaBlock, esc, inline, isLocalHost, optional, pdfDoTopo, renderBlocks, renderPdf, text, type Block, type BlogParceiros, type RenderCtx } from '../shared/blogGuias.js';
+export { inline } from '../shared/blogGuias.js';
 
 type Row = Record<string, unknown>;
 type AuthLike = { userId: string; roles: string[] };
@@ -14,14 +17,6 @@ export type BlogDeps = {
   audit: (env: Env, actor: string | null, action: string, targetType: string, targetId: string | null) => Promise<void>;
 };
 
-type Block =
-  | { t: 'p'; text: string }
-  | { t: 'h'; label?: string; text: string }
-  | { t: 'ul'; items: string[] }
-  | { t: 'tip'; title?: string; items: string[] }
-  | { t: 'img'; src: string; small?: string; alt?: string; caption?: string; w?: number; h?: number }
-  | { t: 'quote'; text: string };
-
 type Post = {
   id: string; slug: string; status: 'draft' | 'published'; region_id: string; region_name: string;
   title: string; title_highlight: string | null; summary: string; lede: string | null; destination: string | null;
@@ -29,7 +24,7 @@ type Post = {
   featured: number; body: string; reading_minutes: number; published_at: string | null; updated_at: string;
 };
 
-const WHATSAPP = 'https://wa.me/351925307391';
+const WHATSAPP = `https://wa.me/${BLOG_PARCEIROS.contato.whatsapp}`;
 const CSP = "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self' blob:; frame-src https://www.google.com; connect-src 'self'; upgrade-insecure-requests";
 const MEDIA_URL = /^\/media\/blog\/[0-9a-f-]{36}\/(g|m)$/;
 const ASSET_URL = /^\/assets\/blog\/[a-z0-9-]+\.(jpg|jpeg|png|webp)$/;
@@ -38,35 +33,12 @@ const MAX_MEDIA_BYTES = 1_400_000; // base64 de 1,4 MB ainda cabe no limite de 2
 const POST_COLUMNS = `p.id,p.slug,p.status,p.region_id,r.name AS region_name,p.title,p.title_highlight,p.summary,p.lede,p.destination,p.cta_title,
   p.cover_url,p.cover_url_small,p.cover_alt,p.featured,p.body,p.reading_minutes,p.published_at,p.updated_at`;
 
-const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const site = (env: Env) => String(env.APP_ORIGIN).replace(/\/$/, '');
 const isImageUrl = (v: unknown): v is string => typeof v === 'string' && (MEDIA_URL.test(v) || ASSET_URL.test(v));
-
-function text(value: unknown, max: number, min = 0): string | null {
-  const v = typeof value === 'string' ? value.trim() : '';
-  return v.length >= min && v.length <= max ? v : null;
-}
-function optional(value: unknown, max: number): string | null | undefined {
-  if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) return null;
-  return text(value, max) ?? undefined; // undefined = inválido
-}
 
 export function slugify(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80).replace(/-+$/, '');
-}
-
-// Negrito com **texto** e link com [texto](endereço). Tudo o mais é escapado, então nada vira HTML.
-export function inline(value: string): string {
-  let h = esc(value);
-  h = h.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>');
-  h = h.replace(/\[([^\]]+?)\]\(([^)\s]+?)\)/g, (_m, label: string, href: string) => {
-    const raw = href.replace(/&amp;/g, '&');
-    if (!/^(https?:\/\/|\/|mailto:)/i.test(raw)) return label;
-    const externo = /^https?:\/\//i.test(raw);
-    return `<a href="${href}"${externo ? ' target="_blank" rel="noopener"' : ''}>${label}</a>`;
-  });
-  return h.replace(/\r?\n/g, '<br>');
 }
 
 // ---------- validação dos blocos do texto ----------
@@ -75,7 +47,7 @@ function list(value: unknown, maxItems: number, maxLen: number): string[] | null
   const items = value.map((v) => text(v, maxLen)).filter((v): v is string => Boolean(v));
   return items.length && items.length <= maxItems ? items : null;
 }
-function block(value: unknown): Block | null {
+export function block(value: unknown): Block | null {
   if (!value || typeof value !== 'object') return null;
   const b = value as Row;
   switch (b.t) {
@@ -101,16 +73,16 @@ function block(value: unknown): Block | null {
         ...(Number.isInteger(w) && Number.isInteger(h) && w > 0 && h > 0 && w <= 4000 && h <= 4000 ? { w, h } : {}),
       };
     }
-    default: return null;
+    default: return ctaBlock(b);
   }
 }
-function blocks(value: unknown): Block[] | null {
+export function blocks(value: unknown): Block[] | null {
   if (!Array.isArray(value) || value.length > 150) return null;
   const out: Block[] = [];
   for (const v of value) { const b = block(v); if (!b) return null; out.push(b); }
   return out;
 }
-function readingMinutes(post: { title: string; summary: string }, body: Block[]): number {
+export function readingMinutes(post: { title: string; summary: string }, body: Block[]): number {
   const texts = [post.title, post.summary];
   for (const b of body) {
     if (b.t === 'p' || b.t === 'quote' || b.t === 'h') texts.push(b.text);
@@ -264,30 +236,13 @@ function card(p: Post, tituloTag: 'h2' | 'h3', destaque = false) {
         </a>`;
 }
 
-function renderBlocks(body: Block[]) {
-  return body.map((b) => {
-    switch (b.t) {
-      case 'p': return `<p>${inline(b.text)}</p>`;
-      case 'h': return `<h2>${b.label ? `<span class="num">${esc(b.label)}</span>` : ''}${esc(b.text)}</h2>`;
-      case 'ul': return `<ul>${b.items.map((i) => `<li>${inline(i)}</li>`).join('')}</ul>`;
-      case 'tip': return `<div class="tip"><h3>${esc(b.title || 'Dicas práticas')}</h3><ul>${b.items.map((i) => `<li>${inline(i)}</li>`).join('')}</ul></div>`;
-      case 'quote': return `<blockquote class="post-quote"><p>${inline(b.text)}</p></blockquote>`;
-      case 'img': {
-        const srcset = b.small ? ` srcset="${esc(b.small)} 900w, ${esc(b.src)} 1600w" sizes="(max-width: 820px) 100vw, 760px"` : '';
-        const dims = b.w && b.h ? ` width="${b.w}" height="${b.h}"` : '';
-        return `<figure><img src="${esc(b.src)}"${srcset} alt="${esc(b.alt || '')}"${dims} loading="lazy" decoding="async">${b.caption ? `<figcaption>${esc(b.caption)}</figcaption>` : ''}</figure>`;
-      }
-    }
-  }).join('\n');
-}
-
 function dataPt(iso: string | null) {
   const d = iso ? new Date(`${iso.replace(' ', 'T')}Z`) : new Date();
   const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   return `${meses[d.getUTCMonth()]} de ${d.getUTCFullYear()}`;
 }
 
-function postPage(env: Env, p: Post, related: Post[], preview: boolean) {
+function postPage(env: Env, p: Post, related: Post[], preview: boolean, local = false, parceiros: BlogParceiros = BLOG_PARCEIROS) {
   const url = `/blog/${p.slug}`;
   const body = parseBody(p.body);
   const jsonLd = {
@@ -299,6 +254,8 @@ function postPage(env: Env, p: Post, related: Post[], preview: boolean) {
     mainEntityOfPage: `${site(env)}${url}`,
   };
   const destino = p.destination || '';
+  const ctx: RenderCtx = { preview, local, destino, campanha: slugify(destino) || p.slug, parceiros };
+  const pdfTopo = pdfDoTopo(body);
   const ctaTitulo = p.cta_title ? esc(p.cta_title) : destino ? `Quer conhecer <em>${esc(destino)}</em>?` : 'Quer fazer essa <em>viagem</em>?';
   const proposta = destino ? `/proposta-voo?destino=${encodeURIComponent(destino)}` : '/proposta-voo';
   const capa = p.cover_url ? `
@@ -316,11 +273,12 @@ ${preview ? `<div class="bl-preview" role="status">Pré-visualização. ${p.stat
         </nav>
         <h1>${titleHtml(p)}</h1>
         <p class="post-lede">${esc(p.lede || p.summary)}</p>
-        <p class="post-meta">${p.reading_minutes} min de leitura · Atualizado em ${dataPt(p.updated_at)}</p>
+        <p class="post-meta">${p.reading_minutes} min de leitura · Atualizado em ${dataPt(p.updated_at)}</p>${pdfTopo ? `
+        ${renderPdf(pdfTopo, ctx, 'pdf-1', true)}` : ''}
       </div>
     </header>
     <div class="post-body">
-${renderBlocks(body)}
+${renderBlocks(body, ctx, Boolean(pdfTopo))}
       <aside class="post-cta" data-reveal>
         <h2>${ctaTitulo}</h2>
         <p>Conte de onde você sai e as datas. A nossa equipe prepara a proposta de voo, em dinheiro ou em milhas, e responde por e-mail em até 48 horas.</p>
@@ -435,7 +393,7 @@ async function media(req: Request, env: Env, id: string, variant: string) {
   return res;
 }
 
-/** Rotas públicas: /blog/, /blog/<slug>, /blog/preview/<id>, /media/blog/<id>/<g|m>, /sitemap.xml. */
+/** Rotas públicas: /blog/, /blog/<slug>, /blog/preview/<id>, /guia/<curto>, /media/blog/<id>/<g|m>, /sitemap.xml. */
 export async function blogPublic(req: Request, env: Env, url: URL, deps: BlogDeps): Promise<Response | null> {
   if (req.method !== 'GET' && req.method !== 'HEAD') return null;
   const p = url.pathname;
@@ -443,6 +401,13 @@ export async function blogPublic(req: Request, env: Env, url: URL, deps: BlogDep
   const m = p.match(/^\/media\/blog\/([0-9a-f-]{36})\/(g|m)$/);
   if (m) return media(req, env, m[1]!, m[2]!);
   if (p === '/blog') return new Response(null, { status: 301, headers: { location: '/blog/' } });
+  // Endereço curto para falar em vídeo: /guia/roma leva ao guia do blog, mantendo utm_* e demais parâmetros.
+  const curto = p.match(/^\/guia\/([a-z0-9-]{1,40})\/?$/);
+  if (curto) {
+    const slugGuia = Object.hasOwn(GUIAS_CURTOS, curto[1]!) ? GUIAS_CURTOS[curto[1]!] : undefined;
+    if (!slugGuia) return htmlResponse(notFoundPage(env), 404, { 'cache-control': 'no-store' });
+    return new Response(null, { status: 302, headers: { location: `/blog/${slugGuia}${url.search}`, 'cache-control': 'no-store' } });
+  }
   if (p === '/blog/') {
     const posts = await publishedPosts(env);
     const comPosts = new Set(posts.map((x) => x.region_id));
@@ -455,7 +420,7 @@ export async function blogPublic(req: Request, env: Env, url: URL, deps: BlogDep
     if (!auth?.roles.includes('master')) return htmlResponse(notFoundPage(env), 404, { 'cache-control': 'no-store' });
     const post = await env.DB.prepare(`SELECT ${POST_COLUMNS} FROM blog_posts p JOIN blog_regions r ON r.id=p.region_id WHERE p.id=?`).bind(preview[1]).first<Post>();
     if (!post) return htmlResponse(notFoundPage(env), 404, { 'cache-control': 'no-store' });
-    return htmlResponse(postPage(env, post, [], true), 200, { 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' });
+    return htmlResponse(postPage(env, post, [], true, isLocalHost(url.hostname)), 200, { 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' });
   }
   const slug = p.match(/^\/blog\/([a-z0-9-]{1,80})\/?$/);
   if (slug) {
@@ -463,7 +428,7 @@ export async function blogPublic(req: Request, env: Env, url: URL, deps: BlogDep
     if (!post) return htmlResponse(notFoundPage(env), 404);
     const outros = (await publishedPosts(env)).filter((o) => o.id !== post.id);
     const related = [...outros.filter((o) => o.region_id === post.region_id), ...outros.filter((o) => o.region_id !== post.region_id)].slice(0, 3);
-    return htmlResponse(postPage(env, post, related, false));
+    return htmlResponse(postPage(env, post, related, false, isLocalHost(url.hostname)));
   }
   if (p.startsWith('/blog/')) return htmlResponse(notFoundPage(env), 404);
   return null;

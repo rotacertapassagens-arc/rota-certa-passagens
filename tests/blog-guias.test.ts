@@ -1,0 +1,219 @@
+/**
+ * Guias monetizados do blog (shared/blogGuias.ts): validação e desenho dos botões de ação, regra de
+ * parceiro sem link (escondido em produção, "inativo" na prévia e no local), parâmetros utm_* e o
+ * conteúdo-piloto de Roma (content/guias/roma-em-3-dias.json). Lógica pura: não sobe o Worker.
+ */
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import {
+  AVISO_AFILIADO, ctaBlock, isLocalHost, pdfDoTopo, renderBlocks, type Block, type BlogParceiros, type RenderCtx,
+} from '../shared/blogGuias.js';
+
+const VAZIO: BlogParceiros = {
+  getyourguide: { partnerId: '', baseUrl: 'https://www.getyourguide.com.br' },
+  carro: { url: '' },
+  contato: { whatsapp: '351925307391', instagramDm: 'https://ig.me/m/rotacerta.passagens', email: 'contato@rotacertapassagens.com' },
+};
+const CONFIGURADO: BlogParceiros = {
+  ...VAZIO,
+  getyourguide: { partnerId: 'ABC123', baseUrl: 'https://www.getyourguide.com.br' },
+  carro: { url: 'https://parceiro.example/carros?aff=XYZ' },
+};
+const ctx = (over: Partial<RenderCtx> = {}): RenderCtx => ({ preview: false, local: false, destino: 'Roma', campanha: 'roma', parceiros: VAZIO, ...over });
+
+const passeio: Block = { t: 'passeio', busca: 'Coliseu Roma' };
+const carro: Block = { t: 'carro' };
+const afiliado: Block = { t: 'afiliado' };
+
+describe('validação dos blocos de ação', () => {
+  it('aceita os seis tipos e ignora campos desconhecidos', () => {
+    expect(ctaBlock({ t: 'pdf', href: '/guias/roma-em-3-dias.pdf', extra: 1 })).toEqual({ t: 'pdf', href: '/guias/roma-em-3-dias.pdf' });
+    expect(ctaBlock({ t: 'passeio', busca: 'Coliseu Roma', title: 'Passeios' })).toEqual({ t: 'passeio', busca: 'Coliseu Roma', title: 'Passeios' });
+    expect(ctaBlock({ t: 'whatsapp', message: 'Oi!' })).toEqual({ t: 'whatsapp', message: 'Oi!' });
+    expect(ctaBlock({ t: 'carro' })).toEqual({ t: 'carro' });
+    expect(ctaBlock({ t: 'contato', title: 'Fale conosco' })).toEqual({ t: 'contato', title: 'Fale conosco' });
+    expect(ctaBlock({ t: 'afiliado', text: 'ignorado' })).toEqual({ t: 'afiliado' });
+  });
+  it('recusa PDF fora de /guias/, passeio sem busca e textos grandes demais', () => {
+    expect(ctaBlock({ t: 'pdf', href: 'https://evil.example/x.pdf' })).toBeNull();
+    expect(ctaBlock({ t: 'pdf', href: '/guias/../admin.pdf' })).toBeNull();
+    expect(ctaBlock({ t: 'pdf', href: '/guias/roma.html' })).toBeNull();
+    expect(ctaBlock({ t: 'passeio', busca: '' })).toBeNull();
+    expect(ctaBlock({ t: 'whatsapp', message: 'x'.repeat(301) })).toBeNull();
+    expect(ctaBlock({ t: 'nao-existe' })).toBeNull();
+  });
+});
+
+describe('parceiro sem link', () => {
+  it('em produção (visitante, host real) passeio e carro somem, sem rastro', () => {
+    const html = renderBlocks([passeio, carro, afiliado], ctx());
+    expect(html).toBe('');
+  });
+  it('na prévia do painel aparecem como inativos, sem link', () => {
+    const html = renderBlocks([passeio, carro, afiliado], ctx({ preview: true }));
+    expect(html.match(/cta-inativo/g)).toHaveLength(2);
+    expect(html).toContain('Inativo: falta o ID de parceiro do GetYourGuide');
+    expect(html).toContain('Inativo: falta o link do parceiro de carro');
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).not.toContain('<a ');
+    expect(html).toContain(AVISO_AFILIADO);
+  });
+  it('no ambiente local também aparecem como inativos', () => {
+    const html = renderBlocks([passeio], ctx({ local: true }));
+    expect(html).toContain('data-estado="inativo"');
+  });
+  it('detecta o ambiente local pelo host', () => {
+    for (const h of ['localhost', '127.0.0.1', '[::1]', 'teste.localhost']) expect(isLocalHost(h)).toBe(true);
+    for (const h of ['rotacertapassagens.com', 'www.rotacertapassagens.com', 'localhost.evil.com']) expect(isLocalHost(h)).toBe(false);
+  });
+});
+
+describe('parceiro configurado', () => {
+  const html = renderBlocks([passeio, carro, afiliado], ctx({ parceiros: CONFIGURADO }));
+  it('mostra os botões como links patrocinados em nova aba, sem texto de inativo', () => {
+    expect(html).not.toContain('cta-inativo');
+    expect(html.match(/rel="sponsored noopener"/g)).toHaveLength(2);
+    expect(html.match(/target="_blank"/g)).toHaveLength(2);
+  });
+  it('monta o link do GetYourGuide com ID de parceiro e utm_*', () => {
+    const href = new DOMParserLike(html).hrefs()[0]!;
+    const u = new URL(href);
+    expect(u.origin + u.pathname).toBe('https://www.getyourguide.com.br/s/');
+    expect(u.searchParams.get('q')).toBe('Coliseu Roma');
+    expect(u.searchParams.get('partner_id')).toBe('ABC123');
+    expect(Object.fromEntries(['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'].map((k) => [k, u.searchParams.get(k)])))
+      .toEqual({ utm_source: 'rotacerta', utm_medium: 'blog', utm_campaign: 'roma', utm_content: 'passeio-1' });
+  });
+  it('carro leva utm_content próprio e preserva o parâmetro do parceiro', () => {
+    const u = new URL(new DOMParserLike(html).hrefs()[1]!);
+    expect(u.host).toBe('parceiro.example');
+    expect(u.searchParams.get('aff')).toBe('XYZ');
+    expect(u.searchParams.get('utm_content')).toBe('carro-1');
+  });
+  it('exibe o aviso de afiliado perto dos botões de parceiro', () => {
+    expect(html).toContain(`<p class="aviso-afiliado" role="note">${AVISO_AFILIADO}</p>`);
+  });
+  it('recusa link de parceiro que não seja https', () => {
+    const inseguro = renderBlocks([carro], ctx({ parceiros: { ...CONFIGURADO, carro: { url: 'javascript:alert(1)' } } }));
+    expect(inseguro).toBe('');
+  });
+  it('numera cada botão do mesmo tipo (utm_content distinto)', () => {
+    const dois = renderBlocks([passeio, { t: 'passeio', busca: 'Vaticano Roma' }], ctx({ parceiros: CONFIGURADO }));
+    expect(dois).toContain('utm_content=passeio-1');
+    expect(dois).toContain('utm_content=passeio-2');
+  });
+});
+
+describe('aviso de afiliado', () => {
+  it('não aparece sozinho em produção quando não há parceiro ativo', () => {
+    expect(renderBlocks([afiliado], ctx())).toBe('');
+  });
+  it('texto fixo, sem travessão', () => {
+    expect(AVISO_AFILIADO).toBe('Alguns links são de parceiros: podemos receber uma comissão, sem custo para você.');
+    expect(AVISO_AFILIADO).not.toMatch(/—|--/);
+  });
+});
+
+describe('PDF, WhatsApp e contato', () => {
+  it('o PDF é um download direto com utm_* e o primeiro bloco sobe para o topo', () => {
+    const pdf: Block = { t: 'pdf', href: '/guias/roma-em-3-dias.pdf' };
+    expect(pdfDoTopo([pdf, { t: 'p', text: 'x' }])).toEqual(pdf);
+    expect(pdfDoTopo([{ t: 'p', text: 'x' }, pdf])).toBeNull();
+    const html = renderBlocks([pdf], ctx());
+    expect(html).toContain('href="/guias/roma-em-3-dias.pdf?utm_source=rotacerta&amp;utm_medium=blog&amp;utm_campaign=roma&amp;utm_content=pdf-1"');
+    expect(html).toContain(' download ');
+    expect(html).toContain('Baixar o guia (PDF)');
+    expect(html).toContain('Grátis, sem cadastro.');
+  });
+  it('com o PDF no topo, não repete o botão no corpo e mantém a numeração', () => {
+    const pdf: Block = { t: 'pdf', href: '/guias/roma-em-3-dias.pdf' };
+    const html = renderBlocks([pdf, { t: 'p', text: 'Oi' }, pdf], ctx(), true);
+    expect(html.match(/btn-pdf/g)).toHaveLength(1);
+    expect(html).toContain('utm_content=pdf-2');
+  });
+  it('WhatsApp usa o número do site, mensagem com o destino e utm_*', () => {
+    const u = new URL(new DOMParserLike(renderBlocks([{ t: 'whatsapp' }], ctx())).hrefs()[0]!);
+    expect(u.origin + u.pathname).toBe('https://wa.me/351925307391');
+    expect(u.searchParams.get('text')).toBe('Oi, Rota Certa! Vi o guia de Roma e quero cotar uma passagem para Roma.');
+    expect(u.searchParams.get('utm_content')).toBe('whatsapp-1');
+  });
+  it('WhatsApp aceita mensagem própria e funciona sem destino', () => {
+    const custom = new URL(new DOMParserLike(renderBlocks([{ t: 'whatsapp', message: 'Quero Roma em maio' }], ctx())).hrefs()[0]!);
+    expect(custom.searchParams.get('text')).toBe('Quero Roma em maio');
+    const semDestino = new URL(new DOMParserLike(renderBlocks([{ t: 'whatsapp' }], ctx({ destino: '', campanha: 'guia' }))).hrefs()[0]!);
+    expect(semDestino.searchParams.get('text')).toContain('quero cotar uma passagem');
+  });
+  it('contato: Instagram Direct e e-mail', () => {
+    const html = renderBlocks([{ t: 'contato' }], ctx());
+    expect(html).toContain('href="https://ig.me/m/rotacerta.passagens?utm_source=rotacerta');
+    expect(html).toContain('href="mailto:contato@rotacertapassagens.com"');
+    expect(html).toContain('Falar com a gente');
+  });
+  it('escapa texto vindo do editor', () => {
+    const html = renderBlocks([{ t: 'whatsapp', title: '<img src=x onerror=alert(1)>', text: '"><script>1</script>' }], ctx());
+    expect(html).not.toContain('<img src=x');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+  });
+});
+
+describe('blocos antigos continuam iguais', () => {
+  it('parágrafo, título, lista e dicas saem como antes', () => {
+    const html = renderBlocks([
+      { t: 'p', text: 'Um **texto**.' }, { t: 'h', label: 'Dia 1', text: 'Roma' }, { t: 'ul', items: ['a'] }, { t: 'tip', items: ['b'] },
+    ], ctx());
+    expect(html).toBe([
+      '<p>Um <strong>texto</strong>.</p>',
+      '<h2><span class="num">Dia 1</span>Roma</h2>',
+      '<ul><li>a</li></ul>',
+      '<div class="tip"><h3>Dicas práticas</h3><ul><li>b</li></ul></div>',
+    ].join('\n'));
+  });
+});
+
+describe('guia piloto de Roma (content/guias/roma-em-3-dias.json)', () => {
+  const conteudo = JSON.parse(readFileSync(new URL('../content/guias/roma-em-3-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
+  const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
+  const tipos = conteudo.body.map((b) => b.t);
+
+  it('começa pelo botão do PDF, grátis e sem cadastro, do arquivo que já existe', () => {
+    expect(tipos[0]).toBe('pdf');
+    expect(conteudo.body[0]!.href).toBe('/guias/roma-em-3-dias.pdf');
+    expect(readFileSync(new URL('../public/guias/roma-em-3-dias.pdf', import.meta.url)).subarray(0, 5).toString()).toBe('%PDF-');
+  });
+  it('tem passagem antes do roteiro e no fim, 3 passeios (um por dia), contato no fim e nenhum carro', () => {
+    const iDia1 = conteudo.body.findIndex((b) => b.t === 'h' && b.label === 'Dia 1');
+    expect(conteudo.body.findIndex((b) => b.t === 'whatsapp')).toBeLessThan(iDia1);
+    expect(tipos.filter((t) => t === 'whatsapp')).toHaveLength(2);
+    expect(tipos.indexOf('contato')).toBeGreaterThan(tipos.lastIndexOf('passeio'));
+    expect(tipos.filter((t) => t === 'passeio')).toHaveLength(3);
+    expect(tipos).not.toContain('carro');
+    // cada passeio vem logo antes do título do dia seguinte (ou da seção "Como se locomover")
+    for (const [i, t] of tipos.entries()) if (t === 'passeio') expect(conteudo.body[i + 1]!.t).toBe('h');
+    expect(tipos.filter((t) => t === 'afiliado').length).toBeGreaterThanOrEqual(1);
+  });
+  it('não tem travessão nem preço de passeio, e destaca estimativas como da Rota Certa', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    const passeios = JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'));
+    expect(passeios).not.toMatch(/R\$|€|\d+,\d\d/);
+    expect(texto).toContain('Estimativa da Rota Certa, não é dado oficial');
+  });
+  it('desenha em produção sem passeios e sem aviso, e na prévia com 3 inativos', () => {
+    const producao = renderBlocks(body, ctx(), true);
+    expect(producao).not.toContain('Passeios no');
+    expect(producao).not.toContain('aviso-afiliado');
+    expect(producao).not.toContain('Inativo');
+    expect(producao).toContain('cta-whatsapp');
+    expect(producao).toContain('cta-contato');
+    const previa = renderBlocks(body, ctx({ preview: true }), true);
+    expect(previa.match(/cta-inativo/g)).toHaveLength(3);
+    expect(previa.match(/aviso-afiliado/g)).toHaveLength(2);
+  });
+});
+
+/** Extrai os href dos <a> do HTML, em ordem (sem depender de DOM no Node). */
+class DOMParserLike {
+  constructor(private readonly html: string) {}
+  hrefs() { return [...this.html.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1]!.replace(/&amp;/g, '&')); }
+}
