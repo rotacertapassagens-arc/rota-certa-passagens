@@ -134,6 +134,10 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(curto.status).toBe(302);
     expect(curto.headers.get('location')).toBe('/blog/roma-em-3-dias?utm_source=tiktok');
     expect((await worker.fetch('/guia/naoexiste', { redirect: 'manual' })).status).toBe(404);
+    // guia de Paris (migration 0034): rascunho invisível, atalho e PDF já no ar
+    expect((await worker.fetch('/blog/paris-em-4-dias')).status).toBe(404);
+    expect((await worker.fetch('/guia/paris?utm_source=tiktok', { redirect: 'manual' })).headers.get('location')).toBe('/blog/paris-em-4-dias?utm_source=tiktok');
+    expect((await worker.fetch('/blog/paris-primeira-viagem')).status).toBe(200); // o post antigo de Paris segue intacto
     const pdf = await worker.fetch('/guias/roma-em-3-dias.pdf');
     expect(pdf.status).toBe(200);
     expect(pdf.headers.get('content-type')).toContain('pdf');
@@ -168,7 +172,7 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(7); // 6 publicados + o rascunho do guia "Roma em 3 dias" (migration 0024)
+    expect(listaJson.posts).toHaveLength(8); // 6 publicados + os rascunhos dos guias "Roma em 3 dias" (0024) e "Paris em 4 dias" (0034)
     expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa']);
 
     // sem o token CSRF a alteração é recusada
@@ -289,11 +293,22 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(destinoCurto.status).toBe(200);
     expect(await destinoCurto.text()).toContain('Baixar o guia (PDF)');
 
+    // guia de Paris: a prévia do painel mostra PDF no topo, WhatsApp de Paris, 4 passeios inativos e 7 fotos com crédito
+    const parisId = d1Query<{ id: string }>(persistTo, "SELECT id FROM blog_posts WHERE slug='paris-em-4-dias'")[0]!.id;
+    const parisPrevia = await (await worker.fetch(`/blog/preview/${parisId}`, { headers: { cookie: jar.cookieHeader() } })).text();
+    expect(parisPrevia.indexOf('cta-pdf-topo')).toBeLessThan(parisPrevia.indexOf('class="post-body"'));
+    expect(parisPrevia).toContain('href="/guias/paris-em-4-dias.pdf?utm_source=rotacerta&amp;utm_medium=blog&amp;utm_campaign=paris&amp;utm_content=pdf-1"');
+    expect(parisPrevia).toContain('https://wa.me/351925307391?text=Oi%2C%20Rota%20Certa!%20Vi%20o%20guia%20de%20Paris');
+    expect(parisPrevia.match(/cta-inativo/g)).toHaveLength(4);
+    expect(parisPrevia).toContain('<meta property="og:image" content="' + ORIGIN + '/assets/blog/paris-4-dias.jpg">');
+    expect(parisPrevia.match(/<span class="foto-credito">Foto: [^<]+ \/ Pexels<\/span>/g)).toHaveLength(7);
+    expect(parisPrevia).not.toMatch(/—|--/);
+
     // --- tirar do ar e excluir ------------------------------------------------------------------
     expect((await worker.fetch(`/api/admin/blog/posts/${id}/unpublish`, { method: 'POST', headers: jar.json() })).status).toBe(200);
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(7);
+    expect(depois.posts).toHaveLength(8);
   }, 120_000);
 });

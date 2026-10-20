@@ -246,6 +246,63 @@ describe('guia piloto de Roma (content/guias/roma-em-3-dias.json)', () => {
   });
 });
 
+describe('guia de Paris (content/guias/paris-em-4-dias.json)', () => {
+  const conteudo = JSON.parse(readFileSync(new URL('../content/guias/paris-em-4-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
+  const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
+  const tipos = conteudo.body.map((b) => b.t);
+  const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
+
+  it('começa pelo botão do PDF que já existe e tem passagem antes do roteiro e no fim, 4 passeios, contato no fim e nenhum carro', () => {
+    expect(tipos[0]).toBe('pdf');
+    expect(conteudo.body[0]!.href).toBe('/guias/paris-em-4-dias.pdf');
+    expect(readFileSync(arq('/guias/paris-em-4-dias.pdf')).subarray(0, 5).toString()).toBe('%PDF-');
+    expect(conteudo.body.findIndex((b) => b.t === 'whatsapp')).toBeLessThan(conteudo.body.findIndex((b) => b.t === 'h' && b.label === 'Dia 1'));
+    expect(tipos.filter((t) => t === 'whatsapp')).toHaveLength(2);
+    expect(tipos.indexOf('contato')).toBeGreaterThan(tipos.lastIndexOf('passeio'));
+    expect(tipos.filter((t) => t === 'passeio')).toHaveLength(4);
+    expect(tipos).not.toContain('carro');
+    for (const [i, t] of tipos.entries()) if (t === 'passeio') expect(conteudo.body[i + 1]!.t).toBe('h');
+  });
+  it('fotos: existem, pesam menos de 250 KB, têm alt, legenda e crédito do Pexels; nenhuma antes do primeiro WhatsApp; no máximo 2 por dia', () => {
+    for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
+    const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
+    expect(fotos.length).toBeGreaterThanOrEqual(5);
+    for (const f of fotos) {
+      expect(existsSync(arq(String(f.src)))).toBe(true);
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+      expect(f.w).toBeTypeOf('number'); expect(f.h).toBeTypeOf('number');
+    }
+    expect(new Set(fotos.map((f) => f.src)).size).toBe(fotos.length);
+    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
+    let dia = 0; const porDia: number[] = [];
+    for (const b of conteudo.body) { if (b.t === 'h') { dia += 1; porDia[dia] = 0; } else if (b.t === 'img' && dia > 0) porDia[dia]! += 1; }
+    expect(Math.max(...porDia.filter((n) => n !== undefined))).toBeLessThanOrEqual(2);
+  });
+  it('sem travessão, sem preço no passeio, com os fatos não óbvios do guia e link para o post antigo de Paris', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    expect(texto).toContain('Estimativa da Rota Certa, não é dado oficial');
+    expect(texto).toContain('€ 32');
+    expect(texto).toContain('reserva obrigatória de 17/10 a 1/11/2026');
+    expect(texto).toContain('ETIAS');
+    expect(texto).toContain('/blog/paris-primeira-viagem');
+    expect(conteudo.slug).toBe('paris-em-4-dias');
+  });
+  it('desenha em produção sem passeios e sem aviso, e na prévia com 4 inativos', () => {
+    const producao = renderBlocks(body, ctx({ destino: 'Paris', campanha: 'paris' }), true);
+    expect(producao).not.toContain('Passeios na');
+    expect(producao).not.toContain('aviso-afiliado');
+    expect(producao).not.toContain('Inativo');
+    const previa = renderBlocks(body, ctx({ preview: true, destino: 'Paris', campanha: 'paris' }), true);
+    expect(previa.match(/cta-inativo/g)).toHaveLength(4);
+    expect(previa.match(/aviso-afiliado/g)).toHaveLength(2);
+  });
+});
+
 /** Extrai os href dos <a> do HTML, em ordem (sem depender de DOM no Node). */
 class DOMParserLike {
   constructor(private readonly html: string) {}
