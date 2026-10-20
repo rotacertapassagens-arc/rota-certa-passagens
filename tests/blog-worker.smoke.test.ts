@@ -168,7 +168,7 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(7); // 6 publicados + o rascunho do guia "Roma em 3 dias" (migration 0024)
+    expect(listaJson.posts).toHaveLength(8); // 6 publicados + os rascunhos dos guias "Roma em 3 dias" (0024) e "Londres em 4 dias" (0027)
     expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa']);
 
     // sem o token CSRF a alteração é recusada
