@@ -134,6 +134,13 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(curto.status).toBe(302);
     expect(curto.headers.get('location')).toBe('/blog/roma-em-3-dias?utm_source=tiktok');
     expect((await worker.fetch('/guia/naoexiste', { redirect: 'manual' })).status).toBe(404);
+    // guia de Santiago: também entra como rascunho e o endereço curto já aponta para ele
+    expect((await worker.fetch('/blog/santiago-em-4-dias')).status).toBe(404);
+    expect(indiceHtml).not.toContain('Santiago em 4 dias');
+    const curtoSantiago = await worker.fetch('/guia/santiago?utm_source=tiktok', { redirect: 'manual' });
+    expect(curtoSantiago.status).toBe(302);
+    expect(curtoSantiago.headers.get('location')).toBe('/blog/santiago-em-4-dias?utm_source=tiktok');
+    expect((await worker.fetch('/guias/santiago-em-4-dias.pdf')).status).toBe(200);
     const pdf = await worker.fetch('/guias/roma-em-3-dias.pdf');
     expect(pdf.status).toBe(200);
     expect(pdf.headers.get('content-type')).toContain('pdf');
