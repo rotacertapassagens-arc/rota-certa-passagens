@@ -246,6 +246,48 @@ describe('guia piloto de Roma (content/guias/roma-em-3-dias.json)', () => {
   });
 });
 
+describe('guia de Buenos Aires (content/guias/buenos-aires-em-3-dias.json)', () => {
+  const conteudo = JSON.parse(readFileSync(new URL('../content/guias/buenos-aires-em-3-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
+  const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
+  const tipos = conteudo.body.map((b) => b.t);
+
+  it('começa pelo botão do PDF do arquivo que já existe, com passagem antes do roteiro e contato no fim, sem carro', () => {
+    expect(tipos[0]).toBe('pdf');
+    expect(conteudo.body[0]!.href).toBe('/guias/buenos-aires-em-3-dias.pdf');
+    expect(readFileSync(new URL('../public/guias/buenos-aires-em-3-dias.pdf', import.meta.url)).subarray(0, 5).toString()).toBe('%PDF-');
+    const iDia1 = conteudo.body.findIndex((b) => b.t === 'h' && String(b.label).startsWith('Dia 1'));
+    expect(conteudo.body.findIndex((b) => b.t === 'whatsapp')).toBeLessThan(iDia1);
+    expect(tipos.filter((t) => t === 'whatsapp')).toHaveLength(2);
+    expect(tipos.indexOf('contato')).toBeGreaterThan(tipos.lastIndexOf('passeio'));
+    expect(tipos.filter((t) => t === 'passeio')).toHaveLength(3);
+    expect(tipos).not.toContain('carro');
+    for (const [i, t] of tipos.entries()) if (t === 'passeio') expect(conteudo.body[i + 1]!.t).toBe('h');
+  });
+  it('fotos: existem no site, pesam menos de 250 KB e têm alt, legenda e crédito do Pexels; nenhuma antes do primeiro CTA', () => {
+    const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
+    for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
+    const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
+    expect(fotos).toHaveLength(5);
+    for (const f of fotos) {
+      expect(existsSync(arq(String(f.src)))).toBe(true);
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+    }
+    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
+  });
+  it('não tem travessão nem preço em pesos, e em produção não mostra passeios nem aviso', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(texto).not.toMatch(/ARS|\$ ?\d|pesos? argentinos? \d/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    const producao = renderBlocks(body, ctx({ destino: 'Buenos Aires', campanha: 'buenos-aires' }), true);
+    expect(producao).not.toContain('Passeios em');
+    expect(producao).not.toContain('aviso-afiliado');
+    expect(renderBlocks(body, ctx({ preview: true, destino: 'Buenos Aires', campanha: 'buenos-aires' }), true).match(/cta-inativo/g)).toHaveLength(3);
+  });
+});
 /** Extrai os href dos <a> do HTML, em ordem (sem depender de DOM no Node). */
 class DOMParserLike {
   constructor(private readonly html: string) {}

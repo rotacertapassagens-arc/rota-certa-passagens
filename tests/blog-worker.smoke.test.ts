@@ -134,6 +134,13 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(curto.status).toBe(302);
     expect(curto.headers.get('location')).toBe('/blog/roma-em-3-dias?utm_source=tiktok');
     expect((await worker.fetch('/guia/naoexiste', { redirect: 'manual' })).status).toBe(404);
+    // guia de Buenos Aires (migration 0031): rascunho invisível, atalho /guia/buenosaires já aponta para ele
+    expect((await worker.fetch('/blog/buenos-aires-em-3-dias')).status).toBe(404);
+    expect(indiceHtml).not.toContain('Buenos Aires em 3 dias');
+    const curtoBA = await worker.fetch('/guia/buenosaires?utm_source=instagram&utm_campaign=ba', { redirect: 'manual' });
+    expect(curtoBA.status).toBe(302);
+    expect(curtoBA.headers.get('location')).toBe('/blog/buenos-aires-em-3-dias?utm_source=instagram&utm_campaign=ba');
+    expect((await worker.fetch('/guias/buenos-aires-em-3-dias.pdf')).status).toBe(200);
     const pdf = await worker.fetch('/guias/roma-em-3-dias.pdf');
     expect(pdf.status).toBe(200);
     expect(pdf.headers.get('content-type')).toContain('pdf');
@@ -168,7 +175,7 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(7); // 6 publicados + o rascunho do guia "Roma em 3 dias" (migration 0024)
+    expect(listaJson.posts).toHaveLength(8); // 6 publicados + os rascunhos dos guias "Roma em 3 dias" (migration 0024) e "Buenos Aires em 3 dias" (0031)
     expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa']);
 
     // sem o token CSRF a alteração é recusada
@@ -289,11 +296,23 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(destinoCurto.status).toBe(200);
     expect(await destinoCurto.text()).toContain('Baixar o guia (PDF)');
 
+    // --- guia de Buenos Aires: prévia do rascunho (migration 0031) ---------------------------------
+    const baId = d1Query<{ id: string }>(persistTo, "SELECT id FROM blog_posts WHERE slug='buenos-aires-em-3-dias'")[0]!.id;
+    const baPrevia = await (await worker.fetch(`/blog/preview/${baId}`, { headers: { cookie: jar.cookieHeader() } })).text();
+    expect(baPrevia.indexOf('cta-pdf-topo')).toBeLessThan(baPrevia.indexOf('class="post-body"'));
+    expect(baPrevia).toContain('href="/guias/buenos-aires-em-3-dias.pdf?utm_source=rotacerta&amp;utm_medium=blog&amp;utm_campaign=buenos-aires&amp;utm_content=pdf-1"');
+    expect(baPrevia).toContain('https://wa.me/351925307391?text=Oi%2C%20Rota%20Certa!%20Vi%20o%20guia%20de%20Buenos%20Aires');
+    expect(baPrevia.match(/cta-inativo/g)).toHaveLength(3);
+    expect(baPrevia).toContain('<meta property="og:image" content="' + ORIGIN + '/assets/blog/buenos-aires-3-dias.jpg">');
+    expect(baPrevia.match(/<figure class="foto-cred">/g)).toHaveLength(5);
+    expect(baPrevia.match(/<span class="foto-credito">Foto: [^<]+ \/ Pexels<\/span>/g)).toHaveLength(5);
+    expect(baPrevia).not.toMatch(/—|--/);
+
     // --- tirar do ar e excluir ------------------------------------------------------------------
     expect((await worker.fetch(`/api/admin/blog/posts/${id}/unpublish`, { method: 'POST', headers: jar.json() })).status).toBe(200);
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(7);
+    expect(depois.posts).toHaveLength(8);
   }, 120_000);
 });

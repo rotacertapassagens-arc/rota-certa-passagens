@@ -28,4 +28,5 @@ export const BLOG_PARCEIROS: BlogParceiros = {
  */
 export const GUIAS_CURTOS: Record<string, string> = {
   roma: 'roma-em-3-dias',
+  buenosaires: 'buenos-aires-em-3-dias',
 };
