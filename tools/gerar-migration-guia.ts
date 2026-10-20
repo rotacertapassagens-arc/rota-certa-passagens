@@ -1,6 +1,10 @@
 // Gera a migration D1 de um guia do blog a partir de um arquivo de conteúdo (content/guias/<guia>.json).
 //
 //   npx tsx tools/gerar-migration-guia.ts content/guias/roma-em-3-dias.json d1/migrations/0024_blog_guia_roma_3_dias.sql
+//   npx tsx tools/gerar-migration-guia.ts content/guias/roma-em-3-dias.json d1/migrations/0025_blog_roma_fotos.sql --atualizar-rascunho
+//
+// Com --atualizar-rascunho gera um UPDATE (capa, texto alternativo da capa, blocos e tempo de leitura) só do post com esse slug
+// que ainda esteja como RASCUNHO. Post publicado ou outro post nunca é tocado.
 //
 // O guia entra como RASCUNHO (nada vai ao ar sozinho): quem publica é o painel (/admin-blog.html).
 // Valida os blocos com as mesmas regras do editor e recusa travessão nos textos.
@@ -13,8 +17,10 @@ type Conteudo = {
   destination: string | null; coverUrl: string; coverUrlSmall: string | null; coverAlt: string | null; body: unknown;
 };
 
-const [entrada, saida] = process.argv.slice(2);
-if (!entrada || !saida) { console.error('Uso: tsx tools/gerar-migration-guia.ts <conteudo.json> <saida.sql>'); process.exit(2); }
+const args = process.argv.slice(2);
+const atualizar = args.includes('--atualizar-rascunho');
+const [entrada, saida] = args.filter((a) => !a.startsWith('--'));
+if (!entrada || !saida) { console.error('Uso: tsx tools/gerar-migration-guia.ts <conteudo.json> <saida.sql> [--atualizar-rascunho]'); process.exit(2); }
 
 const c = JSON.parse(readFileSync(entrada, 'utf8')) as Conteudo;
 const body = blocks(c.body);
@@ -25,10 +31,16 @@ const json = JSON.stringify(body);
 if (/—|--/.test(`${c.title} ${c.summary} ${c.lede ?? ''} ${json}`)) { console.error('Travessão (— ou --) não é permitido nos textos.'); process.exit(1); }
 
 const q = (v: string | null) => (v === null ? 'NULL' : `'${v.replace(/'/g, "''")}'`);
-const sql = `-- Guia "${c.title}" (rascunho). Gerado por tools/gerar-migration-guia.ts a partir de ${entrada.replace(/\\/g, '/')}.
+const minutos = readingMinutes(c, body);
+const sqlNovo = `-- Guia "${c.title}" (rascunho). Gerado por tools/gerar-migration-guia.ts a partir de ${entrada.replace(/\\/g, '/')}.
 -- Entra como rascunho: publique pelo painel (/admin-blog.html) depois de conferir a pré-visualização.
 INSERT INTO blog_posts (id, slug, status, region_id, title, title_highlight, summary, lede, destination, cta_title, cover_url, cover_url_small, cover_alt, featured, body, reading_minutes)
-VALUES (${q(c.id)}, ${q(c.slug)}, 'draft', ${q(c.regionId)}, ${q(c.title)}, ${q(c.titleHighlight)}, ${q(c.summary)}, ${q(c.lede)}, ${q(c.destination)}, NULL, ${q(c.coverUrl)}, ${q(c.coverUrlSmall)}, ${q(c.coverAlt)}, 0, ${q(json)}, ${readingMinutes(c, body)});
+VALUES (${q(c.id)}, ${q(c.slug)}, 'draft', ${q(c.regionId)}, ${q(c.title)}, ${q(c.titleHighlight)}, ${q(c.summary)}, ${q(c.lede)}, ${q(c.destination)}, NULL, ${q(c.coverUrl)}, ${q(c.coverUrlSmall)}, ${q(c.coverAlt)}, 0, ${q(json)}, ${minutos});
 `;
-writeFileSync(saida, sql, 'utf8');
-console.log(`ok: ${saida} (${body.length} blocos, ${readingMinutes(c, body)} min de leitura)`);
+const sqlAtualiza = `-- Atualiza SOMENTE o rascunho do guia "${c.title}" (slug ${c.slug}). Gerado por tools/gerar-migration-guia.ts a partir de ${entrada.replace(/\\/g, '/')}.
+-- Se o post já tiver sido publicado, ou não existir, nada muda (WHERE slug e status = 'draft'). Nenhum outro post é tocado.
+UPDATE blog_posts SET cover_url = ${q(c.coverUrl)}, cover_url_small = ${q(c.coverUrlSmall)}, cover_alt = ${q(c.coverAlt)}, body = ${q(json)}, reading_minutes = ${minutos}, updated_at = CURRENT_TIMESTAMP
+WHERE slug = ${q(c.slug)} AND status = 'draft';
+`;
+writeFileSync(saida, atualizar ? sqlAtualiza : sqlNovo, 'utf8');
+console.log(`ok: ${saida} (${atualizar ? 'UPDATE do rascunho' : 'INSERT'}, ${body.length} blocos, ${minutos} min de leitura)`);

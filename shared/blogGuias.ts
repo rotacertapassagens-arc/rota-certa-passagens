@@ -14,7 +14,7 @@ export type Block =
   | { t: 'h'; label?: string; text: string }
   | { t: 'ul'; items: string[] }
   | { t: 'tip'; title?: string; items: string[] }
-  | { t: 'img'; src: string; small?: string; alt?: string; caption?: string; w?: number; h?: number }
+  | { t: 'img'; src: string; small?: string; alt?: string; caption?: string; credit?: string; w?: number; h?: number }
   | { t: 'quote'; text: string }
   // Blocos de ação dos guias monetizados (ver renderCta). Texto vazio = texto padrão.
   | { t: 'pdf'; href: string; label?: string; note?: string }
@@ -210,7 +210,11 @@ export function renderBlocks(body: Block[], ctx: RenderCtx, hoisted = false) {
       case 'img': {
         const srcset = b.small ? ` srcset="${esc(b.small)} 900w, ${esc(b.src)} 1600w" sizes="(max-width: 820px) 100vw, 760px"` : '';
         const dims = b.w && b.h ? ` width="${b.w}" height="${b.h}"` : '';
-        return `<figure><img src="${esc(b.src)}"${srcset} alt="${esc(b.alt || '')}"${dims} loading="lazy" decoding="async">${b.caption ? `<figcaption>${esc(b.caption)}</figcaption>` : ''}</figure>`;
+        // Sem crédito, a legenda sai exatamente como antes (posts antigos não mudam). Com crédito, legenda e crédito em linhas próprias.
+        const legenda = b.credit
+          ? `<figcaption>${b.caption ? `<span class="foto-legenda">${esc(b.caption)}</span>` : ''}<span class="foto-credito">${esc(b.credit)}</span></figcaption>`
+          : b.caption ? `<figcaption>${esc(b.caption)}</figcaption>` : '';
+        return `<figure${b.credit ? ' class="foto-cred"' : ''}><img src="${esc(b.src)}"${srcset} alt="${esc(b.alt || '')}"${dims} loading="lazy" decoding="async">${legenda}</figure>`;
       }
       default: return '';
     }

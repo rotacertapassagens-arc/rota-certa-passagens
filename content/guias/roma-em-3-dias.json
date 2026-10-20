@@ -8,9 +8,9 @@
   "summary": "Roteiro de Roma em 3 dias dividido em três regiões, uma por dia, com valores oficiais conferidos em 13/10/2026 e o guia em PDF para baixar de graça.",
   "lede": "Uma região por dia, valores oficiais conferidos em outubro de 2026 e o guia completo para baixar e levar no celular.",
   "destination": "Roma",
-  "coverUrl": "/assets/blog/roma.jpg",
-  "coverUrlSmall": "/assets/blog/roma-m.jpg",
-  "coverAlt": "Coliseu de Roma ao pôr do sol, emoldurado por árvores",
+  "coverUrl": "/assets/blog/roma-3-dias.jpg",
+  "coverUrlSmall": "/assets/blog/roma-3-dias-m.jpg",
+  "coverAlt": "Parede externa do Coliseu de Roma, dourada pela luz do fim de tarde, contra um céu azul-escuro",
   "body": [
     { "t": "pdf", "href": "/guias/roma-em-3-dias.pdf", "note": "PDF de 14 páginas, feito para ler no celular. Grátis, sem cadastro." },
     { "t": "p", "text": "O erro mais comum em Roma é tentar atravessar a cidade inteira todo dia. Este roteiro divide Roma em **três regiões, uma por dia**: você caminha mais, se desloca menos e aproveita sem correria." },
@@ -24,6 +24,7 @@
 
     { "t": "h", "label": "Dia 1", "text": "Roma antiga" },
     { "t": "p", "text": "Coliseu, Fórum Romano e Palatino ficam lado a lado e entram no mesmo ingresso." },
+    { "t": "img", "src": "/assets/blog/roma-forum.jpg", "alt": "Ruínas do Fórum Romano vistas do alto, com árvores, igrejas e o Coliseu ao fundo", "caption": "As ruínas do Fórum Romano, com o Coliseu ao fundo.", "credit": "Foto: Fabio Fistarol / Unsplash", "w": 1000, "h": 667 },
     { "t": "ul", "items": [
       "**Manhã, Coliseu:** entrada com horário marcado. Com o ingresso padrão, você fica 75 minutos dentro. Chegue com folga: quem perde o horário pode ficar só com o Fórum e o Palatino, sem reembolso.",
       "**Depois, Fórum Romano e Palatino:** uma entrada, válida até 24 horas antes ou depois do horário do Coliseu.",
@@ -38,12 +39,14 @@
 
     { "t": "h", "label": "Dia 2", "text": "Vaticano" },
     { "t": "p", "text": "Museus Vaticanos e Basílica de São Pedro no mesmo dia, sem voltar ao centro." },
+    { "t": "img", "src": "/assets/blog/roma-museus-vaticanos.jpg", "alt": "Escada em espiral dos Museus Vaticanos, vista de cima, com pessoas descendo os degraus", "caption": "A escada em espiral dos Museus Vaticanos.", "credit": "Foto: Micah & Sammie Chaffin / Unsplash", "w": 1000, "h": 667 },
     { "t": "p", "text": "**Antes de marcar o dia:** os Museus Vaticanos fecham aos domingos. A exceção é o último domingo do mês, das 9h às 14h (última entrada 12h30), com entrada gratuita, menos quando cai na Páscoa, em 29/6, 25/12, 26/12 ou 31/12." },
     { "t": "ul", "items": [
       "**Manhã, Museus Vaticanos:** de segunda a sábado, das 8h às 20h, última entrada às 18h. Ingresso no site oficial. O valor é € 20 na bilheteria, ou € 20 + € 5 com reserva no site oficial.",
       "**Depois, Basílica de São Pedro:** entrada gratuita. Reservar horário é opcional e pago, com audioguia incluído. Antes, há controle de segurança da Polícia italiana, à direita da Praça. Não entram roupas muito curtas, regatas nem chapéus. A cúpula tem ingresso à parte.",
       "**Fim do dia, opcional, Castel Sant'Angelo:** ver por fora e atravessar a ponte é grátis. O museu tem ingresso e abre de terça a domingo e, desde agosto de 2026, também na 1ª segunda-feira do mês, à tarde."
     ] },
+    { "t": "img", "src": "/assets/blog/roma-sao-pedro.jpg", "alt": "Praça São Pedro vista do alto, com as colunatas em arco e a Via della Conciliazione ao fundo", "caption": "A Praça São Pedro vista do alto.", "credit": "Foto: Yilei Bao / Unsplash", "w": 1000, "h": 667 },
     { "t": "tip", "title": "Para planejar o Dia 2", "items": [
       "**Como chegar:** metrô linha A, estação Ottaviano.",
       "**Reserve antes:** Museus em tickets.museivaticani.va.",
@@ -54,12 +57,17 @@
 
     { "t": "h", "label": "Dia 3", "text": "Centro histórico" },
     { "t": "p", "text": "Fontes, praças e ruas antigas a pé, numa linha só: de Trevi ao Trastevere." },
+    { "t": "img", "src": "/assets/blog/roma-trevi.jpg", "alt": "Estátua de Oceano no centro da Fontana di Trevi, entre colunas, com cavalos marinhos em primeiro plano", "caption": "A Fontana di Trevi, com a estátua de Oceano.", "credit": "Foto: Alex Azabache / Unsplash", "w": 1000, "h": 750 },
     { "t": "ul", "items": [
       "**Manhã, Fontana di Trevi:** desde 2/2/2026, quem não mora em Roma paga € 2 para entrar na área junto à fonte, no horário de visitação. Fora desse horário, a fonte fica visível de graça, e ver da praça continua grátis.",
-      "**10 min a pé, Panteão:** todos os dias, das 9h às 19h, última entrada 18h30. Ingresso de € 7 desde 1/7/2026. No 1º domingo do mês é grátis, com bilhete retirado no local.",
+      "**10 min a pé, Panteão:** todos os dias, das 9h às 19h, última entrada 18h30. Ingresso de € 7 desde 1/7/2026. No 1º domingo do mês é grátis, com bilhete retirado no local."
+    ] },
+    { "t": "img", "src": "/assets/blog/roma-panteao.jpg", "alt": "Frontão e colunas do Panteão, com a inscrição de Agripa e o sol atrás do telhado", "caption": "O Panteão, com a inscrição de Agripa no frontão.", "credit": "Foto: Ahmet Ölçüm / Unsplash", "w": 1000, "h": 751 },
+    { "t": "ul", "items": [
       "**6 min a pé, Piazza Navona:** praça aberta, sem ingresso. Bom ponto para uma pausa.",
       "**Noite, 20 min a pé, Trastevere:** do outro lado do Tibre, bom para jantar: cacio e pepe, carbonara, amatriciana e suplì."
     ] },
+    { "t": "img", "src": "/assets/blog/roma-trastevere.jpg", "alt": "Rua de pedras do Trastevere, com casas em tons de ocre, trepadeiras e mesas de um bar na calçada", "caption": "Uma rua do Trastevere, com fachadas em tons de ocre.", "credit": "Foto: Daniele Salutari / Unsplash", "w": 1000, "h": 750 },
     { "t": "tip", "title": "Para planejar o Dia 3", "items": [
       "**Como chegar:** este dia é todo a pé. Use sapato confortável.",
       "**Reserve antes:** Panteão no portal Museiitaliani (ou na bilheteria) e Trevi em fontanaditrevi.roma.it.",
@@ -106,6 +114,7 @@
       "[Documentos: Your Europe](https://europa.eu/youreurope/citizens/travel/entry-exit/non-eu-nationals/index_en.htm)"
     ] },
     { "t": "p", "text": "Horários, preços e regras mudam: confira nos sites acima antes de comprar. Tem mais um dia? Veja também o [roteiro de Roma em 4 dias](/blog/roma-em-4-dias)." },
+    { "t": "p", "text": "Foto de capa: Redd Francisco / Unsplash." },
 
     { "t": "whatsapp" },
     { "t": "contato" },

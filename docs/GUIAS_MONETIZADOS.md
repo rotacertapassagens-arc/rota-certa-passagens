@@ -15,6 +15,15 @@ O link que vai nos vídeos e nas DMs abre uma página do blog (`/blog/<guia>`), 
 
 Cada botão leva `utm_source=rotacerta&utm_medium=blog&utm_campaign=<destino>&utm_content=<tipo>-<n>` (por exemplo `passeio-2`). O site não tem hoje um registro próprio de cliques, então a medição é pelos parâmetros (o formulário de proposta já guarda `utm_*`). Links de parceiro saem com `rel="sponsored noopener"`.
 
+## Fotos nos guias
+
+- Bloco `img` do editor (botão "Foto"): imagem, **descrição da foto** (alt, PT-BR, descreve o que aparece), **legenda** curta e **crédito** (ex.: `Foto: Nome do autor / Unsplash`). Com crédito, legenda e crédito saem em linhas próprias; sem crédito, a figura sai como sempre.
+- Mobile primeiro: a foto ocupa a largura do texto, com cantos arredondados, `width`/`height` (sem pulo de layout) e `loading="lazy"`. A foto de capa (topo) carrega normal, com prioridade.
+- Arquivos em `public/assets/blog/<nome>.jpg` (o editor só aceita esse endereço, plano). Padrão do guia de Roma: capa `roma-3-dias.jpg` (1100 px, vira também `og:image`), `roma-3-dias-m.jpg` (900 px, celular e cartão do índice) e `roma-3-dias-p.webp` (600 px); fotos do texto com 1000 px de largura e menos de 250 KB, nome `roma-<lugar>.jpg`. O `public/_headers` dá cache de 30 dias a `/assets/blog/*`: para trocar uma foto no ar, suba com outro nome.
+- Use só fotos com licença livre registrada em `rota-certa-motion-factory/assets/licenses.csv` (autor e fonte). Fotos do Unsplash+ (pagas) não entram.
+- O crédito da foto de capa vai numa linha no fim do texto ("Foto de capa: ..."), porque o post não tem campo de crédito da capa.
+- Atualizar só o rascunho de um guia já criado: `npx tsx tools/gerar-migration-guia.ts content/guias/<guia>.json d1/migrations/00NN_....sql --atualizar-rascunho` (UPDATE com `WHERE slug = ... AND status = 'draft'`: guia já publicado e outros posts não são tocados).
+
 ## Onde configurar os parceiros
 
 Um arquivo só: `worker/blog-parceiros.ts`.

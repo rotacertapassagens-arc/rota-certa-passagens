@@ -65,11 +65,11 @@ export function block(value: unknown): Block | null {
     case 'img': {
       if (!isImageUrl(b.src)) return null;
       const small = b.small === undefined || b.small === null || b.small === '' ? undefined : (isImageUrl(b.small) ? b.small : null);
-      const alt = optional(b.alt, 200); const caption = optional(b.caption, 300);
-      if (small === null || alt === undefined || caption === undefined) return null;
+      const alt = optional(b.alt, 200); const caption = optional(b.caption, 300); const credit = optional(b.credit, 120);
+      if (small === null || alt === undefined || caption === undefined || credit === undefined) return null;
       const w = Number(b.w); const h = Number(b.h);
       return {
-        t: 'img', src: b.src, ...(small ? { small } : {}), ...(alt ? { alt } : {}), ...(caption ? { caption } : {}),
+        t: 'img', src: b.src, ...(small ? { small } : {}), ...(alt ? { alt } : {}), ...(caption ? { caption } : {}), ...(credit ? { credit } : {}),
         ...(Number.isInteger(w) && Number.isInteger(h) && w > 0 && h > 0 && w <= 4000 && h <= 4000 ? { w, h } : {}),
       };
     }

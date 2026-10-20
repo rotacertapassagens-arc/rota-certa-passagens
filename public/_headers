@@ -30,3 +30,8 @@
 /guias/*
   Cache-Control: public, max-age=3600
   X-Robots-Tag: noindex
+
+# Fotos do blog (/assets/blog/*): o nome do arquivo identifica a foto, então cache de 30 dias.
+# Para trocar uma foto no ar, suba com outro nome.
+/assets/blog/*
+  Cache-Control: public, max-age=2592000
