@@ -26,7 +26,7 @@ const FIELD_MESSAGES = {
   coverUrl: 'A foto de capa não é válida. Escolha a foto de novo.',
   coverUrlSmall: 'A foto de capa não é válida. Escolha a foto de novo.',
   slug: 'O endereço precisa ter pelo menos 3 letras.',
-  body: 'Algum bloco do conteúdo ficou grande demais ou inválido. Confira os blocos e tente de novo.',
+  body: 'Algum bloco do conteúdo ficou grande demais ou inválido. Confira os blocos (o endereço do PDF começa com /guias/ e termina em .pdf; o passeio precisa de um termo de busca) e tente de novo.',
 };
 function errorMessage(error, fallback) {
   if (error.status === 401) return 'Sua sessão expirou. Entre de novo pela Área do cliente e volte para esta página.';
@@ -38,8 +38,18 @@ function errorMessage(error, fallback) {
   return fallback;
 }
 
-const TYPES = { p: 'Parágrafo', h: 'Título de seção', ul: 'Lista', tip: 'Caixa de dicas', img: 'Foto', quote: 'Citação' };
-const NEW_BLOCK = { p: () => ({ t: 'p', text: '' }), h: () => ({ t: 'h', label: '', text: '' }), ul: () => ({ t: 'ul', items: [] }), tip: () => ({ t: 'tip', title: 'Dicas práticas', items: [] }), img: () => ({ t: 'img', src: '', small: '', alt: '', caption: '' }), quote: () => ({ t: 'quote', text: '' }) };
+const TYPES = {
+  p: 'Parágrafo', h: 'Título de seção', ul: 'Lista', tip: 'Caixa de dicas', img: 'Foto', quote: 'Citação',
+  pdf: 'Botão do PDF', passeio: 'Passeios (GetYourGuide)', whatsapp: 'Cotar no WhatsApp', carro: 'Reserva de carro', contato: 'Falar com a gente', afiliado: 'Aviso de afiliado',
+};
+const ACTION_TYPES = ['pdf', 'passeio', 'whatsapp', 'carro', 'contato', 'afiliado'];
+const NEW_BLOCK = {
+  pdf: () => ({ t: 'pdf', href: '/guias/', label: '', note: '' }),
+  passeio: () => ({ t: 'passeio', busca: '', title: '', text: '', label: '' }),
+  whatsapp: () => ({ t: 'whatsapp', title: '', text: '', label: '', message: '' }),
+  carro: () => ({ t: 'carro', title: '', text: '', label: '' }),
+  contato: () => ({ t: 'contato', title: '', text: '' }),
+  afiliado: () => ({ t: 'afiliado' }), p: () => ({ t: 'p', text: '' }), h: () => ({ t: 'h', label: '', text: '' }), ul: () => ({ t: 'ul', items: [] }), tip: () => ({ t: 'tip', title: 'Dicas práticas', items: [] }), img: () => ({ t: 'img', src: '', small: '', alt: '', caption: '' }), quote: () => ({ t: 'quote', text: '' }) };
 
 let regions = [];
 let posts = [];
@@ -207,6 +217,34 @@ function blockHtml(b, i) {
           <label>Legenda <small>opcional, aparece embaixo da foto</small><input data-i="${i}" data-field="caption" maxlength="300" value="${esc(b.caption || '')}"></label>
           <label>Descrição da foto <small>o que aparece nela</small><input data-i="${i}" data-field="alt" maxlength="200" value="${esc(b.alt || '')}"></label>
         </div></div></div>`;
+    case 'pdf': return `<div class="ab-block" data-type="pdf">${head}
+        <p class="muted ab-small">Botão grande para baixar o PDF. Se for o primeiro bloco do guia, aparece no topo da página, sem rolar. Grátis e sem cadastro.</p>
+        <label>Endereço do PDF <small>arquivo que já está no site, ex.: /guias/roma-em-3-dias.pdf</small><input data-i="${i}" data-field="href" maxlength="120" value="${esc(b.href || '')}"></label>
+        <div class="ab-row"><label>Texto do botão <small>opcional; padrão: Baixar o guia (PDF)</small><input data-i="${i}" data-field="label" maxlength="60" value="${esc(b.label || '')}"></label>
+        <label>Frase embaixo do botão <small>opcional; padrão: Grátis, sem cadastro.</small><input data-i="${i}" data-field="note" maxlength="160" value="${esc(b.note || '')}"></label></div></div>`;
+    case 'passeio': return `<div class="ab-block" data-type="passeio">${head}
+        <p class="muted ab-small">Botão de passeios do parceiro. Só aparece para o público quando o ID do GetYourGuide estiver configurado (worker/blog-parceiros.ts). Não coloque preço.</p>
+        <label>O que buscar no GetYourGuide <small>ex.: Coliseu Roma</small><input data-i="${i}" data-field="busca" maxlength="80" value="${esc(b.busca || '')}"></label>
+        <div class="ab-row"><label>Título <small>opcional; padrão: Passeios em (destino)</small><input data-i="${i}" data-field="title" maxlength="100" value="${esc(b.title || '')}"></label>
+        <label>Texto do botão <small>opcional; padrão: Ver passeios</small><input data-i="${i}" data-field="label" maxlength="40" value="${esc(b.label || '')}"></label></div>
+        <label>Frase <small>opcional</small><textarea data-i="${i}" data-field="text" rows="2" maxlength="300">${esc(b.text || '')}</textarea></label></div>`;
+    case 'whatsapp': return `<div class="ab-block" data-type="whatsapp">${head}
+        <p class="muted ab-small">Abre o WhatsApp da Rota Certa com a mensagem já escrita (com o destino do guia).</p>
+        <div class="ab-row"><label>Título <small>opcional; padrão: Cotar passagem para (destino)</small><input data-i="${i}" data-field="title" maxlength="100" value="${esc(b.title || '')}"></label>
+        <label>Texto do botão <small>opcional</small><input data-i="${i}" data-field="label" maxlength="40" value="${esc(b.label || '')}"></label></div>
+        <label>Frase <small>opcional</small><textarea data-i="${i}" data-field="text" rows="2" maxlength="300">${esc(b.text || '')}</textarea></label>
+        <label>Mensagem que vai pronta no WhatsApp <small>opcional; padrão usa o destino do guia</small><textarea data-i="${i}" data-field="message" rows="2" maxlength="300">${esc(b.message || '')}</textarea></label></div>`;
+    case 'carro': return `<div class="ab-block" data-type="carro">${head}
+        <p class="muted ab-small">Use só em destinos onde alugar carro faz sentido. Só aparece para o público quando o link do parceiro de carro estiver configurado.</p>
+        <div class="ab-row"><label>Título <small>opcional</small><input data-i="${i}" data-field="title" maxlength="100" value="${esc(b.title || '')}"></label>
+        <label>Texto do botão <small>opcional; padrão: Ver carros</small><input data-i="${i}" data-field="label" maxlength="40" value="${esc(b.label || '')}"></label></div>
+        <label>Frase <small>opcional</small><textarea data-i="${i}" data-field="text" rows="2" maxlength="300">${esc(b.text || '')}</textarea></label></div>`;
+    case 'contato': return `<div class="ab-block" data-type="contato">${head}
+        <p class="muted ab-small">Caixa de contato: Instagram Direct e e-mail da Rota Certa.</p>
+        <label>Título <small>opcional; padrão: Falar com a gente</small><input data-i="${i}" data-field="title" maxlength="100" value="${esc(b.title || '')}"></label>
+        <label>Frase <small>opcional</small><textarea data-i="${i}" data-field="text" rows="2" maxlength="300">${esc(b.text || '')}</textarea></label></div>`;
+    case 'afiliado': return `<div class="ab-block" data-type="afiliado">${head}
+        <p class="muted ab-small">Linha fixa: "Alguns links são de parceiros: podemos receber uma comissão, sem custo para você." Só aparece no site quando há botão de parceiro ativo na página.</p></div>`;
     case 'quote': return `<div class="ab-block" data-type="quote">${head}<label>Citação<textarea data-i="${i}" data-field="text" rows="3" maxlength="1000">${esc(b.text)}</textarea></label></div>`;
     default: return '';
   }
@@ -248,10 +286,15 @@ function cleanBody() {
     if (b.t === 'h') return b.text?.trim();
     if (b.t === 'ul' || b.t === 'tip') return b.items.length;
     if (b.t === 'img') return b.src;
+    if (b.t === 'pdf') return (b.href || '').trim();
+    if (b.t === 'passeio') return (b.busca || '').trim();
+    if (ACTION_TYPES.includes(b.t)) return true;
     return false;
   }).map((b) => {
     const out = { ...b };
     for (const key of ['label', 'alt', 'caption', 'small', 'title']) if (out[key] === '') delete out[key];
+    if (ACTION_TYPES.includes(out.t)) for (const key of ['text', 'note', 'message']) if (typeof out[key] === 'string' && !out[key].trim()) delete out[key];
+    if (out.t === 'pdf' || out.t === 'passeio') for (const key of ['href', 'busca']) if (typeof out[key] === 'string') out[key] = out[key].trim();
     return out;
   });
 }
@@ -413,7 +456,7 @@ $('blocks').addEventListener('click', async (event) => {
   if (act === 'down' && i < post.body.length - 1) { [post.body[i + 1], post.body[i]] = [post.body[i], post.body[i + 1]]; renderBlocks(); setDirty(true); }
   if (act === 'remove') {
     const b = post.body[i];
-    const vazio = (b.t === 'img' && !b.src) || ((b.t === 'p' || b.t === 'quote' || b.t === 'h') && !b.text?.trim()) || ((b.t === 'ul' || b.t === 'tip') && !(b.items || []).join('').trim());
+    const vazio = (b.t === 'img' && !b.src) || b.t === 'afiliado' || ((b.t === 'p' || b.t === 'quote' || b.t === 'h') && !b.text?.trim()) || ((b.t === 'ul' || b.t === 'tip') && !(b.items || []).join('').trim());
     if (!vazio && !confirm(`Remover este bloco (${TYPES[b.t]})?`)) return;
     post.body.splice(i, 1); renderBlocks(); setDirty(true);
   }
@@ -431,7 +474,7 @@ $('blocks').addEventListener('click', async (event) => {
     } catch (error) { setStatus(errorMessage(error, 'Não foi possível enviar a foto agora.'), 'error'); } finally { setBusy(false); }
   }
 });
-document.querySelector('.ab-add').addEventListener('click', (event) => {
+document.querySelectorAll('.ab-add').forEach((box) => box.addEventListener('click', (event) => {
   const btn = event.target.closest('[data-add]');
   if (!btn) return;
   post.body.push(NEW_BLOCK[btn.dataset.add]());
@@ -439,7 +482,7 @@ document.querySelector('.ab-add').addEventListener('click', (event) => {
   renderBlocks(index);
   setDirty(true);
   if (btn.dataset.add === 'img') $('blocks').querySelector(`[data-act="photo"][data-i="${index}"]`)?.click();
-});
+}));
 $('saveBtn').addEventListener('click', save);
 $('publishBtn').addEventListener('click', publish);
 $('unpublishBtn').addEventListener('click', unpublish);

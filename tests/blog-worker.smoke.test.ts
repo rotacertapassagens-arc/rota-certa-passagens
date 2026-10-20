@@ -127,6 +127,17 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(romaHtml).toContain('Outros <em>guias</em>');
     expect((await worker.fetch('/blog/voltar-ao-brasil-nas-ferias').then((r) => r.text()))).toContain('Vai voltar ao Brasil?');
 
+    // guia monetizado de Roma: entra como rascunho (invisível) e o endereço curto já aponta para ele
+    expect((await worker.fetch('/blog/roma-em-3-dias')).status).toBe(404);
+    expect(indiceHtml).not.toContain('Roma em 3 dias');
+    const curto = await worker.fetch('/guia/roma?utm_source=tiktok', { redirect: 'manual' });
+    expect(curto.status).toBe(302);
+    expect(curto.headers.get('location')).toBe('/blog/roma-em-3-dias?utm_source=tiktok');
+    expect((await worker.fetch('/guia/naoexiste', { redirect: 'manual' })).status).toBe(404);
+    const pdf = await worker.fetch('/guias/roma-em-3-dias.pdf');
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers.get('content-type')).toContain('pdf');
+
     const inexistente = await worker.fetch('/blog/nao-existe');
     expect(inexistente.status).toBe(404);
     expect(await inexistente.text()).toContain('Não encontramos este');
@@ -157,7 +168,7 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(6);
+    expect(listaJson.posts).toHaveLength(7); // 6 publicados + o rascunho do guia "Roma em 3 dias" (migration 0024)
     expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa']);
 
     // sem o token CSRF a alteração é recusada
@@ -233,11 +244,47 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(destaques[0]?.n).toBe(1); // o destaque novo tirou o antigo
     expect(await worker.fetch('/sitemap.xml').then((r) => r.text())).toContain(`/blog/${slug}`);
 
+    // --- guia monetizado de Roma: prévia, botões de ação e publicação ----------------------------
+    const romaId = d1Query<{ id: string }>(persistTo, "SELECT id FROM blog_posts WHERE slug='roma-em-3-dias'")[0]!.id;
+    const romaPrevia = await (await worker.fetch(`/blog/preview/${romaId}`, { headers: { cookie: jar.cookieHeader() } })).text();
+    expect(romaPrevia).toContain('class="cta-pdf cta-pdf-topo"'); // botão do PDF no topo, dentro do cabeçalho da página
+    expect(romaPrevia.indexOf('cta-pdf-topo')).toBeLessThan(romaPrevia.indexOf('class="post-body"'));
+    expect(romaPrevia).toContain('href="/guias/roma-em-3-dias.pdf?utm_source=rotacerta&amp;utm_medium=blog&amp;utm_campaign=roma&amp;utm_content=pdf-1"');
+    expect(romaPrevia).toContain('https://wa.me/351925307391?text=Oi%2C%20Rota%20Certa!%20Vi%20o%20guia%20de%20Roma');
+    expect(romaPrevia.match(/cta-inativo/g)).toHaveLength(3); // 3 passeios, ainda sem ID do GetYourGuide
+    expect(romaPrevia).not.toMatch(/—|--/);
+    // o editor aceita e devolve os blocos novos (round-trip pela API)
+    const romaPost = (await (await worker.fetch(`/api/admin/blog/posts/${romaId}`, { headers: { cookie: jar.cookieHeader() } })).json() as { post: Record<string, unknown> & { body: Array<{ t: string }> } }).post;
+    expect(romaPost.body.map((b) => b.t)).toEqual(expect.arrayContaining(['pdf', 'passeio', 'whatsapp', 'contato', 'afiliado']));
+    const comCarro = await worker.fetch(`/api/admin/blog/posts/${romaId}`, { method: 'PUT', headers: jar.json(), body: JSON.stringify({ ...romaPost, body: [...romaPost.body, { t: 'carro', title: 'Alugar carro em Roma?' }] }) });
+    expect(comCarro.status, await comCarro.clone().text()).toBe(200);
+    const semPdfBom = await worker.fetch(`/api/admin/blog/posts/${romaId}`, { method: 'PUT', headers: jar.json(), body: JSON.stringify({ ...romaPost, body: [{ t: 'pdf', href: 'https://evil.example/x.pdf' }] }) });
+    expect(semPdfBom.status).toBe(400);
+    expect((await semPdfBom.json() as { field: string }).field).toBe('body');
+    expect((await worker.fetch(`/api/admin/blog/posts/${romaId}/publish`, { method: 'POST', headers: jar.json() })).status).toBe(200);
+    const romaNoAr = await worker.fetch('/blog/roma-em-3-dias');
+    expect(romaNoAr.status).toBe(200);
+    const romaNoArHtml = await romaNoAr.text();
+    // Neste teste o Worker recebe o host "placeholder" (não é localhost), ou seja, vale a regra de produção:
+    // parceiro sem link configurado não aparece de jeito nenhum (nem marcado como inativo) e o aviso de afiliado some.
+    expect(romaNoArHtml).not.toContain('Alugar carro em Roma?');
+    expect(romaNoArHtml).not.toContain('cta-inativo');
+    expect(romaNoArHtml).not.toContain('Passeios no Coliseu');
+    expect(romaNoArHtml).not.toContain('aviso-afiliado');
+    expect(romaNoArHtml).toContain('Cotar pelo WhatsApp');
+    const romaPreviaCarro = await (await worker.fetch(`/blog/preview/${romaId}`, { headers: { cookie: jar.cookieHeader() } })).text();
+    expect(romaPreviaCarro).toContain('Alugar carro em Roma?'); // a prévia do painel sempre mostra, marcado como inativo
+    const curtoNoAr = await worker.fetch('/guia/roma', { redirect: 'manual' });
+    expect(curtoNoAr.status).toBe(302);
+    const destinoCurto = await worker.fetch(curtoNoAr.headers.get('location')!);
+    expect(destinoCurto.status).toBe(200);
+    expect(await destinoCurto.text()).toContain('Baixar o guia (PDF)');
+
     // --- tirar do ar e excluir ------------------------------------------------------------------
     expect((await worker.fetch(`/api/admin/blog/posts/${id}/unpublish`, { method: 'POST', headers: jar.json() })).status).toBe(200);
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(6);
+    expect(depois.posts).toHaveLength(7);
   }, 120_000);
 });
