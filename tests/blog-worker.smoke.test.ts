@@ -168,7 +168,7 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(7); // 6 publicados + o rascunho do guia "Roma em 3 dias" (migration 0024)
+    expect(listaJson.posts).toHaveLength(8); // 6 publicados + os rascunhos dos guias "Roma em 3 dias" (migration 0024) e "Lisboa em 3 dias" (migration 0032)
     expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa']);
 
     // sem o token CSRF a alteração é recusada
@@ -289,11 +289,29 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(destinoCurto.status).toBe(200);
     expect(await destinoCurto.text()).toContain('Baixar o guia (PDF)');
 
+    // --- guia monetizado de Lisboa (migration 0032): rascunho, mesmo molde de Roma, sem tocar no post antigo -----
+    expect((await worker.fetch('/blog/guia-lisboa-em-3-dias')).status).toBe(404); // rascunho: invisível ao público
+    const lisboaId = d1Query<{ id: string }>(persistTo, "SELECT id FROM blog_posts WHERE slug='guia-lisboa-em-3-dias'")[0]!.id;
+    const lisboaPrevia = await (await worker.fetch(`/blog/preview/${lisboaId}`, { headers: { cookie: jar.cookieHeader() } })).text();
+    expect(lisboaPrevia).toContain('class="cta-pdf cta-pdf-topo"');
+    expect(lisboaPrevia).toContain('href="/guias/lisboa-em-3-dias.pdf?utm_source=rotacerta&amp;utm_medium=blog&amp;utm_campaign=lisboa&amp;utm_content=pdf-1"');
+    expect(lisboaPrevia).toContain('https://wa.me/351925307391?text=Oi%2C%20Rota%20Certa!%20Vi%20o%20guia%20de%20Lisboa');
+    expect(lisboaPrevia.match(/cta-inativo/g)).toHaveLength(3);
+    expect(lisboaPrevia).toContain('<meta property="og:image" content="' + ORIGIN + '/assets/blog/lisboa-guia-3-dias.jpg">');
+    expect(lisboaPrevia.match(/<span class="foto-credito">Foto: [^<]+ \/ Pexels<\/span>/g)).toHaveLength(5);
+    expect(lisboaPrevia).not.toMatch(/—|--/);
+    const antigo = await worker.fetch('/blog/lisboa-em-3-dias'); // o post de 29/09 continua publicado e intacto
+    expect(antigo.status).toBe(200);
+    expect(await antigo.text()).toContain('Lisboa em 3 dias: bairros, miradouros');
+    const curtoLisboa = await worker.fetch('/guia/lisboa?utm_source=tiktok', { redirect: 'manual' });
+    expect(curtoLisboa.status).toBe(302);
+    expect(curtoLisboa.headers.get('location')).toBe('/blog/guia-lisboa-em-3-dias?utm_source=tiktok');
+
     // --- tirar do ar e excluir ------------------------------------------------------------------
     expect((await worker.fetch(`/api/admin/blog/posts/${id}/unpublish`, { method: 'POST', headers: jar.json() })).status).toBe(200);
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(7);
+    expect(depois.posts).toHaveLength(8);
   }, 120_000);
 });
