@@ -41,6 +41,7 @@ Botão de parceiro sem link: some para o público. Na pré-visualização do pai
 2. Gerar a migration (entra como **rascunho**): `npx tsx tools/gerar-migration-guia.ts content/guias/<guia>.json d1/migrations/00NN_blog_guia_<guia>.sql`.
 3. Aplicar a migration (`pnpm d1:migrate:remote`), conferir a prévia no painel e clicar em Publicar.
 4. Se quiser endereço curto, acrescentar em `GUIAS_CURTOS`.
+5. Região nova (ex.: `americas`): ponha `"regionName": "Américas"` no JSON do guia. A migration gera um `INSERT OR IGNORE INTO blog_regions` antes do post (se a região já existir, nada muda).
 
 ## Etapa 2 (futuro): gerar os guias a partir do `guide.json`
 

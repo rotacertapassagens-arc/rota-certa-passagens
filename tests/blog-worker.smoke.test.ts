@@ -133,6 +133,10 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const curto = await worker.fetch('/guia/roma?utm_source=tiktok', { redirect: 'manual' });
     expect(curto.status).toBe(302);
     expect(curto.headers.get('location')).toBe('/blog/roma-em-3-dias?utm_source=tiktok');
+    expect((await worker.fetch('/blog/nova-york-em-4-dias')).status).toBe(404); // rascunho (migration 0029)
+    const curtoNy = await worker.fetch('/guia/novayork?utm_source=tiktok', { redirect: 'manual' });
+    expect(curtoNy.status).toBe(302);
+    expect(curtoNy.headers.get('location')).toBe('/blog/nova-york-em-4-dias?utm_source=tiktok');
     expect((await worker.fetch('/guia/naoexiste', { redirect: 'manual' })).status).toBe(404);
     const pdf = await worker.fetch('/guias/roma-em-3-dias.pdf');
     expect(pdf.status).toBe(200);
@@ -168,7 +172,7 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(7); // 6 publicados + o rascunho do guia "Roma em 3 dias" (migration 0024)
+    expect(listaJson.posts).toHaveLength(8); // 6 publicados + os rascunhos dos guias "Roma em 3 dias" (0024) e "Nova York em 4 dias" (0029)
     expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa']);
 
     // sem o token CSRF a alteração é recusada
@@ -294,6 +298,6 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(7);
+    expect(depois.posts).toHaveLength(8);
   }, 120_000);
 });

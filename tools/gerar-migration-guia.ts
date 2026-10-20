@@ -15,6 +15,8 @@ import { blocks, readingMinutes, slugify } from '../worker/blog.ts';
 type Conteudo = {
   id: string; slug: string; regionId: string; title: string; titleHighlight: string | null; summary: string; lede: string | null;
   destination: string | null; coverUrl: string; coverUrlSmall: string | null; coverAlt: string | null; body: unknown;
+  /** Opcional: nome da região, para criá-la na migration se ainda não existir (INSERT OR IGNORE). Roma não usa. */
+  regionName?: string;
 };
 
 const args = process.argv.slice(2);
@@ -34,7 +36,8 @@ const q = (v: string | null) => (v === null ? 'NULL' : `'${v.replace(/'/g, "''")
 const minutos = readingMinutes(c, body);
 const sqlNovo = `-- Guia "${c.title}" (rascunho). Gerado por tools/gerar-migration-guia.ts a partir de ${entrada.replace(/\\/g, '/')}.
 -- Entra como rascunho: publique pelo painel (/admin-blog.html) depois de conferir a pré-visualização.
-INSERT INTO blog_posts (id, slug, status, region_id, title, title_highlight, summary, lede, destination, cta_title, cover_url, cover_url_small, cover_alt, featured, body, reading_minutes)
+${c.regionName ? `INSERT OR IGNORE INTO blog_regions (id, name, sort_order) VALUES (${q(c.regionId)}, ${q(c.regionName)}, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM blog_regions));
+` : ''}INSERT INTO blog_posts (id, slug, status, region_id, title, title_highlight, summary, lede, destination, cta_title, cover_url, cover_url_small, cover_alt, featured, body, reading_minutes)
 VALUES (${q(c.id)}, ${q(c.slug)}, 'draft', ${q(c.regionId)}, ${q(c.title)}, ${q(c.titleHighlight)}, ${q(c.summary)}, ${q(c.lede)}, ${q(c.destination)}, NULL, ${q(c.coverUrl)}, ${q(c.coverUrlSmall)}, ${q(c.coverAlt)}, 0, ${q(json)}, ${minutos});
 `;
 const sqlAtualiza = `-- Atualiza SOMENTE o rascunho do guia "${c.title}" (slug ${c.slug}). Gerado por tools/gerar-migration-guia.ts a partir de ${entrada.replace(/\\/g, '/')}.
