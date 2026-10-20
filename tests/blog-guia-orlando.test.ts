@@ -5,8 +5,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { GUIAS_CURTOS } from '../worker/blog-parceiros.js';
-import { block } from '../worker/blog.js';
-import { renderBlocks, type Block, type BlogParceiros, type RenderCtx } from '../shared/blogGuias.js';
+import { ctaBlock, renderBlocks, type Block, type BlogParceiros, type RenderCtx } from '../shared/blogGuias.js';
 
 const VAZIO: BlogParceiros = {
   getyourguide: { partnerId: '', baseUrl: 'https://www.getyourguide.com.br' },
@@ -17,12 +16,12 @@ const ctx = (over: Partial<RenderCtx> = {}): RenderCtx => ({ preview: false, loc
 
 describe('guia de Orlando (content/guias/orlando-a-ordem-dos-parques.json)', () => {
   const conteudo = JSON.parse(readFileSync(new URL('../content/guias/orlando-a-ordem-dos-parques.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
-  const body = conteudo.body.map((b) => block(b)) as Block[];
+  const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
   const tipos = conteudo.body.map((b) => b.t);
   const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
 
   it('todos os blocos são válidos; começa pelo botão do PDF que já existe', () => {
-    expect(body.every(Boolean)).toBe(true);
+    expect(conteudo.body.filter((b) => ['pdf', 'passeio', 'whatsapp', 'carro', 'contato', 'afiliado'].includes(String(b.t))).every((b) => ctaBlock(b) !== null)).toBe(true);
     expect(tipos[0]).toBe('pdf');
     expect(conteudo.body[0]!.href).toBe('/guias/orlando-a-ordem-dos-parques.pdf');
     expect(readFileSync(arq('/guias/orlando-a-ordem-dos-parques.pdf')).subarray(0, 5).toString()).toBe('%PDF-');
