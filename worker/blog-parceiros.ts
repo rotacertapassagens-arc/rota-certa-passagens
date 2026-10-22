@@ -33,4 +33,5 @@ export const GUIAS_CURTOS: Record<string, string> = {
   londres: 'londres-em-4-dias',
   santiago: 'santiago-em-4-dias',
   novayork: 'nova-york-em-4-dias',
+  madri: 'madri-em-4-dias',
 };
