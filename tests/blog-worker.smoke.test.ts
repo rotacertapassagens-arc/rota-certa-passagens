@@ -134,6 +134,12 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(curto.status).toBe(302);
     expect(curto.headers.get('location')).toBe('/blog/roma-em-3-dias?utm_source=tiktok');
     expect((await worker.fetch('/guia/naoexiste', { redirect: 'manual' })).status).toBe(404);
+    // guia de Punta Cana (migration 0033): também rascunho invisível, com atalho /guia/puntacana
+    expect((await worker.fetch('/blog/punta-cana-praias-e-passeios')).status).toBe(404);
+    expect(indiceHtml).not.toContain('Punta Cana em 5 dias');
+    const curtoPunta = await worker.fetch('/guia/puntacana?utm_source=tiktok&utm_campaign=d04', { redirect: 'manual' });
+    expect(curtoPunta.status).toBe(302);
+    expect(curtoPunta.headers.get('location')).toBe('/blog/punta-cana-praias-e-passeios?utm_source=tiktok&utm_campaign=d04');
     const pdf = await worker.fetch('/guias/roma-em-3-dias.pdf');
     expect(pdf.status).toBe(200);
     expect(pdf.headers.get('content-type')).toContain('pdf');
@@ -188,8 +194,8 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(12); // 6 publicados + o rascunho do guia "Roma em 3 dias" (0024) + 5 artigos de "Dicas de viagem" (0037)
-    expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa', 'dicas-de-viagem']); // a categoria vem da 0036
+    expect(listaJson.posts).toHaveLength(13); // 6 publicados + os rascunhos dos guias "Roma em 3 dias" (0024) e "Punta Cana" (0033) + 5 artigos de "Dicas de viagem" (0037)
+    expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa', 'caribe', 'dicas-de-viagem']); // 'caribe' vem da 0033 e a categoria da 0036
 
     // sem o token CSRF a alteração é recusada
     const semCsrf = await worker.fetch('/api/admin/blog/regions', { method: 'POST', headers: { 'content-type': 'application/json', cookie: jar.cookieHeader(), origin: ORIGIN }, body: JSON.stringify({ name: 'Ásia' }) });
@@ -314,6 +320,6 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(12);
+    expect(depois.posts).toHaveLength(13);
   }, 120_000);
 });

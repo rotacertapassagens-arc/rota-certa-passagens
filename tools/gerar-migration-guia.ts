@@ -18,6 +18,8 @@ import { blocks, readingMinutes, slugify } from '../worker/blog.ts';
 type Conteudo = {
   id: string; slug: string; regionId: string; title: string; titleHighlight: string | null; summary: string; lede: string | null;
   destination: string | null; coverUrl: string; coverUrlSmall: string | null; coverAlt: string | null; body: unknown;
+  /** Opcional: região nova (id em regionId). Gera INSERT OR IGNORE em blog_regions antes do post; sem isso, a região precisa já existir. */
+  regionName?: string; regionOrder?: number;
 };
 
 const args = process.argv.slice(2);
@@ -66,9 +68,13 @@ WHERE slug = ${q(c.slug)} AND status = 'draft';
     const quando = publicado ? `, published_at` : '';
     // Datas escalonadas de 1 minuto: o primeiro arquivo fica como o mais recente.
     const valorQuando = publicado ? `, datetime('now', '-${i} minutes')` : '';
+    const regiao = c.regionName
+      ? `INSERT OR IGNORE INTO blog_regions (id, name, sort_order) VALUES (${q(c.regionId)}, ${q(c.regionName)}, ${Number.isInteger(c.regionOrder) ? c.regionOrder : 99});
+`
+      : '';
     partes.push(`-- Guia "${c.title}" (${estado}). Gerado por tools/gerar-migration-guia.ts a partir de ${origem}.
 ${publicado ? '-- Entra já publicado (--publicado): aparece em /blog/ assim que a migration for aplicada.' : "-- Entra como rascunho: publique pelo painel (/admin-blog.html) depois de conferir a pré-visualização."}
-INSERT INTO blog_posts (id, slug, status, region_id, title, title_highlight, summary, lede, destination, cta_title, cover_url, cover_url_small, cover_alt, featured, body, reading_minutes${quando})
+${regiao}INSERT INTO blog_posts (id, slug, status, region_id, title, title_highlight, summary, lede, destination, cta_title, cover_url, cover_url_small, cover_alt, featured, body, reading_minutes${quando})
 VALUES (${q(c.id)}, ${q(c.slug)}, ${status}, ${q(c.regionId)}, ${q(c.title)}, ${q(c.titleHighlight)}, ${q(c.summary)}, ${q(c.lede)}, ${q(c.destination)}, NULL, ${q(c.coverUrl)}, ${q(c.coverUrlSmall)}, ${q(c.coverAlt)}, 0, ${q(json)}, ${minutos}${valorQuando});
 `);
   }
