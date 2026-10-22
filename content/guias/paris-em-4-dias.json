@@ -1,0 +1,146 @@
+{
+  "_origem": "Fatos de rota-certa-motion-factory/guides/paris-4-dias/guide.json (v0.1, aprovado em 14/10/2026; valores conferidos em 14/10/2026) e do guia.html do mesmo guia. Não acrescente fato que não esteja lá.",
+  "id": "b347d036-f4d5-4eb8-af56-c0bafd9774e0",
+  "slug": "paris-em-4-dias",
+  "regionId": "europa",
+  "title": "Paris em 4 dias: uma região por dia, cada museu no dia em que abre",
+  "titleHighlight": "cada museu no dia em que abre",
+  "summary": "Roteiro de Paris em 4 dias dividido em quatro regiões, com calendário dos museus, valores oficiais em euro e em reais conferidos em 14/10/2026 e o guia em PDF para baixar de graça.",
+  "lede": "Quatro regiões, um museu certo em cada dia, valores oficiais conferidos em outubro de 2026 e o guia completo para baixar e levar no celular.",
+  "destination": "Paris",
+  "coverUrl": "/assets/blog/paris-4-dias.jpg",
+  "coverUrlSmall": "/assets/blog/paris-4-dias-m.jpg",
+  "coverAlt": "Torre Eiffel vista da esplanada do Trocadéro, com estátuas douradas em primeiro plano e céu azul",
+  "body": [
+    { "t": "pdf", "href": "/guias/paris-em-4-dias.pdf", "note": "PDF de 17 páginas, feito para ler no celular. Grátis, sem cadastro." },
+    { "t": "p", "text": "Em Paris, o erro mais caro é chegar a um museu fechado: **o Louvre fecha às terças e o Orsay fecha às segundas**. Este roteiro divide Paris em **quatro regiões, uma por dia**, e encaixa cada museu num dia em que ele abre." },
+    { "t": "tip", "title": "Como usar este roteiro", "items": [
+      "**Monte as datas** com o calendário dos museus logo abaixo.",
+      "**Reserve horário** no Louvre e na Torre Eiffel, nos sites oficiais.",
+      "**Confira os horários na véspera**, nos sites listados no fim da página."
+    ] },
+    { "t": "tip", "title": "Calendário dos museus: cada lugar no dia em que ele abre", "items": [
+      "**Louvre:** fecha às terças. Das 9h às 18h; quarta e sexta até 21h.",
+      "**Orsay:** fecha às segundas. Das 9h30 às 18h; quinta até 21h45.",
+      "**Torre Eiffel:** não fecha. Das 9h15 às 22h45, de 11/10 a 11/11/2026.",
+      "**Notre-Dame:** não fecha. Dias úteis, das 7h50 às 19h; fim de semana, das 8h15 às 19h30.",
+      "**Sacré-Cœur:** não fecha. Das 6h30 às 22h30.",
+      "**Feriados:** o Louvre fecha em 1/1, 1/5 e 25/12; o Orsay, em 1/5 e 25/12."
+    ] },
+    { "t": "tip", "title": "Louvre: reserva obrigatória de 17/10 a 1/11/2026", "items": [
+      "Nesse período, todo visitante precisa reservar horário. No resto do ano, a reserva é recomendada, inclusive para quem entra de graça.",
+      "**Se o Dia 2 cair numa terça,** troque com o Dia 1 ou o Dia 3. **Se o Dia 4 cair numa segunda,** troque com qualquer outro. A ordem dos dias é livre."
+    ] },
+    { "t": "whatsapp" },
+    { "t": "afiliado" },
+
+    { "t": "h", "label": "Dia 1", "text": "Torre Eiffel e Sena" },
+    { "t": "p", "text": "A torre vista do Trocadéro, a subida e um passeio de barco no Sena." },
+    { "t": "img", "src": "/assets/blog/paris-torre-eiffel.jpg", "alt": "Base e primeiro andar da Torre Eiffel, em ferro marrom-dourado, com prédios de pedra de Paris em primeiro plano e céu nublado", "caption": "A Torre Eiffel, vista de perto.", "credit": "Foto: Svitlana Shakalova / Pexels", "w": 867, "h": 867 },
+    { "t": "ul", "items": [
+      "**Manhã, Trocadéro:** a esplanada do outro lado do rio tem a vista clássica da torre. Chegue cedo para a foto sem multidão.",
+      "**Depois, subida na Torre Eiffel:** topo de elevador, € 36,70 (cerca de R$ 206). Até o 2º andar: € 23,50 de elevador (R$ 132) ou € 14,80 pela escada (R$ 83). De 11/10 a 11/11/2026, abre das 9h15 às 22h45.",
+      "**Tarde, barco no Sena:** vários barcos turísticos saem dos píeres perto da torre. O passeio dura cerca de 1 hora e costuma passar pela Notre-Dame e pelo Louvre. O preço varia com a empresa: confira direto com ela.",
+      "**Noite, opcional:** volte ao Trocadéro para ver a torre iluminada. É grátis."
+    ] },
+    { "t": "img", "src": "/assets/blog/paris-barco-sena.jpg", "alt": "Barco turístico branco descendo o Rio Sena, passando sob uma ponte de pedra", "caption": "Um barco turístico no Sena.", "credit": "Foto: Nathan Graciano / Pexels", "w": 867, "h": 867 },
+    { "t": "tip", "title": "Para planejar o Dia 1", "items": [
+      "**Como chegar:** metrô até a estação Trocadéro.",
+      "**Reserve antes:** compre no site oficial da torre. O próprio site diz que lá estão as tarifas mais vantajosas. Preços para adultos a partir de 25 anos, vistos no site oficial em 14/10/2026.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 4 horas nas atrações e cerca de 1 km a pé do Trocadéro à torre, sem contar filas. Esforço baixo, se subir de elevador."
+    ] },
+    { "t": "passeio", "busca": "Torre Eiffel Paris", "title": "Passeios na Torre Eiffel e no Sena" },
+
+    { "t": "h", "label": "Dia 2", "text": "Louvre e Champs-Élysées" },
+    { "t": "p", "text": "O Louvre de manhã e uma caminhada até o Arco do Triunfo. **Nunca numa terça:** o Louvre fecha." },
+    { "t": "img", "src": "/assets/blog/paris-louvre.jpg", "alt": "Pirâmide de vidro do Louvre no pátio do museu, com turistas caminhando e o palácio de pedra ao fundo", "caption": "A pirâmide de vidro, no pátio do Louvre.", "credit": "Foto: Efrem Efre / Pexels", "w": 1000, "h": 666 },
+    { "t": "ul", "items": [
+      "**Manhã, Louvre:** segunda, quinta, sábado e domingo, das 9h às 18h; quarta e sexta até 21h. Para quem não é do Espaço Econômico Europeu, o ingresso custa € 32 (cerca de R$ 180). Menores de 18 anos não pagam. A última entrada é 1 hora antes do fechamento. Fecha também em 1/1, 1/5 e 25/12.",
+      "**Almoço, Jardim das Tulherias:** o jardim ao lado do Louvre, com lagos e cadeiras para descansar. Siga por ele até a Place de la Concorde. É grátis.",
+      "**Fim da tarde, Champs-Élysées e Arco do Triunfo:** a avenida é grátis. O terraço do Arco custa € 16 de outubro a março (R$ 90) e € 22 de abril a setembro (R$ 123), com última entrada 45 minutos antes do fechamento. O Túmulo do Soldado Desconhecido é grátis."
+    ] },
+    { "t": "img", "src": "/assets/blog/paris-arco-triunfo.jpg", "alt": "Arco do Triunfo visto da rua, com postes de luz, árvores sem folhas e um carro pequeno passando", "caption": "O Arco do Triunfo, no fim da Champs-Élysées.", "credit": "Foto: Mathias Reding / Pexels", "w": 867, "h": 650 },
+    { "t": "tip", "title": "Para planejar o Dia 2", "items": [
+      "**Reserve antes:** o Louvre com horário marcado, no site oficial.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 3 horas no Louvre e cerca de 3,5 km a pé do Louvre ao Arco, uns 45 minutos, sem contar filas. Esforço moderado: dia de caminhada."
+    ] },
+    { "t": "passeio", "busca": "Louvre Paris", "title": "Passeios no Louvre" },
+
+    { "t": "h", "label": "Dia 3", "text": "Montmartre" },
+    { "t": "p", "text": "As ruas de pedra de Montmartre e a basílica no alto da colina." },
+    { "t": "img", "src": "/assets/blog/paris-montmartre.jpg", "alt": "Rua estreita de Montmartre entre casas claras, com a cúpula branca da Basílica de Sacré-Cœur ao fundo", "caption": "Uma rua de Montmartre, com a cúpula do Sacré-Cœur ao fundo.", "credit": "Foto: Raylarında Şehrin / Pexels", "w": 867, "h": 867 },
+    { "t": "ul", "items": [
+      "**Manhã, ruas de Montmartre:** desça na estação de metrô Abbesses e suba a pé pelas ruas de pedra até a praça dos pintores, a Place du Tertre.",
+      "**Depois, Basílica de Sacré-Cœur:** aberta todos os dias, das 6h30 às 22h30, com entrada grátis. O domo custa € 8 (cerca de R$ 45), com ingresso comprado no local.",
+      "**Tarde, descida e cafés:** desça pela escadaria da basílica e almoce num dos cafés do bairro. O horário do domo muda ao longo do ano: confira no site oficial."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 3", "items": [
+      "**Como chegar:** metrô, estação Abbesses.",
+      "**O domo não tem elevador:** são quase 300 degraus. A basílica tem elevador pelos fundos, mas o domo, não.",
+      "**Dica da Rota Certa:** na escadaria, desconfie de quem aborda oferecendo pulseiras ou abaixo-assinados. Siga em frente.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 3 a 4 horas nas atrações, com ladeiras e escadarias. Esforço alto, se subir ao domo."
+    ] },
+    { "t": "passeio", "busca": "Montmartre Paris", "title": "Passeios por Montmartre" },
+
+    { "t": "h", "label": "Dia 4", "text": "Orsay e Notre-Dame" },
+    { "t": "p", "text": "O Museu d'Orsay e uma caminhada pela beira do Sena até a Notre-Dame. **Nunca numa segunda:** o Orsay fecha." },
+    { "t": "img", "src": "/assets/blog/paris-orsay.jpg", "alt": "Fachada do Museu d'Orsay, a antiga estação de trem, com o grande relógio de ponteiros pretos no alto e cartazes pendurados nas arcadas", "caption": "A fachada do Museu d'Orsay, com o grande relógio.", "credit": "Foto: Jose Vasquez / Pexels", "w": 867, "h": 650 },
+    { "t": "ul", "items": [
+      "**Manhã, Museu d'Orsay:** terça a domingo, das 9h30 às 18h; quinta até 21h45. Ingresso de € 16 pela internet (R$ 90) ou € 14 no museu (R$ 79). No 1º domingo do mês é grátis, com reserva. Fecha também em 1/5 e 25/12.",
+      "**Tarde, beira do Sena:** atravesse para a margem do Louvre ou siga pela margem do Orsay, entre as bancas de livros, até a Île de la Cité.",
+      "**Fim da tarde, Catedral de Notre-Dame:** segunda a sexta, das 7h50 às 19h (quinta até 22h); sábado e domingo, das 8h15 às 19h30. Última entrada 30 minutos antes. As torres custam € 16 (R$ 90), com reserva obrigatória e muitos degraus."
+    ] },
+    { "t": "img", "src": "/assets/blog/paris-notre-dame.jpg", "alt": "Catedral de Notre-Dame vista da margem do Sena, com as duas torres entre árvores e o cais de pedra à frente", "caption": "A Notre-Dame, vista da beira do Sena.", "credit": "Foto: Karography / Pexels", "w": 731, "h": 731 },
+    { "t": "tip", "title": "Para planejar o Dia 4", "items": [
+      "**Notre-Dame é grátis: não pague.** A reserva de horário é gratuita, opcional e feita só no site oficial. Ingressos pagos de terceiros não valem.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 2 a 3 horas no Orsay e cerca de 2 km a pé pela beira do rio, uns 30 minutos. Esforço baixo: tudo plano."
+    ] },
+    { "t": "passeio", "busca": "Notre-Dame Paris", "title": "Passeios na Notre-Dame e no Orsay" },
+
+    { "t": "h", "label": "Na prática", "text": "Como chegar e se locomover" },
+    { "t": "p", "text": "Paris tem voos diretos saindo do Brasil e transporte público dos dois aeroportos, Charles de Gaulle (CDG) e Orly." },
+    { "t": "ul", "items": [
+      "**Dos aeroportos:** para CDG e Orly vale o bilhete Paris Região e Aeroportos, € 14 (cerca de R$ 79). O bilhete comum de metrô não serve para ir aos aeroportos.",
+      "**Metrô, trem e RER:** o bilhete Metrô-Trem-RER custa € 2,55 (cerca de R$ 14) e vale 2 horas, com baldeações sem sair da rede. O Navigo Jour dá viagens ilimitadas no dia por € 12,30 (R$ 69).",
+      "**Tomada e voltagem:** a França usa 230 V e tomadas de pinos redondos (tipos C e E). Plugue brasileiro de três pinos não encaixa: leve um adaptador.",
+      "**No metrô cheio:** mochila na frente e celular no bolso da frente."
+    ] },
+
+    { "t": "h", "label": "Antes de ir", "text": "Documentos e checklist" },
+    { "t": "ul", "items": [
+      "Passaporte emitido há menos de 10 anos e com validade de pelo menos 3 meses além da saída prevista.",
+      "Reserva de hotel e passagem de volta.",
+      "Seguro viagem com cobertura médica.",
+      "Louvre e Torre Eiffel com horário marcado.",
+      "Nenhum Louvre numa terça e nenhum Orsay numa segunda.",
+      "**Dinheiro para a estada:** a França pede € 65 por dia com reserva de hotel (R$ 365) ou € 120 por dia sem reserva (R$ 673).",
+      "**Ingressos principais, por adulto:** Louvre, Orsay (pela internet) e Torre Eiffel até o topo somam € 84,70 (cerca de R$ 475). Reais pela PTAX de 14/10/2026 (€ 1 = R$ 5,61); no cartão entram o IOF e o câmbio do seu banco."
+    ] },
+    { "t": "tip", "title": "Para brasileiros: entrada na França", "items": [
+      "**Passaporte, sem visto para turismo:** brasileiro não precisa de visto para turismo de até 90 dias.",
+      "**Na chegada, digitais e foto:** desde 10/4/2026, o Sistema de Entrada e Saída (EES) registra digitais e foto do rosto na fronteira. Não há cadastro prévio.",
+      "**ETIAS, a autorização que vem aí:** a União Europeia prevê exigir o ETIAS, inclusive de brasileiros, a partir do último trimestre de 2026, com taxa de € 20. A data exata ainda não saiu. Use só o site oficial."
+    ] },
+
+    { "t": "pdf", "href": "/guias/paris-em-4-dias.pdf", "note": "Leve o roteiro, as rotas a pé no Google Maps e o orçamento no celular. Grátis, sem cadastro." },
+
+    { "t": "tip", "title": "Fontes oficiais, conferidas em 14/10/2026", "items": [
+      "[Louvre: horários e ingressos](https://www.louvre.fr/en/visit/hours-admission)",
+      "[Museu d'Orsay: horários e ingressos](https://www.musee-orsay.fr/en/visit/admission-opening-times-tickets) e [tarifas](https://www.musee-orsay.fr/en/Visit/rates)",
+      "[Torre Eiffel: tarifas e horários](https://www.toureiffel.paris/fr/tarifs-horaires)",
+      "[Arco do Triunfo: informações](https://www.paris-arc-de-triomphe.fr/en/visit/informations-pratiques) e [bilheteria](https://tickets.monuments-nationaux.fr/en-GB/families?site=2032863779450400197)",
+      "[Notre-Dame: horários](https://www.notredamedeparis.fr/faq/horaires-ouverture-notre-dame/), [reserva grátis](https://www.notredamedeparis.fr/en/visit/reservation-free/) e [torres](https://www.tours-notre-dame-de-paris.fr/en)",
+      "[Sacré-Cœur: horários](https://www.sacre-coeur-montmartre.com/en/info-and-visits/practical-information/hours-and-directions/) e [domo](https://www.sacre-coeur-montmartre.com/en/info-and-visits/the-dome-tour/)",
+      "[Transporte: tarifas 2026 da IDFM](https://www.iledefrance-mobilites.fr/en/tarifs-titre-de-transport-en-commun-2026)",
+      "[Entrada: France-Visas](https://france-visas.gouv.fr/en/votre-arrivee-en-france), [EES e ETIAS](https://home-affairs.ec.europa.eu/news/main-differences-between-ees-and-etias-what-travellers-need-know-2026-04-28_en), [taxa do ETIAS](https://home-affairs.ec.europa.eu/news/european-travel-authorisation-etias-will-cost-eur-20-2025-07-17_en) e [quem precisa](https://travel-europe.europa.eu/en/etias/about-etias/who-should-apply)",
+      "[Tomada: IEC](https://www.iec.ch/world-plugs)",
+      "[Câmbio: Banco Central](https://www.bcb.gov.br/estabilidadefinanceira/historicocotacoes)"
+    ] },
+    { "t": "p", "text": "Horários, preços e regras mudam: confira nos sites acima antes de comprar. O preço do passeio de barco no Sena não foi conferido, porque depende da empresa. Quer ideias além deste roteiro? Veja também [Paris na primeira viagem](/blog/paris-primeira-viagem)." },
+    { "t": "p", "text": "Foto de capa: Dan Umareta / Pexels." },
+
+    { "t": "whatsapp" },
+    { "t": "contato" },
+    { "t": "afiliado" }
+  ]
+}
