@@ -32,4 +32,5 @@ export const GUIAS_CURTOS: Record<string, string> = {
   cusco: 'cusco-e-machu-picchu-em-4-dias',
   londres: 'londres-em-4-dias',
   santiago: 'santiago-em-4-dias',
+  novayork: 'nova-york-em-4-dias',
 };
