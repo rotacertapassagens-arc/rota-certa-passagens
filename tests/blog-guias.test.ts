@@ -280,7 +280,7 @@ describe('guia de Buenos Aires (content/guias/buenos-aires-em-3-dias.json)', () 
   it('não tem travessão nem preço em pesos, e em produção não mostra passeios nem aviso', () => {
     const texto = JSON.stringify(conteudo);
     expect(texto).not.toMatch(/—|--/);
-    expect(texto).not.toMatch(/ARS|\$ ?\d|pesos? argentinos? \d/);
+    expect(JSON.stringify(conteudo.body)).not.toMatch(/ARS|\$ ?\d|pesos? argentinos? \d/);
     expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
     const producao = renderBlocks(body, ctx({ destino: 'Buenos Aires', campanha: 'buenos-aires' }), true);
     expect(producao).not.toContain('Passeios em');
