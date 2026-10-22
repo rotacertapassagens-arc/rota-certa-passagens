@@ -1,0 +1,191 @@
+{
+  "_origem": "Texto aprovado e padronizado de Rota Certa/Mini Guias/checklist/guia.md (atualizado em outubro de 2026) e fatos de Mini Guias/_padrao/fatos-legais.md (conferidos em 22/10/2026). Não acrescente fato, número, norma ou prazo que não esteja lá. Fotos: Pexels, em Banco de Fotos Stories/blog/aprovadas (autor em blog/CREDITOS.md).",
+  "id": "da0bd53c-0c03-4293-bf10-6cf8018bc9b1",
+  "slug": "checklist-antes-de-viajar",
+  "regionId": "dicas-de-viagem",
+  "title": "Checklist antes de viajar: documentos, mala, dinheiro e saúde",
+  "titleHighlight": "Checklist antes de viajar",
+  "summary": "Documentos, passagens, dinheiro, saúde, mala, celular e uma linha do tempo de 60, 30, 7 e 1 dia antes, com caixinhas para marcar e fontes oficiais conferidas em 22/10/2026.",
+  "lede": "Regras mudam. Use este guia como roteiro e confirme os pontos que dependem do seu destino, da sua companhia aérea e da sua data de viagem.",
+  "destination": null,
+  "coverUrl": "/assets/blog/checklist-antes-de-viajar.jpg",
+  "coverUrlSmall": "/assets/blog/checklist-antes-de-viajar-m.jpg",
+  "coverAlt": "Mulher de fones arrumando uma mala aberta no chão de uma sala clara",
+  "body": [
+    { "t": "pdf", "href": "/guias/checklist-antes-de-viajar.pdf", "note": "Versão em PDF com caixinhas para marcar. Grátis, sem cadastro." },
+    { "t": "p", "text": "Guia Rota Certa, atualizado em outubro de 2026, com fontes conferidas em 22/10/2026. Regras mudam: use este guia como roteiro e confirme os pontos que dependem do seu destino, da sua companhia aérea e da sua data de viagem. **Quem decide o que você precisa para entrar é o país de destino.** Confira sempre no site oficial dele." },
+    { "t": "tip", "title": "Como ler este guia", "items": [
+      "Um número entre colchetes, como [1], marca um fato com fonte oficial, listada em **Fontes**, no fim da página.",
+      "**Recomendação:** é um conselho da Rota Certa, não uma regra.",
+      "**Não verificado:** é um ponto que não conseguimos confirmar em fonte oficial.",
+      "☐ marca um item para você conferir."
+    ] },
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Checklist antes de viajar e quero cotar uma passagem." },
+
+    { "t": "h", "text": "Passaporte e identidade" },
+    { "t": "p", "text": "**Passaporte.** O passaporte comum tem validade de 10 anos para maiores de 18 anos e de 5 anos para quem tem de 4 a 18 anos. No Brasil não existe renovação: com o passaporte vencido, emite-se outro. [1, 2] O pedido é feito no site da Polícia Federal (formulário, taxa, agendamento e atendimento presencial com biometria). Não é preciso pagar assessoria. [1, 2] O prazo estimado de entrega do passaporte é, em geral, de 6 a 10 dias úteis depois do atendimento presencial. Perto de férias escolares e feriados prolongados, o atendimento pode demorar mais. [1]" },
+    { "t": "p", "text": "**Recomendação:** confira a validade do passaporte antes de comprar a passagem." },
+    { "t": "ul", "items": [
+      "☐ Passaporte na validade que o país de destino pede.",
+      "☐ Nome do passaporte igual ao da passagem."
+    ] },
+    { "t": "img", "src": "/assets/blog/checklist-passaporte-e-bussola.jpg", "alt": "Passaporte decorativo de carimbos e bússola sobre mapa do mundo, com flores e chapéu de palha", "caption": "Confira a validade do passaporte antes de comprar a passagem.", "credit": "Foto: Nataliya Vaitkevich / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**Só o documento de identidade?** Em viagem de turismo ao Mercosul, a Polícia Federal dispensa o passaporte se você apresentar RG emitido há menos de 10 anos, com foto que ainda identifique você. CNH, carteiras de conselhos e certidão não servem. Trabalho, estudo, residência e saúde exigem passaporte. [2] A ANAC lista Argentina, Uruguai, Paraguai, Bolívia, Chile, Peru, Equador, Colômbia e Venezuela como destinos em que o RG também é aceito. [3] A CIN tem leitura por máquina, como o passaporte, e é aceita nos países com acordo de viagens, como os do Mercosul. Ela não substitui o passaporte nos demais países. [4]" },
+    { "t": "p", "text": "**Recomendação:** na dúvida, confirme com a companhia e com o país. A Rota Certa prefere o passaporte." },
+    { "t": "ul", "items": ["☐ Documento aceito no destino, conferido na fonte oficial."] },
+    { "t": "p", "text": "**Menor de 18 anos?** Menor de 18 anos com um dos pais: passaporte e autorização expressa do outro genitor, com firma reconhecida. Desacompanhado ou com adulto autorizado: autorização de ambos os pais. A ANAC remete à cartilha do CNJ e da Polícia Federal. [5]" },
+
+    { "t": "h", "text": "Visto, vacina e seguro" },
+    { "t": "p", "text": "**Visto ou autorização eletrônica.** O passaporte brasileiro isenta de visto de turismo em mais de 150 países, mas as autoridades podem pedir comprovante de hospedagem, carta-convite e passagem de volta, e o país de conexão também pode exigir visto. Visto incorreto para o objetivo da viagem pode levar à detenção. [6]" },
+    { "t": "p", "text": "Exemplo datado: em 22/10/2026, o site oficial da UE informa que o ETIAS, autorização eletrônica para quem não precisa de visto, ainda não está em operação, e que a data de início será avisada com meses de antecedência. [7]" },
+    { "t": "p", "text": "Para embarcar, você deve apresentar documento de identificação civil e cumprir as exigências da viagem, como o visto correto e os certificados de vacinação exigidos pelos países de destino, escala e conexão. Se não cumprir, a companhia pode negar o embarque (arts. 16 e 18). [8]" },
+    { "t": "ul", "items": ["☐ Visto ou autorização (e conexão) conferidos no site do governo ou na embaixada."] },
+    { "t": "p", "text": "**Certificado de vacinação (CIVP).** Alguns países exigem o certificado de vacinação contra febre amarela (CIVP). Ele vale a partir de 10 dias depois da vacina e por toda a vida. Pode estar no app Meu SUS Digital; se não estiver, peça no gov.br com CPF. A página do serviço remete à lista da OMS dos países que exigem o certificado e manda conferir todos os países do trajeto, se houver escala ou conexão. [9]" },
+    { "t": "ul", "items": [
+      "☐ CIVP exigido? Conferi destino e conexões.",
+      "☐ Vacina aplicada 10 dias ou mais antes."
+    ] },
+    { "t": "p", "text": "**Seguro viagem.** No seguro viagem internacional, a cobertura deve incluir ao menos despesas médicas, hospitalares e odontológicas, e não pode cobrir só acidentes pessoais. [10]" },
+    { "t": "p", "text": "**Recomendação:** contrate seguro mesmo se o país não exigir e leia o que a apólice cobre." },
+    { "t": "ul", "items": ["☐ Apólice salva no celular, com o telefone da seguradora."] },
+
+    { "t": "h", "text": "Passagens e reservas" },
+    { "t": "ul", "items": [
+      "**Nome.** Erro no nome, sobrenome ou agnome deve ser corrigido sem ônus se você pedir até o check-in. Em voo internacional com mais de uma companhia (interline), o custo pode ser repassado, exceto se o erro foi da companhia. A correção não torna a passagem transferível (art. 8). [8]",
+      "**Bagagem.** A bagagem despachada é um contrato acessório: as companhias podem vender passagens com franquias diferentes ou sem franquia, e valem as regras do contrato (art. 13). [8, 11]",
+      "**Check-in.** O passageiro deve se apresentar para embarque com documento de identificação civil e no horário estabelecido pela companhia (art. 18, I). [8]",
+      "**Ida e volta.** Na passagem de ida e volta, se você não usar o trecho inicial, a companhia pode cancelar o trecho de volta. Em voo doméstico, se você avisar até o horário do voo de ida que quer usar a volta, ela não pode cobrar multa por isso (art. 19). [8]"
+    ] },
+    { "t": "p", "text": "**Recomendação:** veja no e-mail ou no app quando o check-in abre e fecha e chegue com folga." },
+    { "t": "ul", "items": [
+      "☐ Nome do bilhete conferido letra por letra.",
+      "☐ Sei o que a tarifa inclui de bagagem.",
+      "☐ Horário de check-in anotado."
+    ] },
+
+    { "t": "h", "text": "Dinheiro e cartões" },
+    { "t": "p", "text": "**Recomendação:** avise o banco ou veja no app se o cartão vale no exterior. Confira moeda e limite, e leve mais de um meio de pagamento, em lugares separados. Veja tomada e voltagem do destino." },
+    { "t": "ul", "items": [
+      "☐ Cartão liberado no exterior, limite conferido.",
+      "☐ Moeda definida e adaptador de tomada na mala."
+    ] },
+    { "t": "p", "text": "**Muito dinheiro em espécie.** Ao sair do Brasil com mais de 10 mil dólares em espécie (ou o equivalente em outra moeda), é preciso preencher a declaração eletrônica e-DBV, da Receita Federal. [12]" },
+
+    { "t": "h", "text": "Saúde e remédios" },
+    { "t": "ul", "items": [
+      "A vacina de febre amarela deve ser aplicada pelo menos 10 dias antes da viagem, e uma dose protege por toda a vida. [13]",
+      "Remédio líquido com prescrição pode ir na bagagem de mão acima de 100 ml, na quantidade para todo o voo, inclusive com escalas, e deve ser mostrado na inspeção. [14]"
+    ] },
+    { "t": "p", "text": "**Recomendação:** converse com seu médico, leve receita com o seu nome e os remédios de uso contínuo na bagagem de mão." },
+    { "t": "ul", "items": [
+      "☐ Orientação médica feita antes de viajar.",
+      "☐ Remédios na quantidade da viagem, com receita."
+    ] },
+
+    { "t": "h", "text": "Bagagem" },
+    { "t": "ul", "items": [
+      "**Mão.** A companhia deve permitir no mínimo 10 kg de bagagem de mão por passageiro, nas dimensões e na quantidade de peças definidas no contrato. Por segurança ou capacidade da aeronave, pode restringir peso e conteúdo (art. 14). [8, 11] As companhias normalmente permitem também um item pessoal, como bolsa ou mochila pequena, além dos 10 kg. Confira as medidas de cada companhia. [11]",
+      "**O que não vai na mão.** Não vão na bagagem de mão: armas (inclusive réplicas), lâminas acima de 6 cm, ferramentas, explosivos, líquidos inflamáveis, aerossóis (com exceção de até 4 de uso médico ou de higiene, de até 300 ml ou 300 g), isqueiro tipo maçarico e químicos tóxicos. A decisão final é da companhia ou do agente de segurança. [15, 16]",
+      "**Líquidos.** Em voo internacional, líquidos vão em frascos de até 100 ml, juntos numa embalagem plástica transparente de até 1 litro, uma por pessoa. Frasco maior não passa, mesmo parcialmente cheio. [14]",
+      "**Valores e extravio.** A ANAC orienta evitar despachar objetos de valor, como joias, dinheiro e eletrônicos, e levá-los no item pessoal. [11] Se a mala for extraviada, avise a companhia logo que notar. Ela pode ficar extraviada por no máximo 7 dias (voo doméstico) ou 21 dias (voo internacional) (art. 32). [8, 11]"
+    ] },
+    { "t": "img", "src": "/assets/blog/checklist-malas-coloridas.jpg", "alt": "Fileiras de malas de rodinhas coloridas, em vermelho, verde, bege e azul, lado a lado", "caption": "Mala de mão até 10 kg e mala despachada pesada em casa.", "credit": "Foto: Jahra Tasfia Reza / Pexels", "w": 1000, "h": 667 },
+    { "t": "ul", "items": [
+      "☐ Mala de mão até 10 kg e mala despachada pesada em casa.",
+      "☐ Líquidos até 100 ml na embalagem transparente."
+    ] },
+    { "t": "img", "src": "/assets/blog/checklist-mala-aberta.jpg", "alt": "Mala aberta vista de cima, com roupas, óculos de sol e divisória organizada, mãos ao redor", "caption": "Líquidos até 100 ml vão juntos, na embalagem transparente.", "credit": "Foto: SHVETS production / Pexels", "w": 1000, "h": 667 },
+
+    { "t": "h", "text": "Celular e internet" },
+    { "t": "p", "text": "O roaming internacional usa o seu número do Brasil fora do país, por acordo entre as operadoras, e pode ter cobrança extra conforme o pacote. Para ativar, use a opção Dados em roaming nas configurações do celular. [17]" },
+    { "t": "p", "text": "**Recomendação:** pergunte o preço do roaming à operadora e compare com chip local ou eSIM. Baixe mapas offline." },
+    { "t": "ul", "items": [
+      "☐ Internet do destino definida (roaming, chip ou eSIM).",
+      "☐ Mapas, reservas e cartão de embarque offline."
+    ] },
+
+    { "t": "h", "text": "Cópias dos documentos" },
+    { "t": "p", "text": "Em caso de furto, roubo ou extravio do passaporte, é preciso retirar outro. No exterior, procure a embaixada ou o consulado do Brasil, que emitem passaporte. [3, 18]" },
+    { "t": "p", "text": "**Recomendação:** guarde foto ou PDF do passaporte, da passagem, da apólice e das reservas na nuvem, e leve cópia impressa separada dos originais." },
+    { "t": "ul", "items": ["☐ Cópia digital e impressa, longe dos originais."] },
+
+    { "t": "h", "text": "Contatos de emergência" },
+    { "t": "p", "text": "O Itamaraty trata como emergência consular o risco à vida, à segurança ou à dignidade (por exemplo, prisão, acidente grave, hospitalização e violência). Perda de passaporte, extravio de mala e voo perdido não são emergências. [19] O Itamaraty mantém a lista das repartições consulares do Brasil no exterior. [20]" },
+    { "t": "p", "text": "**Recomendação:** anote o telefone de um familiar, da seguradora, do banco (para bloquear o cartão), do hotel e do consulado do Brasil no destino." },
+    { "t": "ul", "items": ["☐ Contatos anotados no papel e no celular."] },
+
+    { "t": "h", "text": "60, 30, 7 e 1 dia antes" },
+    { "t": "p", "text": "**Recomendação:** estes prazos são sugestões da Rota Certa. Os fatos estão nas seções acima." },
+    { "t": "tip", "title": "60 dias", "items": [
+      "☐ Conferir a validade do passaporte e pedir novo, se precisar.",
+      "☐ Ver no site oficial do destino: visto, autorização e outras regras.",
+      "☐ Ver se destino e conexões exigem vacina (CIVP)."
+    ] },
+    { "t": "tip", "title": "30 dias", "items": [
+      "☐ Consulta médica, vacinas e receitas.",
+      "☐ Contratar o seguro viagem.",
+      "☐ Conferir a bagagem da tarifa e da companhia.",
+      "☐ Reservar hospedagem e anotar os endereços."
+    ] },
+    { "t": "img", "src": "/assets/blog/checklist-dobrando-roupas.jpg", "alt": "Mãos organizando roupas dobradas dentro de uma mala aberta", "caption": "Faça as cópias dos documentos e separe o adaptador na semana da viagem.", "credit": "Foto: Vlada Karpovich / Pexels", "w": 1000, "h": 667 },
+    { "t": "tip", "title": "7 dias", "items": [
+      "☐ Conferir o nome do bilhete com o passaporte.",
+      "☐ Avisar o banco e definir a internet do destino.",
+      "☐ Fazer cópias dos documentos e separar o adaptador.",
+      "☐ Fazer a e-DBV, se levar mais de 10 mil dólares em espécie."
+    ] },
+    { "t": "tip", "title": "1 dia", "items": [
+      "☐ Fazer o check-in e baixar o cartão de embarque.",
+      "☐ Pesar a mala e separar líquidos de até 100 ml.",
+      "☐ Passaporte, receitas e valores na bolsa de mão.",
+      "☐ Carregar o celular e deixar os contatos à mão."
+    ] },
+    { "t": "img", "src": "/assets/blog/checklist-mochila-de-croche.jpg", "alt": "Mochila de crochê verde com detalhes em couro sobre cama branca, entre flores e um quadro, vista de cima", "caption": "Passaporte, receitas e valores vão na bolsa de mão.", "credit": "Foto: MADEINEGYPT.CA / Pexels", "w": 1000, "h": 667 },
+
+    { "t": "pdf", "href": "/guias/checklist-antes-de-viajar.pdf", "note": "Leve o checklist com caixinhas no celular. Grátis, sem cadastro." },
+
+    { "t": "h", "text": "Não verificado" },
+    { "t": "ul", "items": [
+      "**Validade mínima do passaporte para entrar.** Cada país define. Não citamos número: veja no site oficial do destino.",
+      "**Tomadas e voltagem.** O guia mundial de tomadas da IEC saiu do ar. Confirme com o fabricante do adaptador, com o hotel ou com fonte do destino.",
+      "**Baterias de lítio e power bank.** Não achamos o limite oficial no texto consultado. Pergunte à companhia.",
+      "**Remédios controlados no exterior.** As regras variam por país. Confira com a embaixada ou o consulado do destino.",
+      "**Hora de abertura e fechamento do check-in.** A norma diz que é a companhia que define. Veja no seu bilhete.",
+      "**Avisar o banco, moeda e cartões.** São conselhos da Rota Certa, sem fonte oficial. Siga a orientação do seu banco.",
+      "**Roaming, chip local e eSIM.** Preços e condições são da operadora. A fonte oficial só explica o que é roaming.",
+      "**Cópias dos documentos e contatos.** Não achamos a orientação atual do Itamaraty sobre isso. Tratamos como conselho da Rota Certa.",
+      "**CIN em cada país.** A PF fala em RG emitido há menos de 10 anos. Para a CIN, confirme o país e a companhia.",
+      "**Regras de cada destino.** Este guia não cobre exigências de países específicos. Elas mudam."
+    ] },
+
+    { "t": "tip", "title": "Fontes, conferidas em 22/10/2026", "items": [
+      "[1] [gov.br, serviço Obter passaporte (Polícia Federal, última modificação 07/10/2026)](https://www.gov.br/pt-br/servicos/obter-passaporte-comum-para-brasileiro)",
+      "[2] [Polícia Federal, dúvidas sobre passaporte](https://www.gov.br/pf/pt-br/assuntos/passaporte/duvidas)",
+      "[3] [ANAC, documentos para embarque: adultos em voos internacionais (13/04/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/documentos-para-embarque/adultos-brasileiros-voos-internacionais)",
+      "[4] [Governo Digital, A CIN pode ser utilizada no exterior? (16/07/2026)](https://www.gov.br/governodigital/pt-br/identidade/cin/perguntas-frequentes-sobre-a-cin/a-cin-pode-ser-utilizada)",
+      "[5] [ANAC, documentos para embarque: crianças e adolescentes em voos internacionais (13/04/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/documentos-para-embarque/criancas-e-adolescentes-brasileiros-de-0-a-17-anos-voos-internacionais)",
+      "[6] [Itamaraty, vistos para brasileiros (publicada em 14/06/2021)](https://www.gov.br/mre/pt-br/assuntos/portal-consular/vistos/vistos-para-brasileiros)",
+      "[7] [União Europeia, site oficial do ETIAS](https://travel-europe.europa.eu/en/etias)",
+      "[8] [ANAC, Resolução 400/2016, texto compilado (versão vigente em 22/10/2026), arts. 8, 13, 14, 16, 18, 19 e 32](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/resolucoes-2016/resolucao-no-400-13-12-2016)",
+      "[9] [gov.br, serviço Obter o Certificado Internacional de Vacinação e Profilaxia (CIVP)](https://www.gov.br/pt-br/servicos/obter-o-certificado-internacional-de-vacinacao-e-profilaxia)",
+      "[10] [Susep, seguro viagem (página modificada em 19/12/2022)](https://www.gov.br/susep/pt-br/assuntos/meu-futuro-seguro/seguros-previdencia-e-capitalizacao/seguros/seguro-viagem)",
+      "[11] [ANAC, página Bagagem (atualizada em 01/10/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/bagagem)",
+      "[12] [gov.br, serviço Declarar bens para viagem internacional (e-DBV, Receita Federal)](https://www.gov.br/pt-br/servicos/declarar-bens-para-viagem-internacional-dbv)",
+      "[13] [Ministério da Saúde, febre amarela para viajantes](https://www.gov.br/saude/pt-br/assuntos/saude-de-a-a-z/f/febre-amarela/viajantes)",
+      "[14] [ANAC, transporte de líquidos em voos internacionais (24/03/2021)](https://www.gov.br/anac/pt-br/assuntos/passageiros/transporte-de-liquidos-em-voos-internacionais)",
+      "[15] [ANAC, itens que não podem ser levados na bagagem de mão (28/02/2024)](https://www.gov.br/anac/pt-br/assuntos/passageiros/itens-que-nao-podem-ser-levados-na-bagagem-de-mao)",
+      "[16] [ANAC, O que posso transportar (01/09/2025)](https://www.gov.br/anac/pt-br/assuntos/regulados/empresas-aereas/artigos-perigosos/o-que-posso-transportar)",
+      "[17] [Ministério das Comunicações, o que é roaming (25/08/2026)](https://www.gov.br/mcom/pt-br/noticias/noticias_alt/2026/agosto/entenda-o-que-e-o-roaming-e-como-funciona-essa-tecnologia)",
+      "[18] [Itamaraty, assistência consular](https://www.gov.br/mre/pt-br/assuntos/portal-consular/assistencia-consular)",
+      "[19] [Itamaraty, emergências no exterior (26/11/2025)](https://www.gov.br/mre/pt-br/assuntos/portal-consular/emergencias-no-exterior)",
+      "[20] [Itamaraty, repartições consulares do Brasil](https://www.gov.br/mre/pt-br/assuntos/portal-consular/reparticoes-consulares-do-brasil)",
+      "[21] [ANAC, Resolução 800/2026 (passageiro indisciplinado; alterou os arts. 5 e 18 da Res. 400)](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/2026/resolucao-800)",
+      "[22] [ANAC, Resolução 813/2026 (altera a Res. 400; vale a partir de 26/10/2026)](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/2026/resolucao-813)"
+    ] },
+    { "t": "p", "text": "**Versão da norma.** Resolução ANAC 400/2016, texto compilado no site da ANAC (última modificação em 26/08/2026, com as Resoluções 434/2017, 692/2022 e 800/2026 [21]), vigente em 22/10/2026. Os artigos citados são os dessa versão. A Resolução ANAC 813/2026 só vale a partir de 26/10/2026 e altera apenas os arts. 20, 25-A, 25-B, 26, 27, 27-A e 27-B da Resolução 400 (informação, responsabilidade e assistência em atrasos, cancelamentos e interrupções). Os demais artigos citados nestes guias não mudam. [22]" },
+    { "t": "p", "text": "Foto de capa: Vlada Karpovich / Pexels." },
+
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Checklist antes de viajar e quero cotar uma passagem." },
+    { "t": "contato", "title": "Fale com a gente no Direct do Instagram", "text": "Tire dúvidas com a gente. Conte de onde você sai, para onde quer ir, o mês da viagem e quantas pessoas vão." }
+  ]
+}

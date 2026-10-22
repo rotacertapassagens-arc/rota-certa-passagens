@@ -1,0 +1,122 @@
+{
+  "_origem": "Texto aprovado e padronizado de Rota Certa/Mini Guias/erros/guia.md (atualizado em outubro de 2026) e fatos de Mini Guias/_padrao/fatos-legais.md (conferidos em 22/10/2026). Não acrescente fato, número, norma ou prazo que não esteja lá. Fotos: Pexels, em Banco de Fotos Stories/blog/aprovadas (autor em blog/CREDITOS.md).",
+  "id": "77965e0b-4751-4ac8-bd61-a4e75579f22a",
+  "slug": "erros-ao-comprar-passagem",
+  "regionId": "dicas-de-viagem",
+  "title": "Erros que encarecem sua passagem: 8 para evitar antes de comprar",
+  "titleHighlight": "encarecem",
+  "summary": "8 erros comuns na hora de comprar passagem aérea, como evitar cada um e o que conferir agora, com fontes oficiais conferidas em 22/10/2026 e uma lista final para marcar antes de pagar.",
+  "lede": "Cada erro traz o que acontece, como evitar e uma conferência rápida para fazer agora.",
+  "destination": null,
+  "coverUrl": "/assets/blog/erros-ao-comprar-passagem.jpg",
+  "coverUrlSmall": "/assets/blog/erros-ao-comprar-passagem-m.jpg",
+  "coverAlt": "Mulher de boné sentada em cadeiras azuis de aeroporto, com mala de mão ao lado",
+  "body": [
+    { "t": "pdf", "href": "/guias/erros-ao-comprar-passagem.pdf", "note": "Versão em PDF para guardar no celular. Grátis, sem cadastro." },
+    { "t": "p", "text": "Guia Rota Certa, atualizado em outubro de 2026, com fontes conferidas em 22/10/2026. São 8 erros comuns na hora de comprar passagem aérea, como evitar cada um e o que conferir agora." },
+    { "t": "tip", "title": "Como ler este guia", "items": [
+      "Um número entre colchetes, como [1], marca um fato com fonte oficial, listada em **Fontes**, no fim da página.",
+      "**Recomendação:** é um conselho da Rota Certa, não uma regra.",
+      "**Não verificado:** é um ponto que não conseguimos confirmar em fonte oficial."
+    ] },
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Erros que encarecem sua passagem e quero ajuda para cotar uma passagem." },
+
+    { "t": "h", "label": "Erro 1", "text": "Comprar sem comparar datas" },
+    { "t": "p", "text": "**O que acontece.** Sem comparar, você não sabe se outra data serve melhor." },
+    { "t": "p", "text": "**Como evitar.** **Recomendação:** teste ida e volta em dias da semana diferentes e varie a data em alguns dias. Compare sempre o total final de cada opção, com taxas." },
+    { "t": "tip", "title": "Confira agora", "items": ["Mude as datas em 2 ou 3 dias e anote o total de cada opção."] },
+
+    { "t": "h", "label": "Erro 2", "text": "Ignorar a regra de bagagem da tarifa" },
+    { "t": "p", "text": "**O que acontece.** A companhia deve permitir no mínimo 10 kg de bagagem de mão por passageiro, nas dimensões e na quantidade de peças definidas no contrato. Por segurança ou capacidade da aeronave, pode restringir peso e conteúdo (art. 14). [1, 2] A bagagem despachada é um contrato acessório: as companhias podem vender passagens com franquias diferentes ou sem franquia, e valem as regras do contrato (art. 13). [1, 2]" },
+    { "t": "img", "src": "/assets/blog/erros-corredor-aeroporto.jpg", "alt": "Corredor claro de aeroporto com viajante puxando mala de rodinhas e salas de espera ao fundo", "caption": "Peso, medidas e mala despachada: confira o que a tarifa inclui.", "credit": "Foto: Kenneth Surillo / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**Como evitar.** Em geral, tarifas mais baratas têm regras menos flexíveis e multas maiores, e as promocionais podem até não ser reembolsáveis. [3] **Recomendação:** compare tarifas com a mesma bagagem." },
+    { "t": "tip", "title": "Confira agora", "items": ["Peso, medidas e se há mala despachada na tarifa."] },
+
+    { "t": "h", "label": "Erro 3", "text": "Nome diferente do documento" },
+    { "t": "p", "text": "**O que acontece.** Erro no nome, sobrenome ou agnome deve ser corrigido sem ônus se você pedir até o check-in. Em voo internacional com mais de uma companhia (interline), o custo pode ser repassado, exceto se o erro foi da companhia. A correção não torna a passagem transferível (art. 8). [1] Erro na grafia do nome pode impedir o passageiro de viajar, por questões de segurança. [3]" },
+    { "t": "p", "text": "**Como evitar.** **Recomendação:** copie o nome exatamente como está no documento que você vai levar." },
+    { "t": "tip", "title": "Confira agora", "items": ["Compare, letra por letra, o comprovante com o passaporte."] },
+
+    { "t": "h", "label": "Erro 4", "text": "Esquecer taxas e extras" },
+    { "t": "p", "text": "**O que acontece.** A oferta de passagem, em qualquer canal de venda, deve mostrar o valor total a pagar: serviço de transporte aéreo, tarifas aeroportuárias e valores devidos a órgãos do governo (art. 4). [1] Serviços opcionais, como despacho de bagagem, marcação de assento e seguro-viagem, só entram se você os contratar ativamente, e é proibido cobrar o que você não pediu (art. 4, §2º, e art. 5, §2º). [1, 3]" },
+    { "t": "p", "text": "**Como evitar.** **Recomendação:** some o assento e a bagagem que você vai usar antes de comparar preços." },
+    { "t": "tip", "title": "Confira agora", "items": ["Na última tela, leia o total e desmarque o que não pediu."] },
+
+    { "t": "h", "label": "Erro 5", "text": "Não conferir aeroporto e conexão" },
+    { "t": "p", "text": "**O que acontece.** Antes do pagamento, a companhia deve informar o tempo de conexão, uma eventual troca de aeroportos e as regras e valores da bagagem (art. 5, III e IV). [1] Em voo com conexão, se você perder o voo seguinte por causa da companhia, inclusive com troca de aeroportos, ela deve oferecer reacomodação, reembolso ou outro transporte, à sua escolha (art. 21). [1]" },
+    { "t": "img", "src": "/assets/blog/erros-painel-de-voos.jpg", "alt": "Mulher de costas olhando um painel de voos desfocado, com luzes quentes ao fundo", "caption": "Releia os códigos de aeroporto e o tempo entre os voos.", "credit": "Foto: Gustavo Fring / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**Como evitar.** **Recomendação:** olhe o código do aeroporto de cada trecho e dê folga à conexão, ainda mais se houver imigração." },
+    { "t": "tip", "title": "Confira agora", "items": ["Releia os códigos de aeroporto e o tempo entre os voos."] },
+
+    { "t": "h", "label": "Erro 6", "text": "Deixar documento ou visto para depois" },
+    { "t": "p", "text": "**O que acontece.** Para embarcar, você deve apresentar documento de identificação civil e cumprir as exigências da viagem, como o visto correto e os certificados de vacinação exigidos pelos países de destino, escala e conexão. Se não cumprir, a companhia pode negar o embarque (arts. 16 e 18). [1]" },
+    { "t": "img", "src": "/assets/blog/erros-passaporte-na-mala.jpg", "alt": "Mala turquesa com um passaporte verde apoiado na alça, em saguão de aeroporto desfocado", "caption": "Compare a validade do passaporte com a data da volta.", "credit": "Foto: Yazid N / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**Como evitar.** O prazo estimado de entrega do passaporte é, em geral, de 6 a 10 dias úteis depois do atendimento presencial. Perto de férias escolares e feriados prolongados, o atendimento pode demorar mais. [4] Para entrar na União Europeia, o passaporte deve valer por pelo menos 3 meses depois da data prevista de saída e ter sido emitido nos últimos 10 anos. Conforme a nacionalidade, pode ser preciso visto. [5] **Recomendação:** confira cada destino em fonte oficial." },
+    { "t": "tip", "title": "Confira agora", "items": ["Compare a validade do passaporte com a data da volta."] },
+
+    { "t": "h", "label": "Erro 7", "text": "Não guardar comprovantes" },
+    { "t": "p", "text": "**O que acontece.** O comprovante da passagem traz nome e sobrenome do passageiro, data e horário do voo, horário de embarque, produtos e serviços comprados e prazo de validade (art. 6). [1] Esse é o comprovante que conta para o prazo de desistência (veja a seção sobre desistência, mais abaixo)." },
+    { "t": "p", "text": "**Como evitar.** **Recomendação:** salve o PDF, o código localizador e uma captura das regras da tarifa onde abra sem internet. O Procon RS orienta gravar ou imprimir todos os passos da compra: e-mails, pedido, confirmação, cópia da oferta e comprovante de pagamento. [6]" },
+    { "t": "img", "src": "/assets/blog/erros-telefone-terminal.jpg", "alt": "Mulher sorrindo ao telefone ao lado de painéis de informação em terminal de aeroporto", "caption": "Salve o comprovante e o código localizador onde abra sem internet.", "credit": "Foto: Holiday Extras / Pexels", "w": 1000, "h": 667 },
+    { "t": "tip", "title": "Confira agora", "items": ["Ache o comprovante no e-mail e salve uma cópia no celular."] },
+
+    { "t": "h", "label": "Erro 8", "text": "Comprar em canal desconhecido" },
+    { "t": "p", "text": "**O que acontece.** O Procon Paulistano orienta conferir sempre se o site em que você navega é confiável e seguro. [7] O Procon de Contagem (MG) orienta checar CNPJ, endereço físico e avaliações, desconfiar de preço muito abaixo do mercado, evitar links de SMS, e-mail ou redes sociais e confirmar que o Pix vai para o nome da empresa. [8]" },
+    { "t": "p", "text": "**Como evitar.** **Recomendação:** digite o endereço do site você mesmo e confira o código localizador no site da companhia. O Consumidor.gov.br é um serviço público e gratuito de contato direto com empresas participantes, que se comprometem a responder em até 10 dias. [9]" },
+    { "t": "tip", "title": "Confira agora", "items": ["Veja se quem recebe o pagamento é a empresa."] },
+
+    { "t": "h", "text": "Desistência e checklist" },
+    { "t": "p", "text": "**Mudou de ideia depois de comprar? Há duas regras.**" },
+    { "t": "p", "text": "**ANAC, passagem aérea.** Pela ANAC, você pode desistir da passagem sem ônus em até 24 horas, a contar do recebimento do comprovante, se a compra foi feita com antecedência igual ou superior a 7 dias em relação à data de embarque (art. 11). [1] A ANAC informa que a regra das 24 horas vale para compras por meios eletrônicos e em lojas físicas. Depois do prazo, a companhia pode cobrar multas, conforme as regras da passagem. [10]" },
+    { "t": "p", "text": "**Código de Defesa do Consumidor.** Pelo Código de Defesa do Consumidor, o consumidor pode desistir em 7 dias, a contar da assinatura ou do recebimento do serviço, quando a contratação ocorre fora do estabelecimento comercial, especialmente por telefone ou a domicílio. Os valores pagos voltam de imediato, atualizados (art. 49). [11] No comércio eletrônico, o fornecedor deve informar de forma clara e ostensiva como exercer o arrependimento, que pode ser pedido pela mesma ferramenta da compra (art. 5º). [12]" },
+    { "t": "p", "text": "**Não verificado:** não conseguimos confirmar qual das duas regras de desistência vale na compra online de passagem aérea: as 24 horas da ANAC (art. 11) ou os 7 dias do CDC (art. 49). As páginas oficiais abertas da ANAC e do Planalto não relacionam as duas regras. [10, 11]" },
+    { "t": "p", "text": "**Recomendação:** na dúvida, peça o cancelamento por escrito nas primeiras 24 horas e guarde o protocolo." },
+    { "t": "img", "src": "/assets/blog/erros-controle-de-seguranca.jpg", "alt": "Passageira de costas num corredor de segurança de aeroporto, sob estrutura iluminada em verde e azul", "caption": "Antes de pagar, marque cada item da lista abaixo.", "credit": "Foto: Matthew Turner / Pexels", "w": 1000, "h": 667 },
+    { "t": "tip", "title": "Checklist antes de pagar", "items": [
+      "☐ Datas vizinhas comparadas",
+      "☐ Bagagem da tarifa lida",
+      "☐ Nome igual ao do passaporte",
+      "☐ Total final conferido, sem extras que você não pediu",
+      "☐ Aeroportos e tempo de conexão conferidos",
+      "☐ Passaporte e regras do destino conferidos",
+      "☐ Comprovante e código localizador salvos",
+      "☐ Canal de compra conferido"
+    ] },
+
+    { "t": "pdf", "href": "/guias/erros-ao-comprar-passagem.pdf", "note": "Leve os 8 erros e o checklist no celular. Grátis, sem cadastro." },
+
+    { "t": "h", "text": "Não verificado" },
+    { "t": "ul", "items": [
+      "Não conseguimos confirmar qual das duas regras de desistência vale na compra online de passagem aérea: as 24 horas da ANAC (art. 11) ou os 7 dias do CDC (art. 49). As páginas oficiais abertas da ANAC e do Planalto não relacionam as duas regras. [10, 11]",
+      "**Comparar datas e dias da semana.** Que isso mude o preço é prática da Rota Certa, sem fonte oficial. Não prometemos economia.",
+      "**Tempo ideal de conexão.** Varia por aeroporto, companhia e tipo de voo. Não achamos fonte oficial com um tempo único.",
+      "**Reservas separadas.** Quem responde quando os trechos são comprados em reservas separadas: sem fonte oficial.",
+      "**Bagagem de cada companhia.** Peso, medidas e valores variam por tarifa. Não confirmamos se algum projeto de lei sobre bagagem despachada gratuita virou lei: este guia segue a Resolução 400 na versão indicada em **Fontes**.",
+      "**Entrada em cada destino.** Não verificamos as regras atuais, como o visto dos EUA. Exemplo datado: em 22/10/2026, o site oficial da UE informa que o ETIAS, autorização eletrônica para quem não precisa de visto, ainda não está em operação, e que a data de início será avisada com meses de antecedência. [13] Confira cada destino em fonte oficial antes de comprar.",
+      "**Orientações dos Procons.** As dicas do Procon Paulistano (arquivo de 2022), do Procon RS (2018) e do Procon de Contagem (2024) são orientações de órgãos de defesa do consumidor, e não regra federal."
+    ] },
+
+    { "t": "tip", "title": "Fontes, conferidas em 22/10/2026", "items": [
+      "[1] [ANAC, Resolução 400/2016, texto compilado (versão vigente em 22/10/2026), arts. 4, 5, 6, 8, 11, 13, 14, 16, 18 e 21](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/resolucoes-2016/resolucao-no-400-13-12-2016)",
+      "[2] [ANAC, página Bagagem (atualizada em 01/10/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/bagagem)",
+      "[3] [ANAC, página Oferta e compra da passagem (atualizada em 13/04/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/oferta-e-compra-da-passagem)",
+      "[4] [gov.br, serviço Obter passaporte (Polícia Federal, última modificação 07/10/2026)](https://www.gov.br/pt-br/servicos/obter-passaporte-comum-para-brasileiro)",
+      "[5] [União Europeia, Your Europe, documentos de viagem para não europeus](https://europa.eu/youreurope/citizens/travel/entry-exit/non-eu-nationals/index_en.htm)",
+      "[6] [Procon RS, dicas de compras on-line (15/02/2018)](https://procon.rs.gov.br/fique-atento-as-dicas-do-procon-rs-sobre-compras-on-line)",
+      "[7] [Procon Paulistano (Prefeitura de São Paulo), Cartilha do Transporte Aéreo (arquivo de 2022)](https://prefeitura.sp.gov.br/documents/d/procon/cartilha-transporte-aereo-procon)",
+      "[8] [Procon de Contagem (MG), golpes em pacotes de viagem (21/12/2024)](https://portal.contagem.mg.gov.br/portal/noticias/0/3/80889/golpes-em-pacotes-de-viagem-procon-contagem-orienta-consumidores-a-evitarem-fraudes)",
+      "[9] [Senacon, Consumidor.gov.br](https://www.consumidor.gov.br/pages/conteudo/publico/1)",
+      "[10] [ANAC, página Alterações da viagem e reembolso (atualizada em 13/04/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/alteracoes-da-viagem)",
+      "[11] [Código de Defesa do Consumidor, Lei 8.078/1990, texto compilado, art. 49](https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm)",
+      "[12] [Decreto 7.962/2013 (comércio eletrônico), art. 5º](https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2013/decreto/d7962.htm)",
+      "[13] [União Europeia, site oficial do ETIAS](https://travel-europe.europa.eu/en/etias)",
+      "[14] [ANAC, Resolução 800/2026 (passageiro indisciplinado; alterou os arts. 5 e 18 da Res. 400)](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/2026/resolucao-800)",
+      "[15] [ANAC, Resolução 813/2026 (altera a Res. 400; vale a partir de 26/10/2026)](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/2026/resolucao-813)"
+    ] },
+    { "t": "p", "text": "**Versão da norma.** Resolução ANAC 400/2016, texto compilado no site da ANAC (última modificação em 26/08/2026, com as Resoluções 434/2017, 692/2022 e 800/2026 [14]), vigente em 22/10/2026. Os artigos citados são os dessa versão. A Resolução ANAC 813/2026 só vale a partir de 26/10/2026 e altera apenas os arts. 20, 25-A, 25-B, 26, 27, 27-A e 27-B da Resolução 400 (informação, responsabilidade e assistência em atrasos, cancelamentos e interrupções). Os demais artigos citados nestes guias não mudam. [15]" },
+    { "t": "p", "text": "Foto de capa: Kenneth Surillo / Pexels." },
+
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Erros que encarecem sua passagem e quero ajuda para cotar uma passagem." },
+    { "t": "contato", "title": "Fale com a gente no Direct do Instagram", "text": "Tire dúvidas com a gente. Conte de onde você sai, para onde quer ir, o mês da viagem e quantas pessoas vão." }
+  ]
+}
