@@ -1,0 +1,95 @@
+{
+  "_origem": "Texto aprovado e padronizado de Rota Certa/Mini Guias/roteiro/guia.md (atualizado em outubro de 2026) e fatos de Mini Guias/_padrao/fatos-legais.md (F67 e F68, conferidos em 22/10/2026). Não acrescente fato, número, norma ou prazo que não esteja lá. A tabela do guia virou lista, porque o blog não tem bloco de tabela. Fotos: Pexels, em Banco de Fotos Stories/blog/aprovadas (autor em blog/CREDITOS.md).",
+  "id": "bccb3155-54c6-41f5-845a-202adec7ae2a",
+  "slug": "modelo-de-roteiro",
+  "regionId": "dicas-de-viagem",
+  "title": "Modelo de roteiro de viagem: 8 passos e um dia em branco para preencher",
+  "titleHighlight": "8 passos",
+  "summary": "Um método em 8 passos para montar o roteiro de viagem, um modelo de dia em branco para preencher e um exemplo pronto, com o guia em PDF de campos preenchíveis para baixar de graça.",
+  "lede": "Comece pelo que importa e deixe o resto caber: escolha 3 lugares, agrupe por região, deixe tempo livre e tenha um plano B.",
+  "destination": null,
+  "coverUrl": "/assets/blog/modelo-de-roteiro.jpg",
+  "coverUrlSmall": "/assets/blog/modelo-de-roteiro-m.jpg",
+  "coverAlt": "Casal sentado em um banco ao sol, consultando um mapa de papel em um terraço",
+  "body": [
+    { "t": "pdf", "href": "/guias/modelo-de-roteiro.pdf", "note": "Versão em PDF, com as células do modelo preenchíveis. Grátis, sem cadastro." },
+    { "t": "p", "text": "Guia Rota Certa, atualizado em outubro de 2026, com fontes conferidas em 22/10/2026. É um método em 8 passos, um modelo de dia em branco para preencher e um exemplo pronto. Comece pelo que importa e deixe o resto caber." },
+    { "t": "tip", "title": "Como ler este guia", "items": [
+      "Um número entre colchetes, como [1], marca um fato com fonte oficial, listada em **Fontes**, no fim da página.",
+      "**Recomendação:** é um conselho da Rota Certa, não uma regra.",
+      "**Não verificado:** é um ponto que não conseguimos confirmar em fonte oficial.",
+      "O método deste guia é todo Recomendação da Rota Certa: não há norma de viagem por trás dele. Só os dois exemplos do Museu Reina Sofía têm fonte."
+    ] },
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Modelo de roteiro de viagem e quero cotar uma passagem." },
+
+    { "t": "h", "text": "8 passos para montar o roteiro" },
+    { "t": "p", "text": "**1. Escolha 3 lugares que não podem faltar.** Pense na viagem inteira e escreva só três. Eles são os principais e entram primeiro no roteiro. Todo o resto é bônus." },
+    { "t": "img", "src": "/assets/blog/roteiro-camera-e-mapa.jpg", "alt": "Mapa do mundo claro com câmera analógica, bússola, flores e caderno de carimbos de viagem", "caption": "Escolha só três lugares que não podem faltar e comece por eles.", "credit": "Foto: Nataliya Vaitkevich / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**2. Agrupe por região.** Marque tudo no mapa e junte o que fica perto. Uma região por dia poupa transporte e deixa mais tempo para ver." },
+    { "t": "img", "src": "/assets/blog/roteiro-mapa-de-papel.jpg", "alt": "Dedo apontando um ponto em um mapa urbano de papel, com ruas e rio coloridos", "caption": "Marque tudo no mapa e junte o que fica perto.", "credit": "Foto: ClickerHappy / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**3. Deixe tempo livre.** Reserve um bloco sem plano em cada dia, para um café, um banco de praça ou uma rua sem destino. **Recomendação:** 3 ou 4 paradas por dia, não mais." },
+    { "t": "img", "src": "/assets/blog/roteiro-rua-de-pedra.jpg", "alt": "Casal caminhando por uma rua estreita de pedra entre casas antigas", "caption": "Um bloco sem plano em cada dia: uma rua sem destino também é passeio.", "credit": "Foto: Jan van der Wolf / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**4. Confira dias e horários.** Museus e palácios podem fechar em dias fixos e mudar o horário no domingo. Veja o site oficial do lugar, perto da data. Exemplo conferido em 22/10/2026: o site do Museu Reina Sofía, em Madri, informa que a sede principal fica fechada às terças-feiras (a tabela de horários mostra Martes: Cerrado). [1]" },
+    { "t": "p", "text": "**5. Organize manhã, tarde e noite.** Manhã para o que pede mais energia ou lota. Tarde para a segunda parada e um almoço sem pressa. Noite para jantar e passeio leve." },
+    { "t": "img", "src": "/assets/blog/roteiro-cidade-do-alto.jpg", "alt": "Vista do alto de uma cidade com telhados, rio e colinas ao fundo, em luz de fim de tarde", "caption": "Manhã, tarde e noite: cada parte do dia com o seu ritmo.", "credit": "Foto: Talha Kılıç / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**6. Planeje deslocamentos e margem.** Em cada trecho, anote como ir (a pé, transporte público, táxi) e o tempo no mapa. **Recomendação:** some uma margem de 15 minutos por trecho para atrasos." },
+    { "t": "img", "src": "/assets/blog/roteiro-rua-de-pedestres.jpg", "alt": "Rua de pedestres com prédios históricos, castelo em uma colina e céu azul ao fundo", "caption": "Em cada trecho, anote como ir e o tempo no mapa.", "credit": "Foto: Alexander Nadrilyanski / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**7. Separe grátis, pagos e opcionais.** Marque cada parada com uma etiqueta (**Grátis**, **Pago** ou **Opcional**) e some só os pagos. Opcional entra se sobrar tempo." },
+    { "t": "p", "text": "**8. Tenha um plano B para chuva.** Em cada dia, tenha uma opção coberta na mesma região (museu, mercado, café). Se chover, troque os dias: o passeio ao ar livre fica para outro. Exemplo conferido em 22/10/2026: o site do Reina Sofía avisa que o Palácio de Cristal, no Parque do Retiro, pode permanecer fechado em dias de chuva e de alerta de calor. A mesma página informa que ele está fechado temporariamente por obras de melhoria. [1]" },
+    { "t": "img", "src": "/assets/blog/roteiro-mirante.jpg", "alt": "Mirante com cerca de madeira sobre a encosta, com cidade e lagoa ao fundo em luz dourada", "caption": "Um mirante no fim do dia entra como opcional, se sobrar tempo.", "credit": "Foto: Riccardo Pitzalis / Pexels", "w": 1000, "h": 667 },
+
+    { "t": "h", "text": "Modelo de um dia" },
+    { "t": "ul", "items": [
+      "**Dia e data:** ____",
+      "**Região:** ____",
+      "**Os 3 principais:** ____"
+    ] },
+    { "t": "p", "text": "Preencha cada linha do dia com **lugar, como chegar, tempo, custo estimado e plano B**:" },
+    { "t": "ul", "items": [
+      "**Manhã:** ____",
+      "**Manhã:** ____",
+      "**Almoço:** ____",
+      "**Tarde:** ____",
+      "**Tarde:** ____",
+      "**Noite:** ____",
+      "**Noite:** ____"
+    ] },
+    { "t": "ul", "items": [
+      "**Tempo livre:** ____",
+      "**Margem de atraso:** ____",
+      "**Se chover:** ____",
+      "**Total estimado:** ____"
+    ] },
+    { "t": "p", "text": "Em Custo, escreva grátis, pago ou opcional e o valor estimado. Confira os horários no site oficial e anote a data da checagem. No PDF, as células são campos preenchíveis." },
+
+    { "t": "h", "text": "Um dia preenchido" },
+    { "t": "p", "text": "Exemplo genérico, sem lugar real. Os horários são do plano de quem viaja, não de funcionamento." },
+    { "t": "ul", "items": [
+      "**9h00, museu principal.** Como chegar: metrô, 20 min. Tempo: 2h. Custo: pago. Plano B: já é coberto.",
+      "**11h30, praça ao lado.** Como chegar: a pé, 5 min. Tempo: 45 min. Custo: grátis. Plano B: café na rua.",
+      "**12h30, almoço no mercado.** Como chegar: a pé, 10 min. Tempo: 1h30. Custo: pago. Plano B: mercado é coberto.",
+      "**15h00, igreja ou palácio.** Como chegar: a pé, 15 min. Tempo: 1h30. Custo: pago. Plano B: museu menor.",
+      "**17h00, tempo livre.** Como chegar: no lugar. Tempo: 1h30. Custo: grátis. Plano B: livraria ou café.",
+      "**19h00, mirante do pôr do sol.** Como chegar: táxi, 15 min. Tempo: 1h. Custo: opcional. Plano B: pular e jantar antes.",
+      "**20h30, jantar perto do hotel.** Como chegar: a pé, 10 min. Tempo: 1h30. Custo: pago. Plano B: reserva coberta."
+    ] },
+    { "t": "p", "text": "Repare: uma região só, três paradas principais, folga entre elas e um plano B para cada parada." },
+
+    { "t": "pdf", "href": "/guias/modelo-de-roteiro.pdf", "note": "Baixe o modelo de dia com campos preenchíveis. Grátis, sem cadastro." },
+
+    { "t": "h", "text": "Não verificado" },
+    { "t": "ul", "items": [
+      "**Lugares.** Horários, preços e regras de qualquer lugar, exceto os dois exemplos do Reina Sofía: confirme no site oficial. Os exemplos foram lidos em 22/10/2026 e podem mudar.",
+      "**Deslocamentos.** Os tempos variam com o trajeto, o dia e o horário. Confira no mapa.",
+      "**Margens sugeridas.** As margens de 15 minutos por trecho e de 3 ou 4 paradas por dia são regra prática da Rota Certa, não dado oficial."
+    ] },
+
+    { "t": "tip", "title": "Fontes, conferidas em 22/10/2026", "items": [
+      "[1] [Museu Reina Sofía, horários e tarifas](https://www.museoreinasofia.es/visita/horarios-tarifas/)"
+    ] },
+    { "t": "p", "text": "Foto de capa: Kampus Production / Pexels." },
+
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Modelo de roteiro de viagem e quero cotar uma passagem." },
+    { "t": "contato", "title": "Fale com a gente no Direct do Instagram", "text": "Tire dúvidas com a gente. Conte de onde você sai, para onde quer ir, o mês da viagem e quantas pessoas vão." }
+  ]
+}

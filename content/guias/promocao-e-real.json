@@ -1,0 +1,89 @@
+{
+  "_origem": "Texto aprovado e padronizado de Rota Certa/Mini Guias/promo/guia.md (atualizado em outubro de 2026) e fatos de Mini Guias/_padrao/fatos-legais.md (conferidos em 22/10/2026). Não acrescente fato, número, norma ou prazo que não esteja lá. Fotos: Pexels, em Banco de Fotos Stories/blog/aprovadas (autor em blog/CREDITOS.md).",
+  "id": "69939745-806d-481a-90fe-53f769f7bd5f",
+  "slug": "promocao-e-real",
+  "regionId": "dicas-de-viagem",
+  "title": "Essa promoção é real? 10 conferências antes de pagar a passagem",
+  "titleHighlight": "é real",
+  "summary": "Checklist em 10 itens para conferir antes de comprar a sua passagem: preço final, bagagem, remarcação, escalas, nome, canal de compra e direitos básicos, com fontes oficiais conferidas em 22/10/2026.",
+  "lede": "Uma boa promoção continua boa depois de conferida. Marque cada item antes de pagar e guarde o guia em PDF no celular.",
+  "destination": null,
+  "coverUrl": "/assets/blog/promocao-e-real.jpg",
+  "coverUrlSmall": "/assets/blog/promocao-e-real-m.jpg",
+  "coverAlt": "Celular de tela escura, sacola de papel e cartão sobre fundo verde azulado, visto de cima",
+  "body": [
+    { "t": "pdf", "href": "/guias/promocao-e-real.pdf", "note": "Versão em PDF para guardar no celular. Grátis, sem cadastro." },
+    { "t": "p", "text": "Guia Rota Certa, atualizado em outubro de 2026, com fontes conferidas em 22/10/2026. Uma boa promoção continua boa depois de conferida: marque cada item antes de pagar." },
+    { "t": "tip", "title": "Como ler este guia", "items": [
+      "Um número entre colchetes, como [1], marca um fato com fonte oficial, listada em **Fontes**, no fim da página.",
+      "**Recomendação:** é um conselho da Rota Certa, não uma regra.",
+      "**Não verificado:** é um ponto que não conseguimos confirmar em fonte oficial."
+    ] },
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Essa promoção é real? e quero ajuda para cotar uma passagem." },
+
+    { "t": "h", "label": "Itens 1 a 3", "text": "Antes de pagar" },
+    { "t": "p", "text": "**1. Preço final, com taxas e impostos.** A oferta de passagem, em qualquer canal de venda, deve mostrar o valor total a pagar: serviço de transporte aéreo, tarifas aeroportuárias e valores devidos a órgãos do governo (art. 4). [1] Serviços opcionais, como despacho de bagagem, marcação de assento e seguro-viagem, só entram se você os contratar ativamente, e é proibido cobrar o que você não pediu (art. 4, §2º, e art. 5, §2º). [1, 2] **Recomendação:** compare o valor da primeira tela com o do último passo, antes de pagar." },
+    { "t": "img", "src": "/assets/blog/promocao-notebook-mesa.jpg", "alt": "Pessoa digitando em notebook sobre mesa de madeira, com copo de água e revista", "caption": "Compare o valor da primeira tela com o do último passo.", "credit": "Foto: ROMAN ODINTSOV / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**2. Bagagem incluída.** A bagagem despachada é um contrato acessório: as companhias podem vender passagens com franquias diferentes ou sem franquia, e valem as regras do contrato (art. 13). [1, 3] A companhia deve permitir no mínimo 10 kg de bagagem de mão por passageiro, nas dimensões e na quantidade de peças definidas no contrato. Por segurança ou capacidade da aeronave, pode restringir peso e conteúdo (art. 14). [1, 3] **Recomendação:** procure na oferta o peso e as medidas da mala de mão e se a mala despachada está incluída." },
+    { "t": "p", "text": "**3. Remarcação e cancelamento.** Antes do pagamento, a companhia deve informar o valor total e as regras e multas de não comparecimento, remarcação e reembolso (art. 5, I e II). [1] As multas contratuais não podem passar do valor do transporte aéreo, e tarifas aeroportuárias e valores devidos a órgãos do governo ficam fora do cálculo (art. 9). [1] Em geral, tarifas mais baratas têm regras menos flexíveis e multas maiores, e as promocionais podem até não ser reembolsáveis. [2] **Recomendação:** pense quanto custaria mudar a data." },
+
+    { "t": "h", "label": "Itens 4 a 6", "text": "Datas, escalas e dados" },
+    { "t": "p", "text": "**4. Datas e horários.** **Recomendação:** confira dia e horário de ida e de volta e o horário de chegada. Um voo que chega de madrugada ou sai muito cedo muda o gasto com transporte e hospedagem." },
+    { "t": "p", "text": "**5. Aeroporto de conexão e tempo de escala.** Antes do pagamento, a companhia deve informar o tempo de conexão, uma eventual troca de aeroportos e as regras e valores da bagagem (art. 5, III e IV). [1] **Recomendação:** desconfie de escala muito curta ou de troca de aeroporto, e confira se a mala vai até o destino final e se dá tempo de chegar ao próximo voo." },
+    { "t": "img", "src": "/assets/blog/promocao-mala-celular.jpg", "alt": "Mulher caminhando ao ar livre com mala de rodinhas, olhando o celular", "caption": "Confira escalas, horários e aeroportos antes de pagar.", "credit": "Foto: Gustavo Fring / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**6. Nome igual ao do documento.** Erro no nome, sobrenome ou agnome deve ser corrigido sem ônus se você pedir até o check-in. Em voo internacional com mais de uma companhia (interline), o custo pode ser repassado, exceto se o erro foi da companhia. A correção não torna a passagem transferível (art. 8). [1] Erro na grafia do nome pode impedir o passageiro de viajar, por questões de segurança. [2] **Recomendação:** confira o nome letra por letra com o documento que você vai usar no embarque." },
+
+    { "t": "h", "label": "Itens 7 a 10", "text": "Confira a oferta" },
+    { "t": "p", "text": "**7. Compare em mais de um canal.** **Recomendação:** busque o mesmo voo, nas mesmas datas e com a mesma bagagem, no site da companhia, em outra agência e em um buscador. Compare o total final, não o preço de vitrine." },
+    { "t": "p", "text": "**8. Cuidado com a pressão de tempo.** **Recomendação:** frases como só hoje e últimas vagas não substituem a conferência. Se a empresa não responde às suas perguntas antes do pagamento, é um bom motivo para parar." },
+    { "t": "img", "src": "/assets/blog/promocao-corredor-notebook.jpg", "alt": "Homem sorrindo com notebook e celular, sentado no chão de um corredor com luz do sol", "caption": "Compare o total final em mais de um canal, sem pressa.", "credit": "Foto: Andrea Piacquadio / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**9. Link ou site desconhecido.** Um site de venda deve mostrar, em local de destaque, nome empresarial, CNPJ, endereço físico e eletrônico e as condições completas da oferta (art. 2º). [4] O Procon RS orienta pesquisar a reputação da loja e conferir o CNPJ no site da Receita Federal (desistir se aparecer baixada, cancelada ou inativa), ver se o endereço começa com https e tem cadeado, e desconfiar de ofertas milagrosas. [5] O Procon RS orienta usar só os canais oficiais das empresas e ver se endereço e CNPJ estão no rodapé do site. [6]" },
+    { "t": "p", "text": "**10. Guarde print e e-mail de confirmação.** **Recomendação:** tire print da oferta (preço, bagagem e regras) antes de pagar. O CDC garante informação clara sobre tributos e preço (art. 6º, III), e a informação ou publicidade suficientemente precisa obriga quem a divulga e integra o contrato (art. 30). [7] O Procon RS orienta gravar ou imprimir todos os passos da compra: e-mails, pedido, confirmação, cópia da oferta e comprovante de pagamento. [5]" },
+
+    { "t": "h", "text": "Seus direitos básicos" },
+    { "t": "p", "text": "**Mudou de ideia depois de comprar? Há duas regras.**" },
+    { "t": "p", "text": "**ANAC, passagem aérea.** Pela ANAC, você pode desistir da passagem sem ônus em até 24 horas, a contar do recebimento do comprovante, se a compra foi feita com antecedência igual ou superior a 7 dias em relação à data de embarque (art. 11). [1] A ANAC informa que a regra das 24 horas vale para compras por meios eletrônicos e em lojas físicas. Depois do prazo, a companhia pode cobrar multas, conforme as regras da passagem. [8]" },
+    { "t": "p", "text": "**Código de Defesa do Consumidor.** Pelo Código de Defesa do Consumidor, o consumidor pode desistir em 7 dias, a contar da assinatura ou do recebimento do serviço, quando a contratação ocorre fora do estabelecimento comercial, especialmente por telefone ou a domicílio. Os valores pagos voltam de imediato, atualizados (art. 49). [7] No comércio eletrônico, o fornecedor deve informar de forma clara e ostensiva como exercer o arrependimento, que pode ser pedido pela mesma ferramenta da compra (art. 5º). [4]" },
+    { "t": "p", "text": "**Não verificado:** não conseguimos confirmar qual das duas regras de desistência vale na compra online de passagem aérea: as 24 horas da ANAC (art. 11) ou os 7 dias do CDC (art. 49). As páginas oficiais abertas da ANAC e do Planalto não relacionam as duas regras. [7, 8]" },
+    { "t": "p", "text": "**Recomendação:** na dúvida, peça o cancelamento por escrito nas primeiras 24 horas e guarde o protocolo." },
+    { "t": "img", "src": "/assets/blog/promocao-mapa-anotacoes.jpg", "alt": "Mãos sobre um mapa do mundo antigo, com chapéu, câmera instantânea e anotações de viagem", "caption": "Guarde prints, e-mails e comprovantes de toda a compra.", "credit": "Foto: Vlada Karpovich / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**E o reembolso?** A companhia tem 7 dias, a contar da sua solicitação, para reembolsar pelo mesmo meio de pagamento da compra. Tarifas aeroportuárias e valores devidos a órgãos do governo são devolvidos integralmente (art. 29). [1]" },
+    { "t": "p", "text": "**A empresa mudou o seu voo?** A companhia deve avisar mudanças programadas, como horário e itinerário, com no mínimo 72 horas de antecedência. Com aviso menor, ou com mudança de partida ou chegada acima de 30 minutos (voo doméstico) ou 1 hora (voo internacional) sem a sua concordância, você escolhe entre reacomodação e reembolso integral (art. 12). [1]" },
+
+    { "t": "h", "text": "Como reclamar" },
+    { "t": "p", "text": "Você pode reclamar na própria companhia, no Consumidor.gov.br, no Procon, no Juizado Especial Cível, na Defensoria Pública ou no Ministério Público. [9]" },
+    { "t": "p", "text": "O Consumidor.gov.br é um serviço público e gratuito de contato direto com empresas participantes, que se comprometem a responder em até 10 dias. [10]" },
+    { "t": "img", "src": "/assets/blog/promocao-mapa-aviaozinho.jpg", "alt": "Mão segura um aviãozinho sobre um mapa do mundo azul, com passaporte, câmera e moedas", "caption": "Com a oferta conferida, a viagem começa mais tranquila.", "credit": "Foto: Tima Miroshnichenko / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "Este guia informa e não substitui orientação jurídica. As regras mudam: confira sempre a versão da norma indicada em **Fontes**." },
+
+    { "t": "pdf", "href": "/guias/promocao-e-real.pdf", "note": "Leve a lista de conferência no celular. Grátis, sem cadastro." },
+
+    { "t": "h", "text": "Não verificado" },
+    { "t": "ul", "items": [
+      "Não conseguimos confirmar qual das duas regras de desistência vale na compra online de passagem aérea: as 24 horas da ANAC (art. 11) ou os 7 dias do CDC (art. 49). As páginas oficiais abertas da ANAC e do Planalto não relacionam as duas regras. [7, 8]",
+      "**Bagagem.** Os limites de mala de mão além dos 10 kg da regra da ANAC, o peso e as medidas, e se a mala despachada vem incluída, variam por companhia e tarifa. O guia não afirma nenhum outro limite.",
+      "**Recomendações.** Comparar em mais de um canal, desconfiar de pressão de tempo, conferir datas, horários e escalas e conferir o nome com o documento de viagem são conselhos da Rota Certa. Nenhuma norma os impõe.",
+      "**Orientações dos Procons.** As dicas do Procon RS (2018 e 2023), do Procon Paulistano (arquivo de 2022) e do Procon de Contagem (2024) são orientações de órgãos de defesa do consumidor, com datas diferentes, e não regra federal."
+    ] },
+
+    { "t": "tip", "title": "Fontes, conferidas em 22/10/2026", "items": [
+      "[1] [ANAC, Resolução 400/2016, texto compilado (versão vigente em 22/10/2026), arts. 4, 5, 8, 9, 11, 12, 13, 14 e 29](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/resolucoes-2016/resolucao-no-400-13-12-2016)",
+      "[2] [ANAC, página Oferta e compra da passagem (atualizada em 13/04/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/oferta-e-compra-da-passagem)",
+      "[3] [ANAC, página Bagagem (atualizada em 01/10/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/bagagem)",
+      "[4] [Decreto 7.962/2013 (comércio eletrônico), arts. 2º e 5º](https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2013/decreto/d7962.htm)",
+      "[5] [Procon RS, dicas de compras on-line (15/02/2018)](https://procon.rs.gov.br/fique-atento-as-dicas-do-procon-rs-sobre-compras-on-line)",
+      "[6] [Procon RS, sinais de golpes e fraudes na compra (08/04/2023)](https://procon.rs.gov.br/proconrsexplica-o-que-fazer-diante-dos-sinais-de-golpes-e-fraudes-no-momento-da-compra)",
+      "[7] [Código de Defesa do Consumidor, Lei 8.078/1990, texto compilado, art. 49](https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm)",
+      "[8] [ANAC, página Alterações da viagem e reembolso (atualizada em 13/04/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/alteracoes-da-viagem)",
+      "[9] [Procon Paulistano (Prefeitura de São Paulo), Cartilha do Transporte Aéreo (arquivo de 2022)](https://prefeitura.sp.gov.br/documents/d/procon/cartilha-transporte-aereo-procon)",
+      "[10] [Senacon, Consumidor.gov.br](https://www.consumidor.gov.br/pages/conteudo/publico/1)",
+      "[11] [ANAC, Resolução 800/2026 (passageiro indisciplinado; alterou os arts. 5 e 18 da Res. 400)](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/2026/resolucao-800)",
+      "[12] [ANAC, Resolução 813/2026 (altera a Res. 400; vale a partir de 26/10/2026)](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/2026/resolucao-813)"
+    ] },
+    { "t": "p", "text": "**Versão da norma.** Resolução ANAC 400/2016, texto compilado no site da ANAC (última modificação em 26/08/2026, com as Resoluções 434/2017, 692/2022 e 800/2026 [11]), vigente em 22/10/2026. Os artigos citados são os dessa versão. A Resolução ANAC 813/2026 só vale a partir de 26/10/2026 e altera apenas os arts. 20, 25-A, 25-B, 26, 27, 27-A e 27-B da Resolução 400 (informação, responsabilidade e assistência em atrasos, cancelamentos e interrupções). Os demais artigos citados nestes guias não mudam. [12]" },
+    { "t": "p", "text": "Foto de capa: Nataliya Vaitkevich / Pexels." },
+
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Essa promoção é real? e quero ajuda para cotar uma passagem." },
+    { "t": "contato", "title": "Fale com a gente no Direct do Instagram", "text": "Tire dúvidas com a gente. Conte de onde você sai, para onde quer ir, o mês da viagem e quantas pessoas vão." }
+  ]
+}

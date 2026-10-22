@@ -42,6 +42,16 @@ Botão de parceiro sem link: some para o público. Na pré-visualização do pai
 3. Aplicar a migration (`pnpm d1:migrate:remote`), conferir a prévia no painel e clicar em Publicar.
 4. Se quiser endereço curto, acrescentar em `GUIAS_CURTOS`.
 
+### Artigos já publicados (opção `--publicado`)
+
+Para artigos que o dono já aprovou e que devem ir ao ar junto com o deploy, o gerador aceita `--publicado`: o post entra com `status = 'published'` e `published_at` preenchido. Sem a opção, nada muda (continua rascunho). Aceita vários arquivos de conteúdo de uma vez; o último argumento é sempre a migration de saída, e o primeiro arquivo recebe a data mais recente (aparece primeiro no índice):
+
+`npx tsx tools/gerar-migration-guia.ts content/guias/a.json content/guias/b.json d1/migrations/00NN_blog_....sql --publicado`
+
+### Categoria "Dicas de viagem"
+
+Artigos que não são de um destino (milhas, promoções, erros de compra, roteiro, checklist) usam a categoria `dicas-de-viagem` (migration `0036_blog_regiao_dicas_de_viagem.sql`). Ela só aparece no filtro de `/blog/` quando tem ao menos um artigo publicado. Os cinco artigos estão em `content/guias/` (`milhas-sem-misterio`, `promocao-e-real`, `erros-ao-comprar-passagem`, `modelo-de-roteiro`, `checklist-antes-de-viajar`) e cada um começa pelo botão do PDF `/guias/<mesmo-slug>.pdf`. Fotos: Pexels, com autor em `Foto: <autor> / Pexels`.
+
 ## Etapa 2 (futuro): gerar os guias a partir do `guide.json`
 
 `rota-certa-motion-factory/guides/<cidade>/guide.json` já tem título, versão, data, fontes com data de conferência, palavra-chave e CTA de contato. Falta o roteiro estruturado (hoje está só no `guia.html`). Plano:
