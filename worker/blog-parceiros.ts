@@ -29,4 +29,5 @@ export const BLOG_PARCEIROS: BlogParceiros = {
 export const GUIAS_CURTOS: Record<string, string> = {
   roma: 'roma-em-3-dias',
   puntacana: 'punta-cana-praias-e-passeios',
+  cusco: 'cusco-e-machu-picchu-em-4-dias',
 };

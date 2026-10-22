@@ -1,0 +1,150 @@
+{
+  "_origem": "Fatos de rota-certa-motion-factory/guides/cusco-machu-picchu-4-dias/guide.json (v0.1, valores conferidos em 14/10/2026) e do guia.html do mesmo destino. Não acrescente fato que não esteja lá.",
+  "id": "a357834c-354e-4f57-8f03-4f696013d479",
+  "slug": "cusco-e-machu-picchu-em-4-dias",
+  "regionId": "america-do-sul",
+  "title": "Cusco e Machu Picchu em 4 dias: com tempo para a altitude",
+  "titleHighlight": "com tempo para a altitude",
+  "summary": "Roteiro de Cusco e Machu Picchu em 4 dias, com tempo para a altitude, ingresso por circuito e valores oficiais conferidos em 14/10/2026, e o guia em PDF para baixar de graça.",
+  "lede": "Começa leve em Cusco, desce para o Vale Sagrado e só então sobe a Machu Picchu, com valores conferidos em outubro de 2026 e o guia completo para levar no celular.",
+  "destination": "Cusco",
+  "coverUrl": "/assets/blog/cusco-machu-picchu.jpg",
+  "coverUrlSmall": "/assets/blog/cusco-machu-picchu-m.jpg",
+  "coverAlt": "A cidade inca de Machu Picchu, com terraços verdes e a montanha ao fundo, entre nuvens",
+  "body": [
+    { "t": "pdf", "href": "/guias/cusco-e-machu-picchu-em-4-dias.pdf", "note": "PDF de 16 páginas, feito para ler no celular. Grátis, sem cadastro." },
+    { "t": "p", "text": "Cusco fica a **3.399 metros de altitude**. Por isso este roteiro de 4 dias começa leve, desce para o Vale Sagrado e só depois sobe a Machu Picchu." },
+    { "t": "tip", "title": "Como usar este roteiro", "items": [
+      "**Compre o ingresso de Machu Picchu antes da passagem de trem:** ele tem horário marcado e lugares limitados por dia. A compra é no site oficial, o TuBoleto.",
+      "**Viaje de passaporte:** é o documento pedido na entrada de Machu Picchu.",
+      "**No primeiro dia, descanse.** A altitude cobra quem corre.",
+      "**Preencha o orçamento** antes de reservar a hospedagem. O guia em PDF tem a tabela pronta."
+    ] },
+    { "t": "whatsapp" },
+    { "t": "afiliado" },
+
+    { "t": "h", "label": "Dia 1", "text": "Cusco, sem pressa" },
+    { "t": "p", "text": "Centro histórico a pé, devagar, para o corpo se acostumar à altitude." },
+    { "t": "img", "src": "/assets/blog/cusco-plaza-de-armas.jpg", "alt": "A Plaza de Armas de Cusco vista do alto, cercada por telhados vermelhos e igrejas", "caption": "A Plaza de Armas de Cusco, cercada de telhados vermelhos.", "credit": "Foto: Alejandro Novoa / Pexels", "w": 1000, "h": 668 },
+    { "t": "ul", "items": [
+      "**Chegada, hotel e descanso:** do aeroporto, vá direto ao hotel. Muitos hotéis e centros de saúde de Cusco oferecem oxigênio para quem passa mal.",
+      "**Tarde, Plaza de Armas:** o coração de Cusco, com a Catedral e a Igreja da Companhia de Jesus. Sente num banco e só observe.",
+      "**Fim da tarde, San Blas e Qorikancha:** San Blas é o bairro dos artesãos, nas ladeiras acima da praça. O Qorikancha, antigo templo inca, tem ingresso próprio. As ruas de San Blas e a vista da praça são grátis."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 1", "items": [
+      "**Primeiro dia é de descanso:** o turismo oficial do Peru recomenda ir com calma, beber água, comer leve e evitar álcool nos primeiros dias.",
+      "**Dica da Rota Certa:** deixe o Boleto Turístico para começar a usar no Dia 2. Ele vale 10 dias a partir do primeiro uso.",
+      "**Opcional:** Catedral e Qorikancha, cada um com ingresso próprio.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 2 km a pé, com subidas curtas. Esforço baixo, de propósito."
+    ] },
+    { "t": "passeio", "busca": "Cusco centro histórico", "title": "Passeios pelo centro de Cusco" },
+
+    { "t": "h", "label": "Dia 2", "text": "Vale Sagrado" },
+    { "t": "p", "text": "Pisac e Ollantaytambo, e a noite em Ollantaytambo, de onde sai o trem." },
+    { "t": "img", "src": "/assets/blog/cusco-pisac.jpg", "alt": "Ruínas incas de Pisac, com muros de pedra e montanhas do Vale Sagrado ao fundo", "caption": "As ruínas incas de Pisac, no alto do Vale Sagrado.", "credit": "Foto: Marco Luigy / Pexels", "w": 1000, "h": 666 },
+    { "t": "ul", "items": [
+      "**Manhã, Pisac:** ruínas incas no alto do vale, com terraços de cultivo em degraus. Faz parte do circuito III do Boleto Turístico.",
+      "**Tarde, Ollantaytambo:** uma cidade inca ainda habitada, com ruínas em terraços sobre o povoado. Também está no circuito III."
+    ] },
+    { "t": "img", "src": "/assets/blog/cusco-ollantaytambo.jpg", "alt": "Terraços de pedra das ruínas de Ollantaytambo, com montanhas verdes ao fundo", "caption": "Os terraços de pedra de Ollantaytambo.", "credit": "Foto: Gilmer Diaz Estela / Pexels", "w": 867, "h": 650 },
+    { "t": "ul", "items": [
+      "**Noite, durma no vale:** hotel em Ollantaytambo e jantar cedo, porque o trem da manhã seguinte costuma sair cedo.",
+      "**Opcional, Chinchero e Moray:** também fazem parte do Boleto Turístico."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 2", "items": [
+      "**Como ir:** passeio de agência ou carro com motorista. É uma recomendação da Rota Certa.",
+      "**Boleto Turístico do Cusco:** o integral custa S/ 130 (cerca de R$ 191) para estrangeiros e vale 10 dias. Inclui Pisac, Ollantaytambo, Chinchero, Moray e Sacsayhuamán. O parcial custa S/ 70 (cerca de R$ 103).",
+      "**Por que dormir em Ollantaytambo:** o trem para Machu Picchu sai dali e leva cerca de 1h30. Saindo de Cusco, são de 3h30 a 5 horas.",
+      "**Leve:** Boleto Turístico, água, protetor solar e casaco.",
+      "**Estimativa da Rota Certa, não é dado oficial:** esforço moderado, com escadarias nos terraços."
+    ] },
+    { "t": "passeio", "busca": "Vale Sagrado Cusco", "title": "Passeios no Vale Sagrado" },
+
+    { "t": "h", "label": "Dia 3", "text": "Machu Picchu" },
+    { "t": "p", "text": "Trem até o povoado de Machu Picchu, ônibus até a entrada e o circuito no horário do seu ingresso." },
+    { "t": "img", "src": "/assets/blog/cusco-machu-picchu-circuito.jpg", "alt": "Terraços e construções de pedra de Machu Picchu vistos do alto, com a montanha ao fundo e céu azul", "caption": "Machu Picchu visto do alto, com a montanha ao fundo.", "credit": "Foto: Ángel Monteza / Pexels", "w": 867, "h": 650 },
+    { "t": "ul", "items": [
+      "**Cedo, trem de Ollantaytambo:** PeruRail e Inca Rail fazem o trecho até Machu Picchu Pueblo (Aguas Calientes), em cerca de 1h30. Escolha um trem que chegue com folga antes do seu horário."
+    ] },
+    { "t": "img", "src": "/assets/blog/cusco-trem.jpg", "alt": "Trem de faróis acesos chegando pelos trilhos, no meio da mata", "caption": "Um trem chegando pelos trilhos, em meio à mata.", "credit": "Foto: Viajante Dibujero / Pexels", "w": 863, "h": 647 },
+    { "t": "ul", "items": [
+      "**Depois, ônibus até a entrada:** os ônibus da Consettur sobem do povoado até a entrada da cidade inca. Compre a passagem no site oficial ou no povoado.",
+      "**No horário do ingresso, a cidade inca:** as entradas são de hora em hora, das 6h às 15h. Em 2026, o limite é de 4.500 visitantes por dia na temporada baixa e 5.600 na alta.",
+      "**Opcional:** a montanha Huayna Picchu, com ingresso próprio.",
+      "**Volta:** trem até Ollantaytambo e, de lá, trem ou ônibus até Cusco. Durma em Cusco para o Dia 4."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 3", "items": [
+      "**Leve o mesmo documento da compra:** na entrada, o Ministério da Cultura pede passaporte válido (ou documento peruano). Use o mesmo número informado ao comprar.",
+      "**Leve:** passaporte, ingresso, capa de chuva e água.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 2 a 3 horas no circuito."
+    ] },
+    { "t": "passeio", "busca": "Machu Picchu", "title": "Passeios em Machu Picchu" },
+
+    { "t": "h", "label": "Dia 4", "text": "Sacsayhuamán" },
+    { "t": "p", "text": "As muralhas incas no alto de Cusco e um último passeio pela cidade antes do voo." },
+    { "t": "img", "src": "/assets/blog/cusco-sacsayhuaman.jpg", "alt": "Muralhas de pedra de Sacsayhuamán sobre um gramado verde, com alpacas e céu de nuvens", "caption": "As muralhas de Sacsayhuamán, acima de Cusco.", "credit": "Foto: Renso Villarreal / Pexels", "w": 1000, "h": 586 },
+    { "t": "ul", "items": [
+      "**Manhã, Sacsayhuamán:** fortaleza de pedras gigantes acima da cidade. Faz parte do circuito I do Boleto Turístico, com Q'enqo, Puka Pukara e Tambomachay.",
+      "**Depois, centro e lembranças:** desça a pé até o centro, almoce sem pressa e siga para o aeroporto com antecedência."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 4", "items": [
+      "**Dica da Rota Certa:** na subida até Sacsayhuamán, vá devagar. Mesmo no quarto dia, a altitude ainda pesa."
+    ] },
+    { "t": "passeio", "busca": "Sacsayhuamán Cusco", "title": "Passeios em Sacsayhuamán" },
+
+    { "t": "h", "label": "Antes de comprar", "text": "Ingressos e circuitos de Machu Picchu" },
+    { "t": "p", "text": "Machu Picchu vende **por circuito e horário**, só no site oficial do Ministério da Cultura (TuBoleto). São três circuitos:" },
+    { "t": "ul", "items": [
+      "**Circuito 1, Panorâmico:** vistas do alto. Inclui a rota da Montanha Machu Picchu.",
+      "**Circuito 2, Clássico:** o percurso mais completo da cidade inca. Para a primeira visita, a Rota Certa sugere o circuito 2.",
+      "**Circuito 3, Realeza:** o setor da realeza. Inclui a rota da Montanha Huayna Picchu."
+    ] },
+    { "t": "tip", "title": "Quanto custa", "items": [
+      "**Na tabela oficial de 2025:** o adulto estrangeiro paga S/ 152 (cerca de R$ 223) nas rotas comuns e S/ 200 (cerca de R$ 294) nas rotas com montanha. Maiores de 60 anos têm 50% de desconto.",
+      "**Tarifas promocionais de 2026:** valem só para peruanos, residentes e países da Comunidade Andina. Não valem para brasileiros não residentes.",
+      "**Confira o valor de 2026 na compra:** a tabela de 2026 para estrangeiros não estava publicada quando o guia foi feito (14/10/2026). O preço final aparece no TuBoleto."
+    ] },
+
+    { "t": "h", "label": "Na prática", "text": "Altitude e transporte" },
+    { "t": "ul", "items": [
+      "**Mal de altitude (soroche):** dor de cabeça, cansaço, tontura, enjoo e falta de ar são os sinais. No primeiro dia: calma, água, comida leve e nada de álcool. Se tiver problema de saúde, fale com seu médico antes.",
+      "**Como chegar:** Cusco tem aeroporto. A Rota Certa cota o trecho do Brasil até lá, com ou sem conexão em Lima.",
+      "**Trem para Machu Picchu:** saídas de Ollantaytambo (cerca de 1h30) ou de Cusco, pelas estações de Poroy, San Pedro ou Wanchaq (de 3h30 a 5 horas, algumas com trecho de ônibus).",
+      "**Tomada e voltagem:** o Peru usa 220 V e tomadas dos tipos A e C. Plugue brasileiro de três pinos não encaixa: leve adaptador."
+    ] },
+
+    { "t": "h", "label": "Antes de ir", "text": "Documentos e checklist" },
+    { "t": "tip", "title": "RG entra no Peru, mas leve passaporte", "items": [
+      "Pelo acordo entre os países, brasileiro entra no Peru com o RG válido, legível e emitido há menos de 10 anos. Mas a entrada de Machu Picchu pede passaporte.",
+      "**Prazo de permanência:** é dado pelo oficial da imigração na chegada e fica registrado no passaporte ou na Tarjeta Andina de Migración. Passar do prazo gera multa na saída."
+    ] },
+    { "t": "ul", "items": [
+      "Passaporte válido (e RG, se quiser).",
+      "Ingresso de Machu Picchu com circuito e horário.",
+      "Trem comprado depois do ingresso.",
+      "Boleto Turístico do Cusco.",
+      "Seguro viagem com cobertura médica.",
+      "Casaco, capa de chuva e protetor solar.",
+      "Adaptador de tomada."
+    ] },
+    { "t": "p", "text": "**Quanto separar só em ingressos, por adulto:** Machu Picchu (rota comum) e Boleto Turístico integral somam S/ 282 (cerca de R$ 414). Reais pela cotação do Banco Central de 14/10/2026 (S/ 1 = R$ 1,47). No cartão entram o IOF e o câmbio do seu banco." },
+
+    { "t": "pdf", "href": "/guias/cusco-e-machu-picchu-em-4-dias.pdf", "note": "Leve o roteiro, as rotas no Google Maps e o orçamento no celular. Grátis, sem cadastro." },
+
+    { "t": "tip", "title": "Fontes oficiais, conferidas em 14/10/2026", "items": [
+      "Machu Picchu: [TuBoleto](https://tuboleto.cultura.pe/), [tarifas 2025](https://transparencia.cultura.gob.pe/sites/default/files/transparencia/2024/12/resoluciones-ministeriales/resolucionministerial-000451-2024-mcanexotusne2025.pdf), [limite e horários 2026](https://transparencia.cultura.gob.pe/sites/default/files/transparencia/2025/10/resoluciones-ministeriales/044anexorm285.pdf), [tarifas promocionais 2026](https://transparencia.cultura.gob.pe/sites/default/files/transparencia/2025/10/resoluciones-ministeriales/resolucionministerial-000284-2025-mcyanexo.pdf) e [documentos de entrada](https://www.culturacusco.gob.pe/noticia/imagen/ministerio-de-cultura-inicio-la-venta-de-entradas-para-ingresar-a-machupicchu-a-partir-del-1-de-junio/)",
+      "[Boleto Turístico do Cusco: COSITUC](https://cosituc.gob.pe/tarifario/)",
+      "[Trem: PeruRail](https://www.perurail.com/train-schedules-and-frequencies/) e [ônibus: Consettur](https://comprar.consettur.com/)",
+      "[Altitude e soroche: Peru Travel](https://www.peru.travel/destinations/cusco)",
+      "[Entrada com RG: Embaixada do Brasil em Lima](https://www.gov.br/mre/pt-br/embaixada-lima/sc/viagem/viagem-ao-peru/requisitos-para-entrada-no-peru)",
+      "[Tomadas: IEC](https://www.iec.ch/world-plugs)",
+      "[Câmbio: Banco Central](https://www4.bcb.gov.br/Download/fechamento/20261014.csv)"
+    ] },
+    { "t": "p", "text": "Horários, preços e regras mudam: confira nos sites acima antes de comprar. A tabela de Machu Picchu de 2026 para estrangeiros ainda não estava publicada na data da conferência." },
+    { "t": "p", "text": "Foto de capa: Eddie Kiszka / Pexels." },
+
+    { "t": "whatsapp" },
+    { "t": "contato" },
+    { "t": "afiliado" }
+  ]
+}
