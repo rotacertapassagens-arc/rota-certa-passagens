@@ -1,0 +1,130 @@
+{
+  "_origem": "Fatos de rota-certa-motion-factory/guides/lisboa-3-dias/guide.json (v0.1, aprovado em 14/10/2026; valores conferidos em 14/10/2026) e do guia.html do mesmo destino. Não acrescente fato que não esteja lá. O preço do trem Rossio a Sintra NÃO é fixado (tabela da CP em imagem, não verificada).",
+  "id": "8d551f9f-5251-495f-be5b-8daf1d686f37",
+  "slug": "guia-lisboa-em-3-dias",
+  "regionId": "portugal",
+  "title": "Lisboa em 3 dias: centro, Belém e Sintra, uma região por dia",
+  "titleHighlight": "uma região por dia",
+  "summary": "Roteiro de Lisboa em 3 dias dividido em três regiões, centro, Belém e Sintra, com valores oficiais conferidos em 14/10/2026 e o guia em PDF para baixar de graça.",
+  "lede": "Uma região por dia, valores oficiais conferidos em outubro de 2026 e o guia completo para baixar e levar no celular.",
+  "destination": "Lisboa",
+  "coverUrl": "/assets/blog/lisboa-guia-3-dias.jpg",
+  "coverUrlSmall": "/assets/blog/lisboa-guia-3-dias-m.jpg",
+  "coverAlt": "Vista aérea do Palácio da Pena, em Sintra, com torres vermelhas e amarelas no alto de um morro coberto de floresta, na luz dourada do fim de tarde",
+  "body": [
+    { "t": "pdf", "href": "/guias/lisboa-em-3-dias.pdf", "note": "PDF de 14 páginas, feito para ler no celular. Grátis, sem cadastro." },
+    { "t": "p", "text": "Antes de montar os dias, uma regra: **não deixe Belém para a segunda-feira**, porque o Mosteiro dos Jerónimos e a Torre de Belém fecham às segundas. Este roteiro divide a viagem em **três regiões, uma por dia**: o centro, Belém e Sintra. Qualquer ordem funciona, desde que Belém não caia numa segunda." },
+    { "t": "tip", "title": "Como usar este roteiro", "items": [
+      "**Coloque Belém num dia entre terça e domingo.**",
+      "**Compre o Palácio da Pena com data e hora** antes de viajar.",
+      "**Confira os horários na véspera**, nos sites oficiais listados no fim da página."
+    ] },
+    { "t": "whatsapp" },
+    { "t": "afiliado" },
+
+    { "t": "h", "label": "Dia 1", "text": "Centro" },
+    { "t": "p", "text": "Baixa, Chiado e Alfama, a pé, com os miradouros no fim da tarde." },
+    { "t": "img", "src": "/assets/blog/lisboa-guia-alfama.jpg", "alt": "Telhados alaranjados e fachadas coloridas de Alfama, com uma igreja branca no alto e céu azul com nuvens", "caption": "Os telhados de Alfama, vistos do alto.", "credit": "Foto: Guilherme Marques / Pexels", "w": 1000, "h": 666 },
+    { "t": "ul", "items": [
+      "**Manhã, Praça do Comércio e Baixa:** a grande praça fica à beira do Tejo. Passe pelo arco e suba a Rua Augusta, só para pedestres, até a Baixa.",
+      "**Depois, Chiado:** bairro de cafés, livrarias e teatros, uma subida curta a partir da Baixa.",
+      "**Tarde, opcional, Alfama e Castelo de São Jorge:** desça pelas ruelas de Alfama. O castelo abre todos os dias: das 9h às 21h de março a outubro e das 9h às 18h de novembro a fevereiro, com última entrada meia hora antes. Ingresso de € 17.",
+      "**Fim da tarde, miradouros:** Santa Luzia e Portas do Sol, em Alfama, e a Senhora do Monte, na Graça. Ao ar livre e sem ingresso."
+    ] },
+    { "t": "img", "src": "/assets/blog/lisboa-guia-eletrico.jpg", "alt": "Elétrico amarelo, com a placa Prazeres 28, numa rua de calçada de pedra, entre prédios antigos", "caption": "O elétrico 28, numa rua de calçada de pedra.", "credit": "Foto: Alexander Ruiz / Pexels", "w": 867, "h": 650 },
+    { "t": "tip", "title": "Para planejar o Dia 1", "items": [
+      "**Como chegar:** metrô até as estações Baixa-Chiado ou Terreiro do Paço.",
+      "**Dica da Rota Certa:** use tênis. Lisboa é feita de ladeiras e a calçada de pedra escorrega.",
+      "**Dica da Rota Certa:** no elétrico 28 e nos miradouros cheios, leve a mochila na frente do corpo.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 5 horas nas atrações e uns 50 minutos a pé entre as paradas (cerca de 3 km), sem contar filas nem refeições. Esforço moderado: ladeiras e calçada de pedra."
+    ] },
+    { "t": "passeio", "busca": "Lisboa centro e Alfama", "title": "Passeios pelo centro de Lisboa e Alfama" },
+
+    { "t": "h", "label": "Dia 2", "text": "Belém" },
+    { "t": "p", "text": "O mosteiro, a beira do Tejo e o famoso pastel de Belém." },
+    { "t": "p", "text": "**Antes de marcar o dia:** Belém não abre às segundas. O Mosteiro dos Jerónimos e a Torre de Belém fecham às segundas e em 1/1, Domingo de Páscoa, 1/5, 13/6 e 25/12." },
+    { "t": "img", "src": "/assets/blog/lisboa-guia-jeronimos.jpg", "alt": "Fachada de pedra clara do Mosteiro dos Jerónimos, com torres rendilhadas, e uma fila de visitantes na calçada", "caption": "A fachada do Mosteiro dos Jerónimos.", "credit": "Foto: Efrem Efre / Pexels", "w": 867, "h": 650 },
+    { "t": "ul", "items": [
+      "**Manhã, Mosteiro dos Jerónimos:** o claustro abre de terça a domingo, das 9h30 às 17h30, com última entrada às 17h. Ingresso de € 18. Chegue cedo: a fila cresce ao longo do dia.",
+      "**Logo ao lado, Pastéis de Belém:** na Rua de Belém, 84 a 92. A casa faz os pastéis desde 1837 e abre todos os dias.",
+      "**Tarde, beira do Tejo e Padrão dos Descobrimentos:** atravesse o jardim até o rio. O monumento aos navegadores pode ser visto de fora sem pagar.",
+      "**Fim da tarde, opcional, Torre de Belém:** reabriu em maio de 2026, depois de obras de restauro. Terça a domingo, das 9h30 às 17h30, com entrada por horário marcado. Ingresso de € 15."
+    ] },
+    { "t": "img", "src": "/assets/blog/lisboa-guia-torre-belem.jpg", "alt": "A Torre de Belém, de pedra clara e com ameias, erguida à beira do rio Tejo, contra um céu azul", "caption": "A Torre de Belém, à beira do Tejo.", "credit": "Foto: Taras Chuiko / Pexels", "w": 867, "h": 650 },
+    { "t": "tip", "title": "Para planejar o Dia 2", "items": [
+      "**Como chegar:** elétrico 15E, da Praça da Figueira ou da Praça do Comércio, ou trem do Cais do Sodré até a estação Belém.",
+      "**Torre de Belém:** a entrada é por horário marcado. Veja a reserva no site oficial, nos links do fim da página.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 4 a 5 horas nas atrações e uns 25 minutos a pé entre as paradas (cerca de 1,7 km). Esforço baixo: tudo plano.",
+      "Horários conferidos em 14/10/2026 nos sites oficiais. Confirme na véspera."
+    ] },
+    { "t": "passeio", "busca": "Belém Lisboa", "title": "Passeios em Belém" },
+
+    { "t": "h", "label": "Dia 3", "text": "Sintra" },
+    { "t": "p", "text": "De trem até Sintra e o Palácio da Pena, com horário marcado." },
+    { "t": "p", "text": "**Na Pena, não há tolerância de atraso.** A entrada vale só na data e na hora do bilhete: quem chega depois do horário não entra e não recebe reembolso. Quem chega antes espera a sua hora." },
+    { "t": "ul", "items": [
+      "**Cedo, trem do Rossio a Sintra:** os trens da CP saem da estação do Rossio, e a viagem direta leva cerca de 40 minutos. Compre o bilhete na estação e valide antes de embarcar: viajar sem validar dá multa. Este roteiro não fixa o preço do trem: confira na CP.",
+      "**Da estação à Pena, ônibus 434 ou trilha:** o ônibus 434, da Scotturb, sai da estação de Sintra. Há trilhas sinalizadas de 45 min a 1h30. Carro particular não sobe. Da entrada do parque ao palácio são cerca de 30 min a pé, ou um pequeno transfer comprado antes.",
+      "**Manhã, Palácio da Pena:** palácio das 9h30 às 18h30, com última entrada às 18h, e parque das 9h às 19h. Palácio e parque: € 45. Só o parque: € 12.",
+      "**Tarde, centro histórico:** ruas de pedra e cafés. Opcionais: Palácio Nacional de Sintra, € 13 (Visita Essencial), e Castelo dos Mouros, € 12."
+    ] },
+    { "t": "img", "src": "/assets/blog/lisboa-guia-sintra-centro.jpg", "alt": "Praça do centro histórico de Sintra, com um casarão rosa de telhado de cerâmica, guarda-sóis brancos e pessoas passeando", "caption": "Uma praça do centro histórico de Sintra.", "credit": "Foto: Travel Photographer / Pexels", "w": 1000, "h": 666 },
+    { "t": "tip", "title": "Para planejar o Dia 3", "items": [
+      "**Reserve antes:** o Palácio da Pena, com data e hora, no site da Parques de Sintra, nos links do fim da página.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 5 horas nas atrações. Esforço alto: subidas no parque da Pena. O tempo de trem é da CP."
+    ] },
+    { "t": "passeio", "busca": "Sintra Palácio da Pena", "title": "Passeios em Sintra e no Palácio da Pena" },
+
+    { "t": "h", "label": "Na prática", "text": "Como chegar e se locomover" },
+    { "t": "p", "text": "Lisboa recebe voos diretos de várias cidades do Brasil, e o aeroporto tem estação de metrô." },
+    { "t": "ul", "items": [
+      "**Do aeroporto:** metrô na estação Aeroporto, da linha Vermelha, além de ônibus da Carris, Aerobus e táxi.",
+      "**Metrô com cartão por aproximação:** aceita Visa, V Pay e Mastercard com o símbolo de pagamento por aproximação. Cada viagem custa € 1,92. Tire da carteira só o cartão que vai usar, para não cobrar duas vezes. Pode aparecer uma pré-autorização de € 1, que não é o valor final.",
+      "**Elétrico e bilhete de 24 horas:** no elétrico, a viagem paga a bordo custa € 3,30. O bilhete 24 horas Carris e Metrô sai por € 7,25, com viagens ilimitadas.",
+      "**Elétrico 15E:** liga a Praça da Figueira a Belém, passando pela Praça do Comércio e pelo Cais do Sodré.",
+      "**Tomada e voltagem:** Portugal usa 230 V e tomadas no padrão europeu, de pinos redondos. Plugue brasileiro de três pinos não encaixa: leve um adaptador."
+    ] },
+
+    { "t": "h", "label": "Antes de ir", "text": "Documentos e checklist" },
+    { "t": "ul", "items": [
+      "Passaporte válido por 3 meses além da volta.",
+      "Reserva de hospedagem e passagem de volta.",
+      "Seguro viagem com cobertura médica.",
+      "Palácio da Pena comprado com data e hora.",
+      "Belém fora da segunda-feira.",
+      "Cartão por aproximação e adaptador de tomada."
+    ] },
+    { "t": "tip", "title": "Para brasileiros: entrada em Portugal", "items": [
+      "**Passaporte, sem visto para turismo:** brasileiro não precisa de visto para turismo de até 90 dias. O passaporte deve valer pelo menos 3 meses além da data prevista de saída da Europa.",
+      "**Na chegada, digitais e foto:** desde 10/4/2026, o Sistema de Entrada e Saída (EES) registra digitais e foto do rosto na fronteira. Não há cadastro prévio.",
+      "**ETIAS, a autorização que vem aí:** a União Europeia prevê exigir o ETIAS, inclusive de brasileiros, a partir do último trimestre de 2026, com taxa de € 20. A data exata ainda não saiu. Use só o site oficial.",
+      "**Dinheiro para a estada:** Portugal pode pedir € 75 por entrada mais € 40 por dia. Fica dispensado quem comprova hospedagem e alimentação garantidas."
+    ] },
+    { "t": "tip", "title": "Para o orçamento", "items": [
+      "**Ingressos deste roteiro, por adulto:** Jerónimos, Torre de Belém e Palácio da Pena somam € 78 (cerca de R$ 438). Reais pela cotação PTAX de 14/10/2026, € 1 = R$ 5,61. No cartão entram o IOF e o câmbio do seu banco.",
+      "**Preencha o orçamento** antes de reservar a hospedagem. O guia em PDF tem a tabela pronta."
+    ] },
+
+    { "t": "pdf", "href": "/guias/lisboa-em-3-dias.pdf", "note": "Leve o roteiro, as rotas no Google Maps e o orçamento no celular. Grátis, sem cadastro." },
+
+    { "t": "tip", "title": "Fontes oficiais, conferidas em 14/10/2026", "items": [
+      "[Mosteiro dos Jerónimos](https://www.museusemonumentos.pt/pt/museus-e-monumentos/mosteiro-dos-jeronimos-e-capela-de-sao-jeronimo)",
+      "[Torre de Belém](https://www.museusemonumentos.pt/pt/museus-e-monumentos/torre-de-belem) e [reabertura da Torre](https://www.museusemonumentos.pt/pt/noticia-com/torre-de-belem-reabre-ao-publico)",
+      "[Pastéis de Belém](https://pasteisdebelem.pt/)",
+      "[Parques de Sintra: horários e preços](https://www.parquesdesintra.pt/pt/planear-a-visita/horarios-e-precos/), [bilhetes do Palácio da Pena](https://www.parquesdesintra.pt/pt/planear-a-visita/bilhetes-palacio-da-pena/) e [como chegar](https://www.parquesdesintra.pt/pt/planear-a-visita/como-chegar/)",
+      "[Castelo de São Jorge](https://castelodesaojorge.pt/en/plan-your-visit/choose-your-ticket/)",
+      "[Metrô de Lisboa: cartão por aproximação](https://www.metrolisboa.pt/comprar/viajar-no-metro-com-cartao-bancario-contactless/) e [aeroporto](https://www.metrolisboa.pt/viajar/aeroporto/)",
+      "[Carris: viagens ocasionais](https://www.carris.pt/compre/viagens-ocasionais/) e [elétrico 15E](https://www.carris.pt/en/travel/carreiras/15e/)",
+      "[Trem: CP, validação do bilhete](https://www.cp.pt/info/documents/d/cp/precos-comboios-urbanos-lisboa)",
+      "[Passaporte: vistos Schengen](https://vistos.mne.gov.pt/pt/vistos-schengen/documentacao-instrutoria/schengen-para-efeitos-de-curta-duracao) e [meios de subsistência: Portaria 1563/2007](https://aima.gov.pt/media/pages/documents/574c551c9d-1750429207/portaria-1563_2007.pdf)",
+      "[EES e ETIAS](https://home-affairs.ec.europa.eu/news/main-differences-between-ees-and-etias-what-travellers-need-know-2026-04-28_en), [taxa do ETIAS](https://home-affairs.ec.europa.eu/news/european-travel-authorisation-etias-will-cost-eur-20-2025-07-17_en) e [quem precisa do ETIAS](https://travel-europe.europa.eu/en/etias/about-etias/who-should-apply)",
+      "[Tomada: Visit Portugal](https://www.visitportugal.com/en/sobre-portugal/info-util)"
+    ] },
+    { "t": "p", "text": "Horários, preços e regras mudam: confira nos sites acima antes de comprar. Quer outro olhar sobre a cidade? Veja também o roteiro de [bairros e miradouros de Lisboa](/blog/lisboa-em-3-dias)." },
+    { "t": "p", "text": "Foto de capa: Matej Simko / Pexels." },
+
+    { "t": "whatsapp" },
+    { "t": "contato" },
+    { "t": "afiliado" }
+  ]
+}

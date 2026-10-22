@@ -246,6 +246,196 @@ describe('guia piloto de Roma (content/guias/roma-em-3-dias.json)', () => {
   });
 });
 
+describe('guia de Madri (content/guias/madri-em-4-dias.json)', () => {
+  const conteudo = JSON.parse(readFileSync(new URL('../content/guias/madri-em-4-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
+  const tipos = conteudo.body.map((b) => b.t);
+  const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
+  it('começa pelo PDF que já existe, tem WhatsApp antes do roteiro e no fim, 4 passeios (um por dia), contato no fim e nenhum carro', () => {
+    expect(tipos[0]).toBe('pdf');
+    expect(conteudo.body[0]!.href).toBe('/guias/madri-em-4-dias.pdf');
+    expect(readFileSync(arq('/guias/madri-em-4-dias.pdf')).subarray(0, 5).toString()).toBe('%PDF-');
+    expect(conteudo.body.findIndex((b) => b.t === 'whatsapp')).toBeLessThan(conteudo.body.findIndex((b) => b.t === 'h' && b.label === 'Dia 1'));
+    expect(tipos.filter((t) => t === 'whatsapp')).toHaveLength(2);
+    expect(tipos.filter((t) => t === 'passeio')).toHaveLength(4);
+    expect(tipos.indexOf('contato')).toBeGreaterThan(tipos.lastIndexOf('passeio'));
+    expect(tipos).not.toContain('carro');
+    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
+  });
+  it('fotos: existem, pesam menos de 250 KB e têm alt, legenda e crédito do Pexels; sem foto com letreiro de marca', () => {
+    for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
+    const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
+    expect(fotos).toHaveLength(6);
+    for (const f of fotos) {
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+    }
+    expect(new Set(fotos.map((f) => f.src)).size).toBe(fotos.length);
+    expect(JSON.stringify(conteudo)).not.toMatch(/gran-via\.jpg|madri-capa/);
+  });
+  it('não tem travessão nem preço nos passeios, e a frase do Palácio Real segue a fonte oficial', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    expect(texto).toContain('cidadãos latino-americanos, entre eles brasileiros, com documento de nacionalidade');
+    expect(texto).not.toContain('Brasileiro entra de graça');
+    expect(texto).toContain('Reina Sofía');
+    expect(texto).toMatch(/fecha às terças/i);
+  });
+});
+
+describe('guia de Buenos Aires (content/guias/buenos-aires-em-3-dias.json)', () => {
+  const conteudo = JSON.parse(readFileSync(new URL('../content/guias/buenos-aires-em-3-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
+  const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
+  const tipos = conteudo.body.map((b) => b.t);
+
+  it('começa pelo botão do PDF do arquivo que já existe, com passagem antes do roteiro e contato no fim, sem carro', () => {
+    expect(tipos[0]).toBe('pdf');
+    expect(conteudo.body[0]!.href).toBe('/guias/buenos-aires-em-3-dias.pdf');
+    expect(readFileSync(new URL('../public/guias/buenos-aires-em-3-dias.pdf', import.meta.url)).subarray(0, 5).toString()).toBe('%PDF-');
+    const iDia1 = conteudo.body.findIndex((b) => b.t === 'h' && String(b.label).startsWith('Dia 1'));
+    expect(conteudo.body.findIndex((b) => b.t === 'whatsapp')).toBeLessThan(iDia1);
+    expect(tipos.filter((t) => t === 'whatsapp')).toHaveLength(2);
+    expect(tipos.indexOf('contato')).toBeGreaterThan(tipos.lastIndexOf('passeio'));
+    expect(tipos.filter((t) => t === 'passeio')).toHaveLength(3);
+    expect(tipos).not.toContain('carro');
+    for (const [i, t] of tipos.entries()) if (t === 'passeio') expect(conteudo.body[i + 1]!.t).toBe('h');
+  });
+  it('fotos: existem no site, pesam menos de 250 KB e têm alt, legenda e crédito do Pexels; nenhuma antes do primeiro CTA', () => {
+    const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
+    for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
+    const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
+    expect(fotos).toHaveLength(5);
+    for (const f of fotos) {
+      expect(existsSync(arq(String(f.src)))).toBe(true);
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+    }
+    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
+  });
+  it('não tem travessão nem preço em pesos, e em produção não mostra passeios nem aviso', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(JSON.stringify(conteudo.body)).not.toMatch(/ARS|\$ ?\d|pesos? argentinos? \d/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    const producao = renderBlocks(body, ctx({ destino: 'Buenos Aires', campanha: 'buenos-aires' }), true);
+    expect(producao).not.toContain('Passeios em');
+    expect(producao).not.toContain('aviso-afiliado');
+    expect(renderBlocks(body, ctx({ preview: true, destino: 'Buenos Aires', campanha: 'buenos-aires' }), true).match(/cta-inativo/g)).toHaveLength(3);
+  });
+});
+describe('guia de Lisboa (content/guias/guia-lisboa-em-3-dias.json)', () => {
+  const conteudo = JSON.parse(readFileSync(new URL('../content/guias/guia-lisboa-em-3-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
+  const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
+  const tipos = conteudo.body.map((b) => b.t);
+
+  it('não usa o slug do post antigo e começa pelo PDF que já está no ar', () => {
+    expect(conteudo.slug).toBe('guia-lisboa-em-3-dias');
+    expect(conteudo.slug).not.toBe('lisboa-em-3-dias');
+    expect(tipos[0]).toBe('pdf');
+    expect(conteudo.body[0]!.href).toBe('/guias/lisboa-em-3-dias.pdf');
+    expect(readFileSync(new URL('../public/guias/lisboa-em-3-dias.pdf', import.meta.url)).subarray(0, 5).toString()).toBe('%PDF-');
+  });
+  it('mesma ordem de botões de Roma: passagem antes do roteiro e no fim, 3 passeios, contato no fim, sem carro', () => {
+    const iDia1 = conteudo.body.findIndex((b) => b.t === 'h' && b.label === 'Dia 1');
+    expect(tipos.indexOf('whatsapp')).toBeLessThan(iDia1);
+    expect(tipos.filter((t) => t === 'whatsapp')).toHaveLength(2);
+    expect(tipos.indexOf('contato')).toBeGreaterThan(tipos.lastIndexOf('passeio'));
+    expect(tipos.filter((t) => t === 'passeio')).toHaveLength(3);
+    expect(tipos).not.toContain('carro');
+    for (const [i, t] of tipos.entries()) if (t === 'passeio') expect(conteudo.body[i + 1]!.t).toBe('h');
+    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
+  });
+  it('fotos existem, pesam menos de 250 KB e têm alt, legenda e crédito do Pexels, no máximo 2 por dia', () => {
+    const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
+    for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
+    const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
+    expect(fotos).toHaveLength(5);
+    for (const f of fotos) {
+      expect(existsSync(arq(String(f.src)))).toBe(true);
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+    }
+    let porDia = 0;
+    for (const b of conteudo.body) { if (b.t === 'h') porDia = 0; if (b.t === 'img') expect(++porDia).toBeLessThanOrEqual(2); }
+  });
+  it('sem travessão nem preço de passeio, e guarda os fatos não óbvios do guia', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    for (const trecho of ['reabriu em maio de 2026', '€ 45', 'não há tolerância de atraso', 'EES', 'ETIAS', 'não fixa o preço do trem']) expect(texto).toContain(trecho);
+    expect(texto).not.toMatch(/aluguel de carro|alugar um carro/i);
+  });
+  it('desenha em produção sem passeios e na prévia com 3 inativos', () => {
+    const producao = renderBlocks(body, ctx({ destino: 'Lisboa', campanha: 'lisboa' }), true);
+    expect(producao).not.toContain('Passeios em');
+    expect(producao).not.toContain('Inativo');
+    expect(renderBlocks(body, ctx({ preview: true }), true).match(/cta-inativo/g)).toHaveLength(3);
+  });
+});
+
+describe('guia de Paris (content/guias/paris-em-4-dias.json)', () => {
+  const conteudo = JSON.parse(readFileSync(new URL('../content/guias/paris-em-4-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
+  const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
+  const tipos = conteudo.body.map((b) => b.t);
+  const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
+
+  it('começa pelo botão do PDF que já existe e tem passagem antes do roteiro e no fim, 4 passeios, contato no fim e nenhum carro', () => {
+    expect(tipos[0]).toBe('pdf');
+    expect(conteudo.body[0]!.href).toBe('/guias/paris-em-4-dias.pdf');
+    expect(readFileSync(arq('/guias/paris-em-4-dias.pdf')).subarray(0, 5).toString()).toBe('%PDF-');
+    expect(conteudo.body.findIndex((b) => b.t === 'whatsapp')).toBeLessThan(conteudo.body.findIndex((b) => b.t === 'h' && b.label === 'Dia 1'));
+    expect(tipos.filter((t) => t === 'whatsapp')).toHaveLength(2);
+    expect(tipos.indexOf('contato')).toBeGreaterThan(tipos.lastIndexOf('passeio'));
+    expect(tipos.filter((t) => t === 'passeio')).toHaveLength(4);
+    expect(tipos).not.toContain('carro');
+    for (const [i, t] of tipos.entries()) if (t === 'passeio') expect(conteudo.body[i + 1]!.t).toBe('h');
+  });
+  it('fotos: existem, pesam menos de 250 KB, têm alt, legenda e crédito do Pexels; nenhuma antes do primeiro WhatsApp; no máximo 2 por dia', () => {
+    for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
+    const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
+    expect(fotos.length).toBeGreaterThanOrEqual(5);
+    for (const f of fotos) {
+      expect(existsSync(arq(String(f.src)))).toBe(true);
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+      expect(f.w).toBeTypeOf('number'); expect(f.h).toBeTypeOf('number');
+    }
+    expect(new Set(fotos.map((f) => f.src)).size).toBe(fotos.length);
+    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
+    let dia = 0; const porDia: number[] = [];
+    for (const b of conteudo.body) { if (b.t === 'h') { dia += 1; porDia[dia] = 0; } else if (b.t === 'img' && dia > 0) porDia[dia]! += 1; }
+    expect(Math.max(...porDia.filter((n) => n !== undefined))).toBeLessThanOrEqual(2);
+  });
+  it('sem travessão, sem preço no passeio, com os fatos não óbvios do guia e link para o post antigo de Paris', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    expect(texto).toContain('Estimativa da Rota Certa, não é dado oficial');
+    expect(texto).toContain('€ 32');
+    expect(texto).toContain('reserva obrigatória de 17/10 a 1/11/2026');
+    expect(texto).toContain('ETIAS');
+    expect(texto).toContain('/blog/paris-primeira-viagem');
+    expect(conteudo.slug).toBe('paris-em-4-dias');
+  });
+  it('desenha em produção sem passeios e sem aviso, e na prévia com 4 inativos', () => {
+    const producao = renderBlocks(body, ctx({ destino: 'Paris', campanha: 'paris' }), true);
+    expect(producao).not.toContain('Passeios na');
+    expect(producao).not.toContain('aviso-afiliado');
+    expect(producao).not.toContain('Inativo');
+    const previa = renderBlocks(body, ctx({ preview: true, destino: 'Paris', campanha: 'paris' }), true);
+    expect(previa.match(/cta-inativo/g)).toHaveLength(4);
+    expect(previa.match(/aviso-afiliado/g)).toHaveLength(2);
+  });
+});
+
 /** Extrai os href dos <a> do HTML, em ordem (sem depender de DOM no Node). */
 class DOMParserLike {
   constructor(private readonly html: string) {}

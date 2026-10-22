@@ -1,0 +1,150 @@
+{
+  "_origem": "Fatos de rota-certa-motion-factory/guides/santiago-4-dias/guide.json (v0.1, valores conferidos em 14/10/2026) e do guia.html do mesmo guia. Não acrescente fato que não esteja lá.",
+  "id": "b3be1a54-c73b-4682-a58f-2047c6102802",
+  "slug": "santiago-em-4-dias",
+  "regionId": "america-do-sul",
+  "title": "Santiago em 4 dias: cidade, vinícola e Valparaíso",
+  "titleHighlight": "vinícola e Valparaíso",
+  "summary": "Roteiro de Santiago do Chile em 4 dias: centro histórico, Cerro San Cristóbal, vinícola com pôr do sol no alto da Costanera e bate-volta a Valparaíso, com valores oficiais conferidos em 14/10/2026 e o guia em PDF para baixar de graça.",
+  "lede": "Dois dias na cidade, um de vinícola e um em Valparaíso, com valores oficiais conferidos em outubro de 2026 e o guia completo para baixar e levar no celular.",
+  "destination": "Santiago do Chile",
+  "coverUrl": "/assets/blog/santiago-4-dias.jpg",
+  "coverUrlSmall": "/assets/blog/santiago-4-dias-m.jpg",
+  "coverAlt": "Prédios de Santiago com a Cordilheira dos Andes nevada ao fundo, sob um céu azul",
+  "body": [
+    { "t": "pdf", "href": "/guias/santiago-em-4-dias.pdf", "note": "PDF de 16 páginas, feito para ler no celular. Grátis, sem cadastro." },
+    { "t": "p", "text": "**Brasileiro entra no Chile com o RG, mas o documento precisa ter menos de 10 anos e estar em bom estado.** Na dúvida, vá de passaporte." },
+    { "t": "p", "text": "Este roteiro junta **dois dias na cidade, um dia de vinícola com pôr do sol no alto da Costanera e um bate-volta a Valparaíso**." },
+    { "t": "tip", "title": "Como usar este roteiro", "items": [
+      "**Confira a data de emissão do seu RG.** Na dúvida, vá de passaporte.",
+      "**Reserve antes** a vinícola e o Sky Costanera: os dois têm data e hora.",
+      "**No metrô, use o cartão de crédito por aproximação.**",
+      "**Preencha o orçamento** antes de reservar a hospedagem. O guia em PDF tem a tabela pronta."
+    ] },
+    { "t": "whatsapp" },
+    { "t": "afiliado" },
+
+    { "t": "h", "label": "Dia 1", "text": "Centro histórico" },
+    { "t": "p", "text": "Plaza de Armas, Mercado Central e o Palácio de La Moneda, a pé. Escolha um dia útil." },
+    { "t": "img", "src": "/assets/blog/santiago-catedral.jpg", "alt": "Torres da Catedral Metropolitana de Santiago, com a estátua no alto da fachada, sob céu azul", "caption": "A Catedral Metropolitana, na Plaza de Armas.", "credit": "Foto: Joana Pirola / Pexels", "w": 1000, "h": 750 },
+    { "t": "ul", "items": [
+      "**Manhã, Plaza de Armas:** o marco zero da cidade, com a Catedral Metropolitana e prédios históricos em volta.",
+      "**Almoço, Mercado Central:** mercado de peixes e frutos do mar com restaurantes, a poucas quadras da praça."
+    ] },
+    { "t": "img", "src": "/assets/blog/santiago-la-moneda.jpg", "alt": "Fachada do Palácio de La Moneda, com a bandeira do Chile no alto e um gramado em primeiro plano", "caption": "O Palácio de La Moneda, sede do governo chileno.", "credit": "Foto: Matheus Natan / Pexels", "w": 1000, "h": 750 },
+    { "t": "ul", "items": [
+      "**Tarde, Palácio de La Moneda:** dá para ver de fora a qualquer hora; a visita guiada por dentro exige inscrição."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 1", "items": [
+      "**Visita a La Moneda, inscreva-se antes:** as visitas guiadas ao palácio são gratuitas, em dias úteis, com inscrição prévia no site da Presidência e documento na mão. Podem ser suspensas por agenda oficial: confira as datas no site.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 4 a 5 horas nas atrações e uns 2 km a pé, tudo plano. Esforço baixo.",
+      "**Dica da Rota Certa:** no centro, mochila na frente e celular guardado, principalmente em praças cheias.",
+      "**Rota:** [abrir o Dia 1 no Google Maps](https://www.google.com/maps/dir/?api=1&origin=Plaza%20de%20Armas%2C%20Santiago%2C%20Chile&waypoints=Mercado%20Central%2C%20Santiago%2C%20Chile&destination=Palacio%20de%20La%20Moneda%2C%20Santiago&travelmode=walking)."
+    ] },
+    { "t": "passeio", "busca": "Santiago do Chile centro histórico", "title": "Passeios pelo centro histórico de Santiago" },
+
+    { "t": "h", "label": "Dia 2", "text": "San Cristóbal e Bellavista" },
+    { "t": "p", "text": "A vista da cidade e dos Andes do alto do morro, e o bairro boêmio aos pés dele. Evite a segunda-feira." },
+    { "t": "img", "src": "/assets/blog/santiago-san-cristobal.jpg", "alt": "Casal abraçado olhando a cidade de Santiago, coberta por névoa, de um mirante do Cerro San Cristóbal", "caption": "A vista de Santiago do alto do Cerro San Cristóbal.", "credit": "Foto: Cláudio Castro / Pexels", "w": 867, "h": 650 },
+    { "t": "ul", "items": [
+      "**Manhã, subida ao Cerro San Cristóbal:** suba cedo, quando o céu costuma estar mais limpo para ver os Andes. No alto ficam o mirante e a imagem da Virgem.",
+      "**Descida, Parque Metropolitano:** parque grande, com trilhas e áreas verdes por todo o morro. A entrada é grátis."
+    ] },
+    { "t": "img", "src": "/assets/blog/santiago-bellavista.jpg", "alt": "Rua arborizada do Barrio Bellavista, em Santiago, com faixa de pedestres e um prédio vermelho ao fundo", "caption": "Uma rua do Barrio Bellavista, na base do morro.", "credit": "Foto: Nikolai Kolosov / Pexels", "w": 1000, "h": 664 },
+    { "t": "ul", "items": [
+      "**Tarde e noite, Barrio Bellavista:** bairro de casas coloridas, bares e restaurantes, na base do morro. Bom para jantar."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 2", "items": [
+      "**Funicular e teleférico têm horário próprio:** às segundas o funcionamento é reduzido e há paradas para manutenção. Confira o dia no site do Parquemet. Os dois são opcionais e pagos.",
+      "**Parque Metropolitano:** acesso grátis, todos os dias, das 6h às 20h30.",
+      "**Estimativa da Rota Certa, não é dado oficial:** esforço moderado; alto se você subir a pé.",
+      "**Dica da Rota Certa:** leve casaco. Mesmo em dia quente, no alto do morro venta e esfria no fim da tarde.",
+      "**Rota:** [abrir o Dia 2 no Google Maps](https://www.google.com/maps/dir/?api=1&origin=Barrio%20Bellavista%2C%20Santiago%2C%20Chile&destination=Cerro%20San%20Crist%C3%B3bal%2C%20Santiago&travelmode=walking)."
+    ] },
+    { "t": "passeio", "busca": "Cerro San Cristóbal Santiago", "title": "Passeios no Cerro San Cristóbal" },
+
+    { "t": "h", "label": "Dia 3", "text": "Vinícola e Costanera" },
+    { "t": "p", "text": "Tour numa vinícola de manhã e o pôr do sol no alto do prédio mais alto da cidade. Os dois ingressos têm data e hora: reserve antes." },
+    { "t": "img", "src": "/assets/blog/santiago-vinhedo.jpg", "alt": "Fileiras de videiras com folhas de outono num vinhedo, com um caminho de terra cortando o meio", "caption": "Um vinhedo chileno. Imagem ilustrativa, não é da Concha y Toro.", "credit": "Foto: Marcelo Rodrigo / Pexels", "w": 1000, "h": 750 },
+    { "t": "ul", "items": [
+      "**Manhã, Concha y Toro:** tour tradicional de 60 minutos pela vinícola, com degustação e taça de presente. Preço normal: CLP 28.000 (cerca de R$ 143). A vinícola tem ônibus com saídas da Plaza de Armas e do Parque Arauco.",
+      "**Tarde, descanso ou compras:** volte ao hotel ou passeie pela região de Providencia, perto da Costanera."
+    ] },
+    { "t": "img", "src": "/assets/blog/santiago-costanera.jpg", "alt": "Torre de vidro da Costanera ao entardecer, com nuvens rosadas e outros prédios ao redor", "caption": "A torre do Sky Costanera ao entardecer.", "credit": "Foto: Alexis Leandro Jeria Bocca / Pexels", "w": 900, "h": 900 },
+    { "t": "ul", "items": [
+      "**Entardecer, Sky Costanera:** mirante no alto da torre, aberto das 10h às 22h. Adulto: CLP 25.000 (R$ 128) de dia e CLP 30.000 (R$ 154) com entrada entre 18h e 20h. Última entrada às 21h."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 3", "items": [
+      "**Reserve antes:** a vinícola tem grupos de até 25 pessoas e o ingresso do Sky Costanera vale só para a data e o horário comprados. Leve o documento e a reserva no celular.",
+      "**Onde fica:** a vinícola fica ao sul, em Pirque. O Sky Costanera fica a leste do centro.",
+      "**Valores:** conferidos nos sites oficiais em 14/10/2026. Os dois ingressos somam CLP 58.000 (cerca de R$ 297) por adulto, com o Sky Costanera ao entardecer. Reais pela taxa de venda do Banco Central do dia (CLP 1.000 = R$ 5,12); no cartão entram o IOF e o câmbio do seu banco. Confirme na compra.",
+      "**Estimativa da Rota Certa, não é dado oficial:** esforço baixo.",
+      "**Rota:** [abrir a vinícola no Google Maps](https://www.google.com/maps/search/?api=1&query=Vi%C3%B1a%20Concha%20y%20Toro%2C%20Pirque)."
+    ] },
+    { "t": "passeio", "busca": "vinícola Santiago do Chile", "title": "Passeios de vinícola perto de Santiago" },
+
+    { "t": "h", "label": "Dia 4", "text": "Valparaíso" },
+    { "t": "p", "text": "A cidade portuária dos morros coloridos, a cerca de 1h30 de ônibus. É um bate-volta." },
+    { "t": "img", "src": "/assets/blog/santiago-valparaiso.jpg", "alt": "Casas coloridas de Valparaíso numa encosta, com uma igreja de torre pontuda e o mar ao fundo", "caption": "Casas coloridas de Valparaíso, com o mar ao fundo.", "credit": "Foto: Lais Queiroz / Pexels", "w": 1000, "h": 667 },
+    { "t": "ul", "items": [
+      "**Cedo, ônibus para Valparaíso:** as saídas são frequentes nos terminais Alameda e Pajaritos. Compre ida e volta e deixe a volta para o fim da tarde.",
+      "**Manhã e tarde, os morros:** suba pelos ascensores, os antigos elevadores que ligam a parte baixa aos morros, e caminhe entre casas coloridas e murais."
+    ] },
+    { "t": "img", "src": "/assets/blog/santiago-valparaiso-morros.jpg", "alt": "Encosta de morro coberta por casinhas de várias cores em Valparaíso", "caption": "Os morros de Valparaíso, cobertos de casas coloridas.", "credit": "Foto: Alexis Leandro Jeria Bocca / Pexels", "w": 867, "h": 650 },
+    { "t": "ul", "items": [
+      "**Fim da tarde, volta a Santiago:** ou durma uma noite no litoral e emende com Viña del Mar, a cidade vizinha."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 4", "items": [
+      "**Patrimônio Mundial:** o bairro histórico de Valparaíso está na lista da UNESCO desde 2003.",
+      "**Como chegar:** ônibus dos terminais Alameda ou Pajaritos, cerca de 1h30.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 5 horas na cidade. Esforço alto: ladeiras e escadas.",
+      "**Dica da Rota Certa:** use tênis. As ladeiras e as escadarias de Valparaíso cansam mais do que parecem.",
+      "**Rota:** [abrir o Dia 4 no Google Maps](https://www.google.com/maps/dir/?api=1&origin=Terminal%20Alameda%2C%20Santiago%2C%20Chile&destination=Valpara%C3%ADso%2C%20Chile&travelmode=transit)."
+    ] },
+    { "t": "passeio", "busca": "Valparaíso Chile", "title": "Passeios em Valparaíso" },
+
+    { "t": "h", "label": "Na prática", "text": "Aeroporto, metrô e tomada" },
+    { "t": "ul", "items": [
+      "**Do aeroporto:** depois da alfândega, há balcões oficiais de táxi, transfer e ônibus. O ônibus Centropuerto vai ao centro todos os dias, das 5h55 às 23h10, a cada 10 a 15 minutos nos dias úteis.",
+      "**Metrô com cartão por aproximação:** desde 13/02/2026, o metrô aceita Visa e Mastercard de crédito, débito ou pré-pago, pelo mesmo preço do cartão bip!. A tarifa muda com o horário: CLP 735, 815 ou 895 (de R$ 3,76 a R$ 4,58).",
+      "**Horário de pico:** das 7h às 8h59 e das 18h às 19h59, nos dias úteis. É a tarifa mais cara e o metrô mais cheio.",
+      "**Tomada e voltagem:** o Chile usa 220 V e tomadas dos tipos C e L, de pinos redondos. Plugue brasileiro de três pinos não encaixa: leve adaptador."
+    ] },
+
+    { "t": "h", "label": "Antes de ir", "text": "Documentos e checklist" },
+    { "t": "ul", "items": [
+      "**RG com menos de 10 anos:** brasileiro entra no Chile como turista com passaporte válido ou com o RG, se ele estiver em bom estado e tiver sido emitido há menos de 10 anos. CNH e identidade só no celular não valem.",
+      "**Até 90 dias, sem visto:** na chegada, podem pedir comprovante de meios para a estada e passagem de volta. Guarde o comprovante de entrada até sair do país.",
+      "**Passaporte é o mais seguro:** o Itamaraty recomenda o passaporte, principalmente para quem tem conexão ou vai a outro país na mesma viagem."
+    ] },
+    { "t": "tip", "title": "Checklist da viagem", "items": [
+      "RG emitido há menos de 10 anos ou passaporte.",
+      "Passagem de volta.",
+      "Vinícola e Sky Costanera reservados.",
+      "Seguro viagem com cobertura médica.",
+      "Casaco, mesmo no verão.",
+      "Adaptador de tomada."
+    ] },
+
+    { "t": "pdf", "href": "/guias/santiago-em-4-dias.pdf", "note": "Leve o roteiro, as rotas no Google Maps e o orçamento no celular. Grátis, sem cadastro." },
+
+    { "t": "tip", "title": "Fontes oficiais, conferidas em 14/10/2026", "items": [
+      "[Documentos para entrar no Chile: Consulado do Brasil em Santiago](https://www.gov.br/mre/pt-br/consulado-santiago/condicoes-de-viagem/documentos-para-ingresso-no-chile)",
+      "[Visitas a La Moneda: Patrimonio La Moneda](https://www.gob.cl/patrimoniolamoneda/)",
+      "[Parque Metropolitano: ChileAtiende](https://www.chileatiende.gob.cl/fichas/60851-horarios-y-tarifas-de-parquemet) e [Parquemet](https://www.parquemet.cl/horarios-y-tarifas/)",
+      "[Concha y Toro: reservas](https://reserva.cyt.conchaytoro.cl/cytWP/homeif.html?lang=es)",
+      "[Sky Costanera: tarifas e horários](https://www.skycostanera.cl/en/rates-and-schedules)",
+      "[Valparaíso: Chile Travel](https://chile.travel/en/destinations/valparaiso/) e [UNESCO](https://whc.unesco.org/en/list/959)",
+      "[Metrô: pagamento com cartão](https://mtt.gob.cl/comienza-el-pago-con-tarjetas-de-credito-debito-y-prepago-en-metro-y-efe-nos/) e [tarifas](https://www.dtpm.cl/index.php/tarjeta-bip/tarifas-vigentes-stpm)",
+      "[Aeroporto: transporte oficial](https://www.nuevopudahuel.cl/transporte-oficial)",
+      "[Tomadas: IEC](https://www.iec.ch/world-plugs)",
+      "[Câmbio: Banco Central](https://www.bcb.gov.br/estabilidadefinanceira/historicocotacoes)"
+    ] },
+    { "t": "p", "text": "Horários, preços e regras mudam: confira nos sites acima antes de ir. Não conseguimos conferir o horário atual do funicular e do teleférico: veja no site do Parquemet." },
+    { "t": "p", "text": "Foto de capa: Santi Echaire / Pexels." },
+
+    { "t": "whatsapp" },
+    { "t": "contato" },
+    { "t": "afiliado" }
+  ]
+}

@@ -1,0 +1,152 @@
+{
+  "_origem": "Fatos de rota-certa-motion-factory/guides/madri-4-dias/guide.json (v0.1, fontes conferidas em 14/10/2026) e do guia.html do mesmo guia. Não acrescente fato que não esteja lá.",
+  "id": "ebfbed11-e63a-4758-9c2b-6771f4ffc2b6",
+  "slug": "madri-em-4-dias",
+  "regionId": "europa",
+  "title": "Madri em 4 dias: horários grátis e bate-volta a Toledo",
+  "titleHighlight": "horários grátis",
+  "summary": "Roteiro de Madri em 4 dias com os horários grátis do Palácio Real, do Prado e do Reina Sofía, bate-volta a Toledo, valores oficiais conferidos em 14/10/2026 e o guia em PDF para baixar de graça.",
+  "lede": "Uma região por dia, os horários em que o palácio e os museus não cobram entrada, valores oficiais de outubro de 2026 e o guia completo para levar no celular.",
+  "destination": "Madri",
+  "coverUrl": "/assets/blog/madri-4-dias.jpg",
+  "coverUrlSmall": "/assets/blog/madri-4-dias-m.jpg",
+  "coverAlt": "Fachada do Palácio Real de Madri, com a cúpula ao centro e pinheiros dos dois lados, sob um céu azul",
+  "body": [
+    { "t": "pdf", "href": "/guias/madri-em-4-dias.pdf", "note": "PDF de 16 páginas, feito para ler no celular. Grátis, sem cadastro." },
+    { "t": "p", "text": "Madri tem palácio e museus de primeira linha com horários em que a entrada não custa nada. Este roteiro divide a cidade em **quatro dias, uma região por dia**, e encaixa o Palácio Real, o Prado e o Reina Sofía nesses horários." },
+    { "t": "tip", "title": "Como usar este roteiro", "items": [
+      "**Marque o Dia 1 entre segunda e quinta-feira**, quando o Palácio Real tem entrada grátis no fim da tarde.",
+      "**Não deixe o Reina Sofía para uma terça:** o museu fecha.",
+      "**Confira os horários na véspera**, nos sites oficiais listados no fim da página."
+    ] },
+    { "t": "whatsapp" },
+    { "t": "afiliado" },
+
+    { "t": "h", "label": "Dia 1", "text": "Centro e Palácio Real" },
+    { "t": "p", "text": "Puerta del Sol, Plaza Mayor, Mercado de San Miguel e o Palácio Real no horário grátis." },
+    { "t": "img", "src": "/assets/blog/madri-plaza-mayor.jpg", "alt": "Plaza Mayor de Madri com a estátua equestre ao centro, prédios vermelhos com arcadas ao fundo e céu azul", "caption": "A Plaza Mayor, com a estátua equestre ao centro.", "credit": "Foto: Kai Lago / Pexels", "w": 975, "h": 650 },
+    { "t": "ul", "items": [
+      "**Manhã, Puerta del Sol e Plaza Mayor:** a praça mais movimentada de Madri e, a poucos passos, a grande praça fechada com arcadas, do século XVII.",
+      "**Almoço, Mercado de San Miguel:** mercado coberto ao lado da Plaza Mayor, bom para provar petiscos espanhóis.",
+      "**Fim da tarde, Palácio Real:** a entrada normal custa € 18 (cerca de R$ 101). A última entrada é 1 hora antes de fechar.",
+      "**Pôr do sol, Templo de Debod:** um templo egípcio num parque alto, a 15 minutos a pé do palácio. Lugar clássico para ver o sol se pôr."
+    ] },
+    { "t": "tip", "title": "Palácio Real grátis para latino-americanos", "items": [
+      "**Quando:** de segunda a quinta, das 16h às 18h (de outubro a março) ou das 17h às 19h (de abril a setembro).",
+      "**Quem:** cidadãos latino-americanos, entre eles brasileiros, com documento de nacionalidade. Leve o passaporte e mostre na bilheteria.",
+      "**O que vale:** só a visita livre, sem guia."
+    ] },
+    { "t": "img", "src": "/assets/blog/madri-templo-de-debod.jpg", "alt": "Templo de Debod refletido na água de um lago, em Madri, com pessoas passeando ao fundo", "caption": "O Templo de Debod, refletido no lago.", "credit": "Foto: Luis Quintero / Pexels", "w": 1000, "h": 666 },
+    { "t": "tip", "title": "Para planejar o Dia 1", "items": [
+      "**Horário normal do palácio, no inverno:** de segunda a sábado, das 10h às 18h; domingo, das 10h às 16h. Fecha em 1/1, 6/1, 1/5 e 25/12. Ingressos e horários no site do Patrimonio Nacional.",
+      "**Grátis:** Plaza Mayor e o pôr do sol no Templo de Debod. **Opcional:** petiscos no Mercado de San Miguel.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 5 horas nas atrações e cerca de 3 km a pé, tudo plano. Esforço baixo."
+    ] },
+    { "t": "passeio", "busca": "Palácio Real Madri", "title": "Passeios no Palácio Real e no centro de Madri" },
+
+    { "t": "h", "label": "Dia 2", "text": "Retiro e Prado" },
+    { "t": "p", "text": "O Parque do Retiro de manhã e o Museu do Prado no fim da tarde, quando a entrada é grátis." },
+    { "t": "img", "src": "/assets/blog/madri-palacio-de-cristal.jpg", "alt": "Palácio de Cristal no Parque do Retiro, com uma fonte no lago e árvores ao redor", "caption": "O Palácio de Cristal, no Parque do Retiro.", "credit": "Foto: Mark Neal / Pexels", "w": 1000, "h": 663 },
+    { "t": "ul", "items": [
+      "**Manhã, Puerta de Alcalá:** o antigo portão da cidade, na entrada do Retiro. Bom ponto de partida.",
+      "**Manhã e almoço, Parque do Retiro:** o grande parque de Madri, com o lago dos barquinhos e o Palácio de Cristal. Entrada livre.",
+      "**Tarde, descanso perto do museu:** volte ao hotel ou passeie pelo Paseo del Prado até a hora grátis do museu.",
+      "**18h, de segunda a sábado, Museu do Prado:** vá direto às obras que você quer ver, porque duas horas passam rápido. A entrada grátis vale para a coleção."
+    ] },
+    { "t": "img", "src": "/assets/blog/madri-prado.jpg", "alt": "Colunata e fachada de pedra do Museu do Prado, com a bandeira da Espanha no alto, sob um céu nublado", "caption": "A fachada do Museu do Prado.", "credit": "Foto: Jose Mieres / Pexels", "w": 965, "h": 643 },
+    { "t": "tip", "title": "Prado grátis nas duas últimas horas", "items": [
+      "**Quando:** de segunda a sábado, das 18h às 20h; domingo e feriado, das 17h às 19h. Entre até 30 minutos antes de fechar.",
+      "**Se quiser ficar mais tempo:** o ingresso normal custa € 15 (cerca de R$ 84)."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 2", "items": [
+      "**Confira antes:** horários e preços no site oficial do Prado.",
+      "**Grátis:** Parque do Retiro e o Palácio de Cristal.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 2 horas no parque e 2 horas no Prado, no horário grátis. Esforço moderado."
+    ] },
+    { "t": "passeio", "busca": "Museu do Prado Madri", "title": "Passeios no Prado e no Retiro" },
+
+    { "t": "h", "label": "Dia 3", "text": "Gran Vía e Reina Sofía" },
+    { "t": "p", "text": "Compras e prédios clássicos na Gran Vía e, à noite e de graça, o Reina Sofía, que tem o Guernica, de Picasso, na coleção. **Nunca numa terça:** o museu fecha." },
+    { "t": "img", "src": "/assets/blog/madri-reina-sofia.jpg", "alt": "Praça do Museu Reina Sofía, com a torre de vidro dos elevadores e o edifício antigo ao fundo", "caption": "O Museu Reina Sofía, perto da estação de Atocha.", "credit": "Foto: Ana Hidalgo Burgos / Pexels", "w": 1000, "h": 666 },
+    { "t": "ul", "items": [
+      "**Manhã, Plaza de España:** comece no fim da Gran Vía, perto do Templo de Debod, e desça a avenida a pé.",
+      "**Tarde, Gran Vía:** a avenida dos prédios do começo do século XX, de lojas, cinemas e teatros. Bom dia para compras.",
+      "**19h, Reina Sofía:** museu de arte moderna perto da estação de Atocha. O Guernica, de Picasso, faz parte da coleção.",
+      "**Noite, jantar:** jante depois das 21h, como os madrilenhos. Antes disso, muitos restaurantes ainda nem abriram a cozinha. É uma dica da Rota Certa."
+    ] },
+    { "t": "tip", "title": "Reina Sofía grátis à noite", "items": [
+      "**Quando:** segunda e quarta a sábado, das 19h às 21h; domingo, a partir das 12h30. Fecha às terças.",
+      "**Reserve a entrada:** mesmo de graça, a reserva online é necessária e não custa nada.",
+      "**Se preferir outro horário:** o ingresso normal custa € 12 (cerca de R$ 67)."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 3", "items": [
+      "**Grátis:** Gran Vía e Plaza de España.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 3 horas na Gran Vía e 2 horas no museu, no horário grátis. Esforço baixo."
+    ] },
+    { "t": "passeio", "busca": "Gran Vía Madri", "title": "Passeios pela Gran Vía e arredores" },
+
+    { "t": "h", "label": "Dia 4", "text": "Toledo, bate-volta de trem" },
+    { "t": "p", "text": "A cidade medieval no alto de um morro, a cerca de 33 minutos de trem de Madri." },
+    { "t": "img", "src": "/assets/blog/madri-toledo.jpg", "alt": "Toledo vista do alto, com o Alcázar no ponto mais alto e o Rio Tejo contornando o casario", "caption": "Toledo vista do alto, com o Alcázar e o Rio Tejo.", "credit": "Foto: Wei Huang / Pexels", "w": 1000, "h": 666 },
+    { "t": "ul", "items": [
+      "**Cedo, trem em Atocha:** o Avant da Renfe leva cerca de 33 minutos até a estação de Toledo. Da estação ao centro, vá de táxi ou ônibus: a subida é longa.",
+      "**Manhã e tarde, centro histórico:** ruas estreitas de pedra, igrejas, sinagogas e a catedral. A Cidade Histórica de Toledo é Patrimônio Mundial da UNESCO.",
+      "**Fim da tarde, mirante e volta:** antes do trem, veja a cidade do outro lado do Rio Tejo. A vista clássica de Toledo é de lá."
+    ] },
+    { "t": "tip", "title": "Para planejar o Dia 4", "items": [
+      "**Compre a volta junto:** os trens têm horários fixos e enchem no fim do dia. Escolha um trem de volta com folga. O preço do trem varia: confira no site da Renfe.",
+      "**Use tênis:** as ladeiras de pedra de Toledo escorregam e cansam. É uma dica da Rota Certa.",
+      "**Grátis:** os mirantes sobre o Rio Tejo. **Opcional:** a Catedral de Toledo, com ingresso.",
+      "**Estimativa da Rota Certa, não é dado oficial:** cerca de 6 horas na cidade. Esforço alto: ladeiras de pedra."
+    ] },
+    { "t": "passeio", "busca": "Toledo bate-volta Madri", "title": "Passeios em Toledo" },
+
+    { "t": "h", "label": "Na prática", "text": "Metrô, aeroporto e tomada" },
+    { "t": "p", "text": "Entre atrações vizinhas, vá a pé. Para o resto, o metrô resolve." },
+    { "t": "ul", "items": [
+      "**Metrô com cartão por aproximação:** desde junho de 2026, dá para passar a catraca encostando o cartão de crédito ou débito.",
+      "**Tarifa:** a partir de outubro de 2026, a viagem simples na zona A passou a custar € 1,50 (cerca de R$ 8), qualquer que seja a distância.",
+      "**Do aeroporto de Barajas:** a linha 8 do metrô liga o aeroporto ao centro. Quem sai ou chega às estações do aeroporto paga um suplemento de € 3 (cerca de R$ 17).",
+      "**Segurança:** no metrô cheio e na Puerta del Sol, mochila na frente e celular guardado. É uma dica da Rota Certa.",
+      "**Tomada e voltagem:** a Espanha usa 230 V e tomadas de pinos redondos (tipos C e F). Plugue brasileiro de três pinos não encaixa: leve adaptador."
+    ] },
+
+    { "t": "h", "label": "Antes de ir", "text": "Documentos, dinheiro e checklist" },
+    { "t": "ul", "items": [
+      "**Passaporte, sem visto para turismo:** brasileiro não precisa de visto para turismo de até 90 dias no espaço Schengen. O passaporte deve valer 3 meses além da saída prevista.",
+      "**Dinheiro e passagem de volta:** a Espanha pode pedir cerca de € 122 por dia de estada, com mínimo de € 1.098,90 por pessoa, em dinheiro ou cartão com extrato. A passagem de volta é exigida.",
+      "**EES e ETIAS:** desde 10/4/2026, a fronteira registra digitais e foto (EES). O ETIAS, com taxa de € 20, está previsto para o último trimestre de 2026. Use só o site oficial."
+    ] },
+    { "t": "tip", "title": "Checklist", "items": [
+      "Passaporte válido por 3 meses além da volta.",
+      "Passagem de volta e reserva de hotel.",
+      "Seguro viagem com cobertura médica.",
+      "Dia 1 entre segunda e quinta.",
+      "Reina Sofía fora da terça.",
+      "Trem para Toledo, ida e volta."
+    ] },
+    { "t": "tip", "title": "Quanto custa, pagando tudo", "items": [
+      "Palácio Real, Prado e Reina Sofía somam € 45 (cerca de R$ 252) com ingresso normal. Seguindo os horários grátis deste roteiro, os três saem de graça.",
+      "Reais pela PTAX de venda do Banco Central de 14/10/2026 (€ 1 = R$ 5,61). No cartão entram o IOF e o câmbio do seu banco."
+    ] },
+
+    { "t": "pdf", "href": "/guias/madri-em-4-dias.pdf", "note": "Leve o roteiro, as rotas a pé no Google Maps e o orçamento no celular. Grátis, sem cadastro." },
+
+    { "t": "tip", "title": "Fontes oficiais, conferidas em 14/10/2026", "items": [
+      "Palácio Real: [ingressos e horários](https://tickets.patrimonionacional.es/en/tickets/palacio-real-de-madrid) e [entrada grátis](https://www.patrimonionacional.es/en/tarifa-gratuita-palacio-real-de-madrid)",
+      "[Museu do Prado: horários e preços](https://www.museodelprado.es/en/visit/opening-times-and-prices)",
+      "[Reina Sofía: horários e tarifas](https://www.museoreinasofia.es/visita/horarios-tarifas/)",
+      "Metrô: [tarifa única](https://www.comunidad.madrid/noticias/2026/09/10/diaz-ayuso-anuncia-tarifa-unica-15-euros-billete-sencillo-zona-metro-octubre), [cartão bancário](https://www.comunidad.madrid/noticias/2026/05/25/comunidad-madrid-estrena-junio-pago-directo-tarjeta-bancaria-tornos-metro) e [suplemento do aeroporto](https://www.metromadrid.es/en/viaja-en-metro/titulos-y-tarifas/tarifas)",
+      "Toledo: [trem, Renfe](https://www.renfe.com/es/en/inspirate/rutas/madrid-toledo) e [UNESCO](https://whc.unesco.org/en/list/379)",
+      "Entrada na Espanha: [Ministério do Interior](https://www.interior.gob.es/opencms/es/servicios-al-ciudadano/tramites-y-gestiones/extranjeria/regimen-general/entrada-requisitos-y-condiciones/), [EES e ETIAS](https://home-affairs.ec.europa.eu/news/main-differences-between-ees-and-etias-what-travellers-need-know-2026-04-28_en) e [taxa do ETIAS](https://home-affairs.ec.europa.eu/news/european-travel-authorisation-etias-will-cost-eur-20-2025-07-17_en)",
+      "[Tomadas: IEC](https://www.iec.ch/world-plugs)",
+      "[Câmbio: Banco Central](https://www.bcb.gov.br/estabilidadefinanceira/historicocotacoes)"
+    ] },
+    { "t": "p", "text": "Horários, preços e regras mudam: confira nos sites acima antes de ir. As estimativas de tempo, esforço e as dicas marcadas como da Rota Certa são recomendações nossas, não dados oficiais." },
+    { "t": "p", "text": "Foto de capa: Alex Hoces / Pexels." },
+
+    { "t": "whatsapp" },
+    { "t": "contato" },
+    { "t": "afiliado" }
+  ]
+}

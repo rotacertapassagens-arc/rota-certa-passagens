@@ -29,4 +29,13 @@ export const BLOG_PARCEIROS: BlogParceiros = {
 export const GUIAS_CURTOS: Record<string, string> = {
   roma: 'roma-em-3-dias',
   puntacana: 'punta-cana-praias-e-passeios',
+  cusco: 'cusco-e-machu-picchu-em-4-dias',
+  londres: 'londres-em-4-dias',
+  santiago: 'santiago-em-4-dias',
+  novayork: 'nova-york-em-4-dias',
+  madri: 'madri-em-4-dias',
+  buenosaires: 'buenos-aires-em-3-dias',
+  lisboa: 'guia-lisboa-em-3-dias',
+  paris: 'paris-em-4-dias',
+  orlando: 'orlando-a-ordem-dos-parques',
 };
