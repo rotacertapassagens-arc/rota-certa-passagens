@@ -1,0 +1,125 @@
+{
+  "_origem": "Texto aprovado e padronizado de Rota Certa/Mini Guias/milhas/guia.md (atualizado em outubro de 2026) e fatos de Mini Guias/_padrao/fatos-legais.md (conferidos em 22/10/2026). Não acrescente fato, número, norma ou prazo que não esteja lá. Fotos: Pexels, em Banco de Fotos Stories/blog/aprovadas (autor em blog/CREDITOS.md).",
+  "id": "a0b389d5-4c1f-4c9e-a07c-b7861665ef81",
+  "slug": "milhas-sem-misterio",
+  "regionId": "dicas-de-viagem",
+  "title": "Milhas sem mistério: entenda, compare com o dinheiro e confira o saldo",
+  "titleHighlight": "sem mistério",
+  "summary": "O básico para entender milhas e pontos, comparar com o preço em dinheiro e conferir o seu saldo com tranquilidade, com fontes oficiais conferidas em 22/10/2026 e o guia em PDF para baixar de graça.",
+  "lede": "Entenda o que são milhas, compare com o preço em dinheiro e confira o seu saldo e a validade, sem pressa e sem promessa de economia.",
+  "destination": null,
+  "coverUrl": "/assets/blog/milhas-sem-misterio.jpg",
+  "coverUrlSmall": "/assets/blog/milhas-sem-misterio-m.jpg",
+  "coverAlt": "Asa de avião ao pôr do sol, com o sol baixo refletido no mar e nuvens abaixo",
+  "body": [
+    { "t": "pdf", "href": "/guias/milhas-sem-misterio.pdf", "note": "Versão em PDF para guardar no celular. Grátis, sem cadastro." },
+    { "t": "p", "text": "Guia Rota Certa, atualizado em outubro de 2026, com fontes conferidas em 22/10/2026. Ele explica o básico e **não promete economia**: cada caso é um caso." },
+    { "t": "tip", "title": "Como ler este guia", "items": [
+      "Um número entre colchetes, como [1], marca um fato com fonte oficial, listada em **Fontes**, no fim da página.",
+      "**Recomendação:** é um conselho da Rota Certa, não uma regra.",
+      "**Não verificado:** é um ponto que não conseguimos confirmar em fonte oficial."
+    ] },
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Milhas sem mistério e quero cotar uma passagem." },
+
+    { "t": "h", "text": "O que são milhas e pontos" },
+    { "t": "p", "text": "Milhas e pontos funcionam como uma moeda de um programa de fidelidade: ficam como saldo na sua conta dentro do programa. O mercado costuma chamar de pontos o saldo de cartões de crédito e de milhas o saldo dos programas das companhias aéreas. [1] Servem para pagar parte de uma passagem ou a passagem inteira, conforme as regras de cada programa." },
+    { "t": "img", "src": "/assets/blog/milhas-por-do-sol-na-asa.jpg", "alt": "Pôr do sol visto da janela do avião, com asa, motor e horizonte alaranjado", "caption": "Milhas e pontos viram saldo na sua conta, dentro de cada programa.", "credit": "Foto: Stefan Stefancik / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "A Smiles informa que as milhas entram na conta de várias formas, entre elas voos, compra de milhas, transferência de pontos do cartão ou do banco, reativação e parceiros. [2] O que muda de um programa para outro são as regras." },
+
+    { "t": "h", "text": "Por que podem vencer" },
+    { "t": "ul", "items": [
+      "Milhas têm validade, e o prazo não é igual para todo mundo.",
+      "A Smiles informa que o prazo de validade varia conforme a forma como as milhas foram acumuladas. Milhas bônus de promoções e milhas do clube de assinatura aparecem com regras próprias. [2]",
+      "Na LATAM Pass, a validade das milhas depende do programa e da categoria do cliente: segundo o blog oficial, clientes de certas categorias Elite ou com cartões específicos podem ter pontos que nunca expiram. Milhas vencidas são removidas da conta e não podem mais ser usadas. [1]",
+      "A Smiles tem o serviço Reativar Milhas, para recuperar milhas expiradas, e um serviço no app para estender a validade das milhas. [2]"
+    ] },
+    { "t": "img", "src": "/assets/blog/milhas-asa-vermelha.jpg", "alt": "Asa de avião com ponta vermelha sobre um mar de nuvens, em céu claro", "caption": "A regra muda de programa para programa.", "credit": "Foto: ArtHouse Studio / Pexels", "w": 1000, "h": 667 },
+    { "t": "p", "text": "**A regra muda de programa para programa.** **Recomendação:** confira a regra atual no site do seu programa: prazo contado por amigo, grupo ou vídeo pode estar desatualizado." },
+
+    { "t": "h", "text": "Milhas ou dinheiro?" },
+    { "t": "ul", "items": [
+      "**1.** Veja o **preço total em dinheiro** da passagem, para o mesmo voo, a mesma data e o mesmo tipo de tarifa.",
+      "**2.** Veja **quantas milhas** o programa pede e quanto você paga de **taxas em dinheiro**.",
+      "**3.** Divida o preço em dinheiro pelas milhas pedidas: esse é o **valor de cada milha**. Para o valor de mil milhas, multiplique por mil.",
+      "**4.** Some as taxas pagas em dinheiro. Com milhas, você paga as milhas **mais** essas taxas.",
+      "**5.** Compare com o que as suas milhas custaram ou valem para você."
+    ] },
+    { "t": "tip", "title": "Exemplo com números inventados", "items": [
+      "Só para mostrar a conta: preço da passagem em dinheiro 1.200; milhas pedidas 40.000; taxas em dinheiro 150.",
+      "1.200 ÷ 40.000 = 0,03 por milha, ou 30 por mil milhas.",
+      "Na opção com milhas: 40.000 milhas mais 150 em dinheiro."
+    ] },
+    { "t": "p", "text": "**Opcional.** **Conta mais justa, se quiser:** tire as taxas do resgate do preço em dinheiro antes de dividir, porque as taxas aparecem nos dois casos. É só aritmética, sem fonte e sem obrigação." },
+    { "t": "img", "src": "/assets/blog/milhas-mar-de-nuvens.jpg", "alt": "Vista aérea de um mar de nuvens ao entardecer, com céu azul e rosado e ponta de asa no topo", "caption": "Compare o mesmo voo, a mesma data e o mesmo tipo de tarifa.", "credit": "Foto: Miguel Cuenca / Pexels", "w": 1000, "h": 667 },
+
+    { "t": "h", "text": "Saldo e validade" },
+    { "t": "p", "text": "**Sempre no site ou app do programa.** Digite o endereço você mesmo e não clique em links recebidos por mensagem." },
+    { "t": "ul", "items": [
+      "Na Smiles, o quadro Milhas a Expirar fica na parte de cima, à direita, da página da conta. O programa também envia todo mês uma newsletter com o saldo e as milhas perto de expirar. [2]",
+      "**Recomendação:** na LATAM Pass, acompanhe o saldo pelo app ou pelo site, para não deixar as milhas vencerem sem perceber.",
+      "**Recomendação:** anote quantas milhas você tem, de que tipo são e quando vence cada grupo. Refaça a conferência antes de planejar a viagem."
+    ] },
+    { "t": "img", "src": "/assets/blog/milhas-notebook-aeroporto.jpg", "alt": "Notebook aberto sobre uma mesa de aeroporto, com copo de café e luz dourada ao fundo", "caption": "Confira o saldo com calma, direto no site ou no app do programa.", "credit": "Foto: K / Pexels", "w": 1000, "h": 667 },
+
+    { "t": "h", "text": "Taxa de embarque e outras taxas" },
+    { "t": "ul", "items": [
+      "A taxa de embarque remunera os serviços, as instalações e os equipamentos usados no despacho, no embarque e no desembarque do passageiro. As companhias a arrecadam antes do embarque e a repassam ao operador do aeroporto (arts. 4 e 19). [3]",
+      "A oferta de passagem, em qualquer canal de venda, deve mostrar o valor total a pagar: serviço de transporte aéreo, tarifas aeroportuárias e valores devidos a órgãos do governo (art. 4). [4]",
+      "As multas contratuais não podem passar do valor do transporte aéreo, e tarifas aeroportuárias e valores devidos a órgãos do governo ficam fora do cálculo (art. 9). [4]",
+      "A companhia tem 7 dias, a contar da sua solicitação, para reembolsar pelo mesmo meio de pagamento da compra. Tarifas aeroportuárias e valores devidos a órgãos do governo são devolvidos integralmente (art. 29). [4]"
+    ] },
+    { "t": "p", "text": "**Não verificado:** se as Resoluções 400 e 432 da ANAC valem do mesmo jeito para passagens emitidas com milhas. Confira as taxas no seu programa antes de emitir." },
+    { "t": "img", "src": "/assets/blog/milhas-saguao-aeroporto.jpg", "alt": "Saguão amplo de aeroporto com fileiras de assentos vazios e luz natural entrando pelas janelas", "caption": "A taxa de embarque é arrecadada antes do embarque.", "credit": "Foto: Tiago Alvar / Pexels", "w": 1000, "h": 667 },
+
+    { "t": "h", "text": "Erros comuns de iniciante" },
+    { "t": "ul", "items": [
+      "Olhar só o número de milhas e esquecer as taxas pagas em dinheiro.",
+      "Deixar as milhas vencerem por não conferir a validade.",
+      "Confiar num prazo ouvido por aí em vez da página do programa.",
+      "Comparar tarifas diferentes. Em geral, tarifas mais baratas têm regras menos flexíveis e multas maiores, e as promocionais podem até não ser reembolsáveis. [5]",
+      "Não planejar o custo total. O Procon Paulistano recomenda fazer um planejamento financeiro de toda a viagem. [6]"
+    ] },
+
+    { "t": "h", "text": "Antes de usar suas milhas" },
+    { "t": "ul", "items": [
+      "☐ Anotei o **saldo e a validade** das minhas milhas no site ou app do programa.",
+      "☐ Li a **regra atual** do programa para o tipo de milha que tenho.",
+      "☐ Comparei com o **preço total em dinheiro** do mesmo voo, data e tarifa.",
+      "☐ Somei as **taxas pagas em dinheiro**, incluindo a taxa de embarque.",
+      "☐ Conferi **bagagem, remarcação e reembolso** da tarifa antes de emitir."
+    ] },
+    { "t": "p", "text": "**Sem pressa.** **Recomendação:** não tenha pressa de emitir: compare com calma e confira as regras do programa antes." },
+    { "t": "img", "src": "/assets/blog/milhas-aviao-entardecer.jpg", "alt": "Avião visto de frente em voo, com faróis acesos e céu alaranjado ao entardecer", "caption": "Compare com calma antes de emitir.", "credit": "Foto: William Lopez / Pexels", "w": 1000, "h": 667 },
+
+    { "t": "pdf", "href": "/guias/milhas-sem-misterio.pdf", "note": "Leve o passo a passo e a lista de conferência no celular. Grátis, sem cadastro." },
+
+    { "t": "h", "text": "Não verificado" },
+    { "t": "ul", "items": [
+      "**Prazos.** Os prazos de validade em número, de qualquer programa, não são citados.",
+      "**Valores e promoções.** Valor do milheiro, bônus de transferência ou de compra e promoções.",
+      "**Outros programas.** Regras de Azul Fidelidade (página oficial bloqueada em 21/10/2026), TAP Miles&Go e Iberia Club (não consultados).",
+      "**LATAM Pass.** Detalhes das regras além do blog oficial citado: outras páginas do programa deram acesso negado em 21/10/2026.",
+      "**Taxas na emissão com milhas.** Não conseguimos confirmar, em página oficial aberta hoje, se na emissão com milhas as taxas são pagas em dinheiro, nem em quais programas. **Recomendação:** antes de emitir, veja quanto será cobrado de taxas no seu programa.",
+      "**Taxa de embarque.** O valor em cada aeroporto.",
+      "**Milhas e a Resolução 400.** Se as Resoluções 400 e 432 da ANAC valem do mesmo jeito para passagens emitidas com milhas.",
+      "**Procon.** A posição do Procon sobre vencimento de milhas.",
+      "**Câmbio e IOF.** Na parte em dinheiro de passagens internacionais (nenhuma fonte do Banco Central foi usada)."
+    ] },
+
+    { "t": "tip", "title": "Fontes, conferidas em 22/10/2026", "items": [
+      "[1] [LATAM Pass, como evitar que milhas e pontos expirem (blog oficial)](https://web.latampass.latam.com/pt_br/vem-com-milhas/descubra-como-evitar-que-suas-milhas-e-pontos-expirem-e-mantenha-os-sempre-ativos)",
+      "[2] [Smiles, validade de milhas](https://www.smiles.com.br/validade-de-milhas)",
+      "[3] [ANAC, Resolução 432/2017 (tarifas aeroportuárias), arts. 4 e 19](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/2017/resolucao-no-432-13-06-2017)",
+      "[4] [ANAC, Resolução 400/2016, texto compilado (versão vigente em 22/10/2026), arts. 4, 9 e 29](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/resolucoes-2016/resolucao-no-400-13-12-2016)",
+      "[5] [ANAC, página Oferta e compra da passagem (atualizada em 13/04/2026)](https://www.gov.br/anac/pt-br/assuntos/passageiros/oferta-e-compra-da-passagem)",
+      "[6] [Procon Paulistano (Prefeitura de São Paulo), Cartilha do Transporte Aéreo (arquivo de 2022)](https://prefeitura.sp.gov.br/documents/d/procon/cartilha-transporte-aereo-procon)",
+      "[7] [ANAC, Resolução 800/2026 (passageiro indisciplinado; alterou os arts. 5 e 18 da Res. 400)](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/2026/resolucao-800)",
+      "[8] [ANAC, Resolução 813/2026 (altera a Res. 400; vale a partir de 26/10/2026)](https://www.anac.gov.br/assuntos/legislacao/legislacao-1/resolucoes/2026/resolucao-813)"
+    ] },
+    { "t": "p", "text": "**Versão da norma.** Resolução ANAC 400/2016, texto compilado no site da ANAC (última modificação em 26/08/2026, com as Resoluções 434/2017, 692/2022 e 800/2026 [7]), vigente em 22/10/2026. Os artigos citados são os dessa versão. A Resolução ANAC 813/2026 só vale a partir de 26/10/2026 e altera apenas os arts. 20, 25-A, 25-B, 26, 27, 27-A e 27-B da Resolução 400 (informação, responsabilidade e assistência em atrasos, cancelamentos e interrupções). Os demais artigos citados nestes guias não mudam. [8]" },
+    { "t": "p", "text": "Foto de capa: Akshaya Nandyala / Pexels." },
+
+    { "t": "whatsapp", "message": "Oi, Rota Certa! Li o guia Milhas sem mistério e quero cotar uma passagem." },
+    { "t": "contato", "title": "Fale com a gente no Direct do Instagram", "text": "Tire dúvidas com a gente. Conte de onde você sai, para onde quer ir, o mês da viagem e quantas pessoas vão." }
+  ]
+}

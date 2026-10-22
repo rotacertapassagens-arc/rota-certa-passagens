@@ -154,6 +154,26 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect(sitemapXml).toContain('https://rotacertapassagens.com/blog/roma-em-4-dias');
     expect(sitemapXml).toContain('https://rotacertapassagens.com/proposta-voo');
 
+    // --- categoria "Dicas de viagem" (migrations 0036 e 0037): 5 artigos já publicados -----------------
+    expect(indiceHtml).toContain('data-regiao="dicas-de-viagem"'); // cartões e botão do filtro
+    expect(indiceHtml).toContain('>Dicas de viagem</button>');
+    const dicas = ['milhas-sem-misterio', 'promocao-e-real', 'erros-ao-comprar-passagem', 'modelo-de-roteiro', 'checklist-antes-de-viajar'];
+    for (const slugDica of dicas) {
+      expect(indiceHtml).toContain(`href="/blog/${slugDica}"`);
+      expect(sitemapXml).toContain(`https://rotacertapassagens.com/blog/${slugDica}`);
+      const pagina = await worker.fetch(`/blog/${slugDica}`);
+      expect(pagina.status, slugDica).toBe(200);
+      const html = await pagina.text();
+      expect(html).toContain('<a href="/blog/#dicas-de-viagem">Dicas de viagem</a>'); // trilha de navegação
+      expect(html).toContain(`href="/guias/${slugDica}.pdf?utm_source=rotacerta`); // botão do PDF no topo
+      expect(html).toContain('class="cta-pdf cta-pdf-topo"');
+      expect(html).toContain('href="https://ig.me/m/rotacerta.passagens?utm_source=rotacerta'); // convite ao Direct
+      expect(html).toContain('<h2>Não verificado</h2>');
+      expect(html.match(/<figure class="foto-cred"><img src="\/assets\/blog\/[a-z0-9-]+\.jpg"[^>]* width="1000" height="667" loading="lazy"/g)!.length).toBeGreaterThanOrEqual(4);
+      expect(html).toMatch(new RegExp(`<meta property="og:image" content="${ORIGIN}/assets/blog/${slugDica}\\.jpg">`));
+      expect(html).not.toMatch(/—|–|R\$/);
+    }
+
     // --- o editor é só para master --------------------------------------------------------
     expect((await worker.fetch('/api/admin/blog')).status).toBe(401);
     expect((await worker.fetch('/api/admin/blog/posts', { method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: '{}' })).status).toBe(401);
@@ -174,8 +194,8 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(8); // 6 publicados + os rascunhos dos guias "Roma em 3 dias" (migration 0024) e "Punta Cana" (0033)
-    expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa', 'caribe']); // 'caribe' vem da migration 0033
+    expect(listaJson.posts).toHaveLength(13); // 6 publicados + os rascunhos dos guias "Roma em 3 dias" (0024) e "Punta Cana" (0033) + 5 artigos de "Dicas de viagem" (0037)
+    expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa', 'caribe', 'dicas-de-viagem']); // 'caribe' vem da 0033 e a categoria da 0036
 
     // sem o token CSRF a alteração é recusada
     const semCsrf = await worker.fetch('/api/admin/blog/regions', { method: 'POST', headers: { 'content-type': 'application/json', cookie: jar.cookieHeader(), origin: ORIGIN }, body: JSON.stringify({ name: 'Ásia' }) });
@@ -300,6 +320,6 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(8);
+    expect(depois.posts).toHaveLength(13);
   }, 120_000);
 });
