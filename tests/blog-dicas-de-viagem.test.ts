@@ -158,7 +158,7 @@ describe('migrations 0036 e 0037', () => {
     try {
       const saida = join(dir, '0037.sql');
       rodar(...SLUGS.map((s) => `content/guias/${s}.json`), saida, '--publicado');
-      expect(readFileSync(saida, 'utf8')).toBe(m37);
+      expect(readFileSync(saida, 'utf8')).toBe(m37.replace(/\r\n/g, '\n')); // o checkout no Windows pode trazer CRLF
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
