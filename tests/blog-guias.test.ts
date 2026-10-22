@@ -266,6 +266,25 @@ describe('guia de Madri (content/guias/madri-em-4-dias.json)', () => {
     const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
     expect(fotos).toHaveLength(6);
     for (const f of fotos) {
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+    }
+    expect(new Set(fotos.map((f) => f.src)).size).toBe(fotos.length);
+    expect(JSON.stringify(conteudo)).not.toMatch(/gran-via\.jpg|madri-capa/);
+  });
+  it('não tem travessão nem preço nos passeios, e a frase do Palácio Real segue a fonte oficial', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    expect(texto).toContain('cidadãos latino-americanos, entre eles brasileiros, com documento de nacionalidade');
+    expect(texto).not.toContain('Brasileiro entra de graça');
+    expect(texto).toContain('Reina Sofía');
+    expect(texto).toMatch(/fecha às terças/i);
+  });
+});
+
 describe('guia de Buenos Aires (content/guias/buenos-aires-em-3-dias.json)', () => {
   const conteudo = JSON.parse(readFileSync(new URL('../content/guias/buenos-aires-em-3-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
   const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
@@ -277,6 +296,37 @@ describe('guia de Buenos Aires (content/guias/buenos-aires-em-3-dias.json)', () 
     expect(readFileSync(new URL('../public/guias/buenos-aires-em-3-dias.pdf', import.meta.url)).subarray(0, 5).toString()).toBe('%PDF-');
     const iDia1 = conteudo.body.findIndex((b) => b.t === 'h' && String(b.label).startsWith('Dia 1'));
     expect(conteudo.body.findIndex((b) => b.t === 'whatsapp')).toBeLessThan(iDia1);
+    expect(tipos.filter((t) => t === 'whatsapp')).toHaveLength(2);
+    expect(tipos.indexOf('contato')).toBeGreaterThan(tipos.lastIndexOf('passeio'));
+    expect(tipos.filter((t) => t === 'passeio')).toHaveLength(3);
+    expect(tipos).not.toContain('carro');
+    for (const [i, t] of tipos.entries()) if (t === 'passeio') expect(conteudo.body[i + 1]!.t).toBe('h');
+  });
+  it('fotos: existem no site, pesam menos de 250 KB e têm alt, legenda e crédito do Pexels; nenhuma antes do primeiro CTA', () => {
+    const arq = (u: string) => new URL(`../public${u}`, import.meta.url);
+    for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
+    const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
+    expect(fotos).toHaveLength(5);
+    for (const f of fotos) {
+      expect(existsSync(arq(String(f.src)))).toBe(true);
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+    }
+    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
+  });
+  it('não tem travessão nem preço em pesos, e em produção não mostra passeios nem aviso', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(JSON.stringify(conteudo.body)).not.toMatch(/ARS|\$ ?\d|pesos? argentinos? \d/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    const producao = renderBlocks(body, ctx({ destino: 'Buenos Aires', campanha: 'buenos-aires' }), true);
+    expect(producao).not.toContain('Passeios em');
+    expect(producao).not.toContain('aviso-afiliado');
+    expect(renderBlocks(body, ctx({ preview: true, destino: 'Buenos Aires', campanha: 'buenos-aires' }), true).match(/cta-inativo/g)).toHaveLength(3);
+  });
+});
 describe('guia de Lisboa (content/guias/guia-lisboa-em-3-dias.json)', () => {
   const conteudo = JSON.parse(readFileSync(new URL('../content/guias/guia-lisboa-em-3-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
   const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
@@ -297,8 +347,6 @@ describe('guia de Lisboa (content/guias/guia-lisboa-em-3-dias.json)', () => {
     expect(tipos.filter((t) => t === 'passeio')).toHaveLength(3);
     expect(tipos).not.toContain('carro');
     for (const [i, t] of tipos.entries()) if (t === 'passeio') expect(conteudo.body[i + 1]!.t).toBe('h');
-  });
-  it('fotos: existem no site, pesam menos de 250 KB e têm alt, legenda e crédito do Pexels; nenhuma antes do primeiro CTA', () => {
     expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
   });
   it('fotos existem, pesam menos de 250 KB e têm alt, legenda e crédito do Pexels, no máximo 2 por dia', () => {
@@ -306,6 +354,31 @@ describe('guia de Lisboa (content/guias/guia-lisboa-em-3-dias.json)', () => {
     for (const u of [conteudo.coverUrl as string, conteudo.coverUrlSmall as string]) { expect(existsSync(arq(u))).toBe(true); expect(statSync(arq(u)).size).toBeLessThan(250_000); }
     const fotos = conteudo.body.filter((b) => b.t === 'img') as Array<Record<string, unknown>>;
     expect(fotos).toHaveLength(5);
+    for (const f of fotos) {
+      expect(existsSync(arq(String(f.src)))).toBe(true);
+      expect(statSync(arq(String(f.src))).size).toBeLessThan(250_000);
+      expect(String(f.alt).length).toBeGreaterThan(20);
+      expect(String(f.caption).length).toBeGreaterThan(5);
+      expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
+    }
+    let porDia = 0;
+    for (const b of conteudo.body) { if (b.t === 'h') porDia = 0; if (b.t === 'img') expect(++porDia).toBeLessThanOrEqual(2); }
+  });
+  it('sem travessão nem preço de passeio, e guarda os fatos não óbvios do guia', () => {
+    const texto = JSON.stringify(conteudo);
+    expect(texto).not.toMatch(/—|--/);
+    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
+    for (const trecho of ['reabriu em maio de 2026', '€ 45', 'não há tolerância de atraso', 'EES', 'ETIAS', 'não fixa o preço do trem']) expect(texto).toContain(trecho);
+    expect(texto).not.toMatch(/aluguel de carro|alugar um carro/i);
+  });
+  it('desenha em produção sem passeios e na prévia com 3 inativos', () => {
+    const producao = renderBlocks(body, ctx({ destino: 'Lisboa', campanha: 'lisboa' }), true);
+    expect(producao).not.toContain('Passeios em');
+    expect(producao).not.toContain('Inativo');
+    expect(renderBlocks(body, ctx({ preview: true }), true).match(/cta-inativo/g)).toHaveLength(3);
+  });
+});
+
 describe('guia de Paris (content/guias/paris-em-4-dias.json)', () => {
   const conteudo = JSON.parse(readFileSync(new URL('../content/guias/paris-em-4-dias.json', import.meta.url), 'utf8')) as { body: Record<string, unknown>[]; [k: string]: unknown };
   const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
@@ -333,49 +406,6 @@ describe('guia de Paris (content/guias/paris-em-4-dias.json)', () => {
       expect(String(f.alt).length).toBeGreaterThan(20);
       expect(String(f.caption).length).toBeGreaterThan(5);
       expect(f.credit).toMatch(/^Foto: .+ \/ Pexels$/);
-    }
-    expect(new Set(fotos.map((f) => f.src)).size).toBe(fotos.length);
-    expect(JSON.stringify(conteudo)).not.toMatch(/gran-via\.jpg|madri-capa/);
-  });
-  it('não tem travessão nem preço nos passeios, e a frase do Palácio Real segue a fonte oficial', () => {
-    const texto = JSON.stringify(conteudo);
-    expect(texto).not.toMatch(/—|--/);
-    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
-    expect(texto).toContain('cidadãos latino-americanos, entre eles brasileiros, com documento de nacionalidade');
-    expect(texto).not.toContain('Brasileiro entra de graça');
-    expect(texto).toContain('Reina Sofía');
-    expect(texto).toContain('fecha às terças');
-  });
-});
-
-    expect(tipos.slice(0, tipos.indexOf('whatsapp')).includes('img')).toBe(false);
-  });
-  it('não tem travessão nem preço em pesos, e em produção não mostra passeios nem aviso', () => {
-    const texto = JSON.stringify(conteudo);
-    expect(texto).not.toMatch(/—|--/);
-    expect(JSON.stringify(conteudo.body)).not.toMatch(/ARS|\$ ?\d|pesos? argentinos? \d/);
-    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
-    const producao = renderBlocks(body, ctx({ destino: 'Buenos Aires', campanha: 'buenos-aires' }), true);
-    expect(producao).not.toContain('Passeios em');
-    expect(producao).not.toContain('aviso-afiliado');
-    expect(renderBlocks(body, ctx({ preview: true, destino: 'Buenos Aires', campanha: 'buenos-aires' }), true).match(/cta-inativo/g)).toHaveLength(3);
-  });
-});
-    let porDia = 0;
-    for (const b of conteudo.body) { if (b.t === 'h') porDia = 0; if (b.t === 'img') expect(++porDia).toBeLessThanOrEqual(2); }
-  });
-  it('sem travessão nem preço de passeio, e guarda os fatos não óbvios do guia', () => {
-    const texto = JSON.stringify(conteudo);
-    expect(texto).not.toMatch(/—|--/);
-    expect(JSON.stringify(conteudo.body.filter((b) => b.t === 'passeio'))).not.toMatch(/R\$|€|\d+,\d\d/);
-    for (const trecho of ['reabriu em maio de 2026', '€ 45', 'não há tolerância de atraso', 'EES', 'ETIAS', 'não fixa o preço do trem']) expect(texto).toContain(trecho);
-    expect(texto).not.toMatch(/aluguel de carro|alugar um carro/i);
-  });
-  it('desenha em produção sem passeios e na prévia com 3 inativos', () => {
-    const producao = renderBlocks(body, ctx({ destino: 'Lisboa', campanha: 'lisboa' }), true);
-    expect(producao).not.toContain('Passeios em');
-    expect(producao).not.toContain('Inativo');
-    expect(renderBlocks(body, ctx({ preview: true }), true).match(/cta-inativo/g)).toHaveLength(3);
       expect(f.w).toBeTypeOf('number'); expect(f.h).toBeTypeOf('number');
     }
     expect(new Set(fotos.map((f) => f.src)).size).toBe(fotos.length);

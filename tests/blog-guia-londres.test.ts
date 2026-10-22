@@ -3,11 +3,18 @@
  * Lógica pura: não sobe o Worker. Confere blocos, ordem dos botões, fotos com crédito, ausência de travessão,
  * PDF existente, migration 0027 (só rascunho) e o atalho /guia/londres.
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { renderBlocks, ctaBlock, type Block, type BlogParceiros, type RenderCtx } from '../shared/blogGuias.js';
-import { blocks } from '../worker/blog.js';
 import { GUIAS_CURTOS } from '../worker/blog-parceiros.js';
+
+// A validação dos blocos é a do editor (worker/blog.ts), exercitada pelo gerador, que recusa bloco inválido:
+// o teste não importa o Worker para não puxar o tipo global Env para o typecheck de tests/.
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 const VAZIO: BlogParceiros = {
   getyourguide: { partnerId: '', baseUrl: 'https://www.getyourguide.com.br' },
@@ -22,8 +29,13 @@ describe('guia de Londres (content/guias/londres-em-4-dias.json)', () => {
   const body = conteudo.body.map((b) => ctaBlock(b) ?? (b as unknown as Block));
   const tipos = conteudo.body.map((b) => b.t);
 
-  it('passa na validação do editor e usa um slug novo', () => {
-    expect(blocks(conteudo.body)).not.toBeNull();
+  it('passa na validação do editor (pelo gerador), a 0027 é o que ele gera hoje e usa um slug novo', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gerador-'));
+    try {
+      const saida = join(dir, '0027.sql');
+      execFileSync(process.execPath, ['--import', 'tsx', join(ROOT, 'tools', 'gerar-migration-guia.ts'), 'content/guias/londres-em-4-dias.json', saida], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+      expect(readFileSync(saida, 'utf8')).toBe(readFileSync(join(ROOT, 'd1', 'migrations', '0027_blog_guia_londres.sql'), 'utf8').replace(/\r\n/g, '\n')); // o checkout no Windows pode trazer CRLF
+    } finally { rmSync(dir, { recursive: true, force: true }); }
     expect(conteudo.slug).toBe('londres-em-4-dias');
     expect(['roma-em-4-dias', 'roma-em-3-dias', 'istambul-primeira-visita', 'albania-praias-e-cidades-historicas', 'lisboa-em-3-dias', 'voltar-ao-brasil-nas-ferias', 'paris-primeira-viagem']).not.toContain(conteudo.slug);
   });

@@ -194,8 +194,9 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(13); // 6 publicados + os rascunhos dos guias "Roma em 3 dias" (0024) e "Punta Cana" (0033) + 5 artigos de "Dicas de viagem" (0037)
-    expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa', 'caribe', 'dicas-de-viagem']); // 'caribe' vem da 0033 e a categoria da 0036
+    expect(listaJson.posts).toHaveLength(22); // 6 publicados + os rascunhos dos 11 guias de destino (0024 e 0026 a 0035) + 5 artigos de "Dicas de viagem" (0037)
+    // regiões novas das migrations dos guias (América do Sul 4, Américas 5, Caribe 6); "Dicas de viagem" (0036) vai para o fim na 0038
+    expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa', 'america-do-sul', 'americas', 'caribe', 'dicas-de-viagem']);
 
     // sem o token CSRF a alteração é recusada
     const semCsrf = await worker.fetch('/api/admin/blog/regions', { method: 'POST', headers: { 'content-type': 'application/json', cookie: jar.cookieHeader(), origin: ORIGIN }, body: JSON.stringify({ name: 'Ásia' }) });
@@ -320,6 +321,6 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(13);
+    expect(depois.posts).toHaveLength(22);
   }, 120_000);
 });

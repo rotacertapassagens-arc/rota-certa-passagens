@@ -1,5 +1,5 @@
 -- Região "Américas" para o guia de Orlando (o blog só tinha Brasil, Portugal e Europa). INSERT OR IGNORE: se outro guia já criou a região, nada muda.
-INSERT OR IGNORE INTO blog_regions (id, name, sort_order) VALUES ('americas', 'Américas', 4);
+INSERT OR IGNORE INTO blog_regions (id, name, sort_order) VALUES ('americas', 'Américas', 5);
 -- Guia "Orlando, a ordem dos parques: um complexo de cada vez" (rascunho). Gerado por tools/gerar-migration-guia.ts a partir de content/guias/orlando-a-ordem-dos-parques.json.
 -- Entra como rascunho: publique pelo painel (/admin-blog.html) depois de conferir a pré-visualização.
 INSERT INTO blog_posts (id, slug, status, region_id, title, title_highlight, summary, lede, destination, cta_title, cover_url, cover_url_small, cover_alt, featured, body, reading_minutes)
