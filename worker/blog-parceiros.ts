@@ -31,4 +31,5 @@ export const GUIAS_CURTOS: Record<string, string> = {
   puntacana: 'punta-cana-praias-e-passeios',
   cusco: 'cusco-e-machu-picchu-em-4-dias',
   londres: 'londres-em-4-dias',
+  santiago: 'santiago-em-4-dias',
 };
