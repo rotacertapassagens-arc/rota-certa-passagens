@@ -35,4 +35,5 @@ export const GUIAS_CURTOS: Record<string, string> = {
   novayork: 'nova-york-em-4-dias',
   madri: 'madri-em-4-dias',
   buenosaires: 'buenos-aires-em-3-dias',
+  lisboa: 'guia-lisboa-em-3-dias',
 };
