@@ -67,7 +67,7 @@ describe('Financeiro: painel novo, venda direta, lucro por voo e recibos (Worker
     if (persistTo) rmSync(persistTo, { recursive: true, force: true });
   });
 
-  async function masterJar() {
+  async function createMasterJar() {
     const email = 'ana@example.com';
     const senha = 'SenhaPainel12345';
     const invite = await worker.fetch('/api/admin/bootstrap/master-invites', { method: 'POST', headers: { authorization: `Bearer ${VARS.MASTER_BOOTSTRAP_TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ email, name: 'Ana Souza' }) });
@@ -80,6 +80,9 @@ describe('Financeiro: painel novo, venda direta, lucro por voo e recibos (Worker
     jar.absorb(res);
     return jar;
   }
+
+  let masterJarPromise: Promise<CookieJar> | undefined;
+  const masterJar = () => (masterJarPromise ??= createMasterJar());
 
   const send = async (jar: CookieJar, method: string, path: string, data?: unknown) => {
     const res = await worker.fetch(path, { method, headers: jar.json(), ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
@@ -235,5 +238,63 @@ describe('Financeiro: painel novo, venda direta, lucro por voo e recibos (Worker
     // O estorno devolve exatamente o que saiu em R$.
     expect((await send(jar, 'POST', `/api/admin/finance/obligation-payments/${pago.json.id}/reverse`, { reason: 'teste de estorno' })).status).toBe(201);
     expect(await balanceOf(cofreId)).toMatchObject({ balanceCents: 820000, outCents: 0 });
+  }, 120_000);
+
+  it('monta, edita, lista e apaga orçamentos de passagem (sem vender nada)', async () => {
+    const jar = await masterJar();
+    expect((await worker.fetch('/api/admin/finance/quotes')).status).toBe(403);
+
+    const valido = {
+      issuedOn: today, validUntil: today, customerName: 'Cliente Orçamento', currency: 'EUR',
+      segments: [{ date: today, flight: 'TP87', airline: 'TAP', from: 'lis', to: 'mcz', depart: '10:30', arrive: '17:05' }],
+      lines: [{ title: 'Passageiro adulto', qty: 2, unitCents: 120000 }, { title: 'Taxa de serviço', kind: 'extra', qty: 1, unitCents: 5000 }],
+      altCurrency: 'BRL', altAmountCents: 1400000, paymentTerms: 'PIX ou cartão',
+    };
+
+    // Dados inválidos não gravam nada.
+    expect((await send(jar, 'POST', '/api/admin/finance/quotes', { ...valido, customerName: 'X' })).status).toBe(400);
+    expect((await send(jar, 'POST', '/api/admin/finance/quotes', { ...valido, lines: [] })).status).toBe(400);
+    expect((await send(jar, 'POST', '/api/admin/finance/quotes', { ...valido, lines: [{ title: 'Adulto', qty: 0, unitCents: 100 }] })).status).toBe(400);
+    expect((await send(jar, 'POST', '/api/admin/finance/quotes', { ...valido, altCurrency: 'EUR' })).status).toBe(400);
+    expect((await send(jar, 'POST', '/api/admin/finance/quotes', { ...valido, validUntil: '2000-01-01' })).status).toBe(400);
+    expect((await send(jar, 'POST', '/api/admin/finance/quotes', { ...valido, status: 'vendido' })).status).toBe(400);
+
+    // Criar numera em sequência a partir do 500 (ORC-AAAA-500, 501) e calcula o total no servidor: 2 x 1.200,00 + 50,00.
+    const primeiro = await send(jar, 'POST', '/api/admin/finance/quotes', valido);
+    expect(primeiro.status).toBe(201);
+    expect(primeiro.json.number).toMatch(/^ORC-\d{4}-500$/);
+    const segundo = await send(jar, 'POST', '/api/admin/finance/quotes', { ...valido, customerName: 'Outro Cliente' });
+    expect(segundo.json.number).toMatch(/^ORC-\d{4}-501$/);
+
+    const lido = await send(jar, 'GET', `/api/admin/finance/quotes/${primeiro.json.id}`);
+    expect(lido.status).toBe(200);
+    expect(lido.json.quote).toMatchObject({ number: primeiro.json.number, status: 'draft', validUntil: today });
+    expect(lido.json.quote.data).toMatchObject({ totalCents: 245000, currency: 'EUR', altCurrency: 'BRL', altAmountCents: 1400000 });
+    expect(lido.json.quote.data.segments[0]).toMatchObject({ from: 'LIS', to: 'MCZ' });
+    expect(lido.json.quote.data.lines.map((l: any) => l.kind)).toEqual(['pax', 'extra']);
+
+    // Editar muda o conteúdo e a situação, mas o número continua o mesmo.
+    const editado = await send(jar, 'PUT', `/api/admin/finance/quotes/${primeiro.json.id}`, { ...valido, status: 'sent', lines: [{ title: 'Passageiro adulto', qty: 1, unitCents: 99900 }] });
+    expect(editado.status).toBe(200);
+    const lista = await send(jar, 'GET', '/api/admin/finance/quotes');
+    const linha = lista.json.quotes.find((q: any) => q.id === primeiro.json.id);
+    expect(linha).toMatchObject({ number: primeiro.json.number, status: 'sent', totalCents: 99900, currency: 'EUR', route: 'LIS → MCZ' });
+    expect(lista.json.quotes).toHaveLength(2);
+    // Ida e volta mostra o caminho completo na lista.
+    const idaVolta = await send(jar, 'POST', '/api/admin/finance/quotes', { ...valido, customerName: 'Ida e Volta', segments: [...valido.segments, { date: today, flight: 'TP88', from: 'MCZ', to: 'LIS' }] });
+    expect((await send(jar, 'GET', '/api/admin/finance/quotes')).json.quotes.find((q: any) => q.id === idaVolta.json.id).route).toBe('LIS → MCZ → LIS');
+    expect((await send(jar, 'DELETE', `/api/admin/finance/quotes/${idaVolta.json.id}`)).status).toBe(200);
+    expect((await send(jar, 'PUT', `/api/admin/finance/quotes/${crypto.randomUUID()}`, valido)).status).toBe(404);
+
+    // Orçamento não vira venda nem mexe no financeiro.
+    const voos = await send(jar, 'GET', '/api/admin/finance/flights');
+    expect(voos.json.flights.some((f: any) => f.customerName === 'Cliente Orçamento')).toBe(false);
+
+    // Apagar tira da lista; número apagado não é reaproveitado (o da ida e volta foi o 502, o próximo é 503).
+    expect((await send(jar, 'DELETE', `/api/admin/finance/quotes/${primeiro.json.id}`)).status).toBe(200);
+    expect((await send(jar, 'DELETE', `/api/admin/finance/quotes/${primeiro.json.id}`)).status).toBe(404);
+    expect((await send(jar, 'GET', '/api/admin/finance/quotes')).json.quotes).toHaveLength(1);
+    const terceiro = await send(jar, 'POST', '/api/admin/finance/quotes', valido);
+    expect(terceiro.json.number).toMatch(/^ORC-\d{4}-503$/);
   }, 120_000);
 });

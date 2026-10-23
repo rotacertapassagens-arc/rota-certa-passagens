@@ -4,6 +4,7 @@
 // - lista de voos com custo e lucro (GET /api/admin/finance/flights);
 // - lista de contas a receber (GET /api/admin/finance/receivables);
 // - recibo por venda e o PDF anexado (…/sales/<id>/receipt, …/receipts/<id>/files, …/receipt-files/<id>).
+// - orçamentos de passagem (…/quotes), antes da venda: lista, criar, ler, editar e apagar.
 type Row = Record<string, unknown>;
 export interface FinanceExtrasAuth { userId: string; roles: string[] }
 export interface FinanceExtrasDeps {
@@ -45,6 +46,12 @@ export async function financeExtras(req: Request, env: Env, url: URL, deps: Fina
   const receipt = p.match(new RegExp(`^/api/admin/finance/sales/(${UUID})/receipt$`, 'i'));
   if (m === 'GET' && receipt) return receiptGet(req, env, receipt[1]!, deps);
   if (m === 'PUT' && receipt) return receiptPut(req, env, receipt[1]!, deps);
+  if (m === 'GET' && p === '/api/admin/finance/quotes') return quotesList(req, env, deps);
+  if (m === 'POST' && p === '/api/admin/finance/quotes') return quoteCreate(req, env, deps);
+  const quote = p.match(new RegExp(`^/api/admin/finance/quotes/(${UUID})$`, 'i'));
+  if (m === 'GET' && quote) return quoteGet(req, env, quote[1]!, deps);
+  if (m === 'PUT' && quote) return quoteUpdate(req, env, quote[1]!, deps);
+  if (m === 'DELETE' && quote) return quoteDelete(req, env, quote[1]!, deps);
   const files = p.match(new RegExp(`^/api/admin/finance/receipts/(${UUID})/files$`, 'i'));
   if (m === 'POST' && files) return fileUpload(req, env, files[1]!, deps);
   const file = p.match(new RegExp(`^/api/admin/finance/receipt-files/(${UUID})$`, 'i'));
@@ -244,9 +251,10 @@ async function accountBalances(req: Request, env: Env, deps: FinanceExtrasDeps) 
 }
 
 // --- recibo ------------------------------------------------------------------------------------
-function cleanReceipt(b: Row) {
-  const segments = (Array.isArray(b.segments) ? b.segments : []).slice(0, 12).map((raw) => {
-    const s = (raw && typeof raw === 'object' ? raw : {}) as Row;
+/** Trechos do itinerário, iguais no recibo e no orçamento. */
+function cleanSegments(raw: unknown) {
+  return (Array.isArray(raw) ? raw : []).slice(0, 12).map((item) => {
+    const s = (item && typeof item === 'object' ? item : {}) as Row;
     const plusDay = Number(s.plusDay);
     return {
       date: dateOk(s.date) ?? '', flight: clean(s.flight, 12), airline: clean(s.airline, 40),
@@ -255,6 +263,10 @@ function cleanReceipt(b: Row) {
       plusDay: Number.isInteger(plusDay) && plusDay > 0 && plusDay < 4 ? plusDay : 0, cls: clean(s.cls, 24),
     };
   }).filter((s) => s.flight || s.from || s.to);
+}
+
+function cleanReceipt(b: Row) {
+  const segments = cleanSegments(b.segments);
   const lines: { title: string; subtitle: string; amountCents: number }[] = [];
   for (const raw of (Array.isArray(b.lines) ? b.lines : []).slice(0, 10)) {
     const l = (raw && typeof raw === 'object' ? raw : {}) as Row;
@@ -391,5 +403,117 @@ async function fileDelete(req: Request, env: Env, fileId: string, deps: FinanceE
   const result = await env.DB.prepare('DELETE FROM fin_receipt_files WHERE id=?').bind(fileId).run();
   if (!result.meta.changes) return deps.reply({ error: 'not_found' }, 404);
   await deps.audit(env, auth.userId, 'finance.receipt_file_removed', 'fin_receipt_file', fileId);
+  return deps.reply({ ok: true });
+}
+
+// --- orçamentos ----------------------------------------------------------------------------------
+// Orçamento de passagem montado antes da venda: cliente, itinerário e preço por passageiro. Não mexe em vendas nem em
+// caixa; o PDF sai da página /orcamento.html (imprimir / salvar PDF), como no recibo.
+const QUOTE_STATUSES = ['draft', 'sent', 'accepted', 'declined'];
+// A numeração começa em 500 (ORC-2026-500) para a agência não parecer nova; o contador é por ano.
+const QUOTE_FIRST_NUMBER = 500;
+
+function cleanQuote(b: Row) {
+  // kind: 'pax' é linha de passageiro (conta na quantidade de passageiros); 'extra' é taxa, bagagem, seguro etc.
+  const lines: { title: string; subtitle: string; kind: 'pax' | 'extra'; qty: number; unitCents: number }[] = [];
+  for (const raw of (Array.isArray(b.lines) ? b.lines : []).slice(0, 10)) {
+    const l = (raw && typeof raw === 'object' ? raw : {}) as Row;
+    const title = clean(l.title, 160);
+    if (!title) continue;
+    const qty = Number(l.qty);
+    const unitCents = centsOk(l.unitCents, 0);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 99 || unitCents === null) return null;
+    lines.push({ title, subtitle: clean(l.subtitle, 200), kind: l.kind === 'extra' ? 'extra' : 'pax', qty, unitCents });
+  }
+  const currency = currencyOk(b.currency);
+  const customerName = clean(b.customerName, 120);
+  const totalCents = lines.reduce((sum, l) => sum + l.qty * l.unitCents, 0);
+  if (!currency || customerName.length < 2 || !lines.length || totalCents < 1 || totalCents > MAX_CENTS) return null;
+  const altCurrency = b.altCurrency ? currencyOk(b.altCurrency) : null;
+  const altAmountCents = b.altAmountCents ? centsOk(b.altAmountCents, 1) : null;
+  if ((altCurrency === null) !== (altAmountCents === null) || altCurrency === currency) return null;
+  return {
+    customerName, customerContact: clean(b.customerContact, 120), baggage: clean(b.baggage, 300),
+    segments: cleanSegments(b.segments), note: clean(b.note, 300), lines, currency, totalCents, altCurrency, altAmountCents,
+    paymentTerms: clean(b.paymentTerms, 500), conditions: clean(b.conditions, 600),
+  };
+}
+
+/** Dados do corpo comuns à criação e à edição; null quando algo está inválido. */
+function quoteInput(b: Row | null) {
+  const data = b ? cleanQuote(b) : null;
+  const issuedOn = dateOk(b?.issuedOn);
+  const validUntil = b?.validUntil ? dateOk(b.validUntil) : '';
+  const status = b?.status === undefined ? 'draft' : typeof b.status === 'string' && QUOTE_STATUSES.includes(b.status) ? b.status : null;
+  if (!data || !issuedOn || validUntil === null || !status || (validUntil && validUntil < issuedOn)) return null;
+  return { data, issuedOn, validUntil: validUntil || null, status };
+}
+
+function quoteRoute(json: unknown) {
+  try {
+    const segments = (JSON.parse(String(json)) as { segments?: { from?: string; to?: string }[] }).segments ?? [];
+    const stops = [segments[0]?.from, ...segments.map((s) => s.to)].filter((code): code is string => Boolean(code));
+    return stops.length > 1 ? stops.join(' → ') : '';
+  } catch { return ''; }
+}
+
+async function quotesList(req: Request, env: Env, deps: FinanceExtrasDeps) {
+  if (!(await master(req, env, deps))) return deps.reply({ error: 'forbidden' }, 403);
+  const rows = await env.DB.prepare('SELECT id,number,issued_on,valid_until,customer_name,currency,total_cents,status,data,updated_at FROM fin_quotes ORDER BY issued_on DESC,created_at DESC LIMIT 500').all<Row>();
+  return deps.reply({
+    quotes: rows.results.map((r) => ({
+      id: r.id, number: r.number, issuedOn: r.issued_on, validUntil: r.valid_until, customerName: r.customer_name, currency: r.currency,
+      totalCents: r.total_cents, status: r.status, route: quoteRoute(r.data), updatedAt: r.updated_at,
+    })),
+  });
+}
+
+async function quoteGet(req: Request, env: Env, id: string, deps: FinanceExtrasDeps) {
+  if (!(await master(req, env, deps))) return deps.reply({ error: 'forbidden' }, 403);
+  const r = await env.DB.prepare('SELECT id,number,issued_on,valid_until,status,data,updated_at FROM fin_quotes WHERE id=?').bind(id).first<Row>();
+  if (!r) return deps.reply({ error: 'not_found' }, 404);
+  let data: unknown = null;
+  try { data = JSON.parse(String(r.data)); } catch { data = null; }
+  return deps.reply({ quote: { id: r.id, number: r.number, issuedOn: r.issued_on, validUntil: r.valid_until, status: r.status, updatedAt: r.updated_at, data } });
+}
+
+async function quoteCreate(req: Request, env: Env, deps: FinanceExtrasDeps) {
+  const auth = await masterMutation(req, env, deps);
+  if (!auth) return deps.reply({ error: 'forbidden' }, 403);
+  const input = quoteInput(await readJson(req));
+  if (!input) return deps.reply({ error: 'invalid_quote' }, 400);
+  const id = crypto.randomUUID();
+  const year = Number(input.issuedOn.slice(0, 4));
+  const counterSql = '(SELECT printf(\'ORC-%04d-%03d\',year,last_value) FROM fin_quote_counters WHERE year=?)';
+  try {
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO fin_quote_counters(year,last_value) VALUES(?,?) ON CONFLICT(year) DO UPDATE SET last_value=last_value+1').bind(year, QUOTE_FIRST_NUMBER),
+      env.DB.prepare(`INSERT INTO fin_quotes (id,number,issued_on,valid_until,customer_name,currency,total_cents,status,data,created_by) VALUES (?,${counterSql},?,?,?,?,?,?,?,?)`)
+        .bind(id, year, input.issuedOn, input.validUntil, input.data.customerName, input.data.currency, input.data.totalCents, input.status, JSON.stringify(input.data), auth.userId),
+    ]);
+  } catch { return deps.reply({ error: 'quote_creation_failed' }, 500); }
+  const created = await env.DB.prepare('SELECT number FROM fin_quotes WHERE id=?').bind(id).first<{ number: string }>();
+  await deps.audit(env, auth.userId, 'finance.quote_created', 'fin_quote', id);
+  return deps.reply({ id, number: created?.number ?? null }, 201);
+}
+
+async function quoteUpdate(req: Request, env: Env, id: string, deps: FinanceExtrasDeps) {
+  const auth = await masterMutation(req, env, deps);
+  if (!auth) return deps.reply({ error: 'forbidden' }, 403);
+  const input = quoteInput(await readJson(req));
+  if (!input) return deps.reply({ error: 'invalid_quote' }, 400);
+  const result = await env.DB.prepare('UPDATE fin_quotes SET issued_on=?,valid_until=?,customer_name=?,currency=?,total_cents=?,status=?,data=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+    .bind(input.issuedOn, input.validUntil, input.data.customerName, input.data.currency, input.data.totalCents, input.status, JSON.stringify(input.data), id).run();
+  if (!result.meta.changes) return deps.reply({ error: 'not_found' }, 404);
+  await deps.audit(env, auth.userId, 'finance.quote_updated', 'fin_quote', id);
+  return deps.reply({ ok: true });
+}
+
+async function quoteDelete(req: Request, env: Env, id: string, deps: FinanceExtrasDeps) {
+  const auth = await masterMutation(req, env, deps);
+  if (!auth) return deps.reply({ error: 'forbidden' }, 403);
+  const result = await env.DB.prepare('DELETE FROM fin_quotes WHERE id=?').bind(id).run();
+  if (!result.meta.changes) return deps.reply({ error: 'not_found' }, 404);
+  await deps.audit(env, auth.userId, 'finance.quote_deleted', 'fin_quote', id);
   return deps.reply({ ok: true });
 }

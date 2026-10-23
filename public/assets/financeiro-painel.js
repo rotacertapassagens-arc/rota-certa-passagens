@@ -63,7 +63,7 @@ async function fetchSales() {
 
 // --- acesso e rotas -----------------------------------------------------------------------------------
 const VIEWS = {
-  geral: loadGeral, vendas: loadSales, voos: loadFlights, contas: loadAccountBalances, receber: loadReceivables, alertas: loadAlerts,
+  geral: loadGeral, orcamentos: loadQuotes, vendas: loadSales, voos: loadFlights, contas: loadAccountBalances, receber: loadReceivables, alertas: loadAlerts,
   pagar: () => loadObligations(), milhas: () => loadMileageLots(), assinaturas: async () => {}, cadastros: async () => {},
 };
 function route() {
@@ -87,6 +87,7 @@ try {
 try { await initCadastros(); } catch (error) { flash(financeErrorMessage(error, 'Não foi possível carregar os cadastros.'), true); }
 wireGeral();
 wireSales();
+wireQuotes();
 wireFlights();
 $('receivablesAll').addEventListener('change', () => loadReceivables().catch(() => {}));
 window.addEventListener('hashchange', route);
@@ -244,6 +245,43 @@ function renderAttention(alerts, receivables) {
   $('geralAttention').innerHTML = items.length
     ? `<ul class="rank">${items.map(([count, text, href]) => `<li><span class="who"><a href="${href}"><strong>${count}</strong> ${text}</a></span></li>`).join('')}</ul>`
     : '<p class="muted">Tudo em dia. Nada vencido nem pendente.</p>';
+}
+
+// --- orçamentos -----------------------------------------------------------------------------------------
+let quotes = [];
+const QUOTE_STATUS_TAGS = {
+  draft: '<span class="tag tag-muted">Rascunho</span>', sent: '<span class="tag tag-pending">Enviado</span>',
+  accepted: '<span class="tag tag-paid">Aceito</span>', declined: '<span class="tag tag-void">Recusado</span>',
+};
+
+function wireQuotes() {
+  ['quotesSearch', 'quotesFilter'].forEach((id) => $(id).addEventListener('input', renderQuotes));
+}
+
+async function loadQuotes() {
+  try { quotes = (await api('/api/admin/finance/quotes')).quotes; renderQuotes(); } catch (error) { showError('quotes', error, 'Não foi possível carregar os orçamentos.'); }
+}
+
+function renderQuotes() {
+  const text = $('quotesSearch').value.trim().toLowerCase();
+  const filter = $('quotesFilter').value;
+  const todayIso = today();
+  const rows = quotes.filter((item) => (!filter || item.status === filter) && (!text || `${item.customerName} ${item.number} ${item.route}`.toLowerCase().includes(text)));
+  $('quotes').innerHTML = rows.map((item) => {
+    const expired = item.validUntil && item.validUntil < todayIso && (item.status === 'draft' || item.status === 'sent');
+    return `<tr>
+      <td><span class="main">${esc(item.number)}</span><span class="alt">${fmtDay(item.issuedOn)}</span></td>
+      <td><span class="main">${esc(item.customerName)}</span><span class="alt">${esc(item.route || 'rota não informada')}</span></td>
+      <td class="num"><span class="main">${money(item.totalCents, item.currency)}</span></td>
+      <td>${item.validUntil ? fmtDay(item.validUntil) : '-'}${expired ? ' <span class="tag tag-warn">Vencido</span>' : ''}</td>
+      <td>${QUOTE_STATUS_TAGS[item.status] || ''}</td>
+      <td><div class="row-actions"><a class="button small" href="/orcamento.html?id=${item.id}">Abrir</a><button type="button" class="small ghost" data-delete-quote="${item.id}">Apagar</button></div></td></tr>`;
+  }).join('') || '<tr><td colspan="6">Nenhum orçamento encontrado. Use "Novo orçamento" para criar o primeiro.</td></tr>';
+  document.querySelectorAll('[data-delete-quote]').forEach((button) => button.addEventListener('click', async () => {
+    const item = quotes.find((quote) => quote.id === button.dataset.deleteQuote);
+    if (!item || !(await askConfirm(`Apagar o orçamento ${item.number} de ${item.customerName}? Isto não pode ser desfeito.`, { title: 'Apagar orçamento', submitLabel: 'Apagar', danger: true }))) return;
+    try { await api(`/api/admin/finance/quotes/${item.id}`, { method: 'DELETE' }); flash('Orçamento apagado.'); await loadQuotes(); } catch (error) { flash(financeErrorMessage(error, 'Não foi possível apagar o orçamento.'), true); }
+  }));
 }
 
 // --- vendas e recibos -----------------------------------------------------------------------------------

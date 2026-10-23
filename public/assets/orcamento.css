@@ -1,0 +1,23 @@
+/* Orçamento: reaproveita a folha A4 do recibo (recibo.css) e só acrescenta a tabela de preço por passageiro. */
+.rc-row-qty { display:grid; grid-template-columns:90px 1fr; gap:0 14px; }
+.qt-table { width:100%; border-collapse:collapse; font-size:13px; }
+.qt-table th { padding:8px; border-bottom:2px solid var(--rc-navy); color:var(--rc-muted); font-size:10.5px; font-weight:600; letter-spacing:.14em; text-align:left; text-transform:uppercase; }
+.qt-table th.num, .qt-table td.num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.qt-table td { padding:12px 8px; border-bottom:1px solid var(--rc-line); vertical-align:top; }
+.qt-table td small { display:block; color:var(--rc-muted); }
+.qt-valid { padding:11px 16px; border-radius:10px; background:#f4ecd9; font-size:13px; }
+.orcamento .rc-sign { justify-content:flex-end; margin-top:14px; padding-bottom:10px; }
+/* Um orçamento comum (2 trechos, 3 linhas de valor) tem de caber em uma folha A4 sem encolher: espaçamentos mais curtos que os do recibo. */
+.orcamento .rc-head { padding:24px 44px 22px; }
+.orcamento .rc-brand img { width:88px; height:88px; }
+.orcamento .rc-body { padding-top:24px; }
+.orcamento .rc-title { padding-bottom:12px; }
+.orcamento .rc-cards { margin:16px 0 14px; }
+.orcamento .rc-card { padding:14px 18px; }
+.orcamento .rc-table td { padding:8px; }
+.orcamento .qt-table td { padding:9px 8px; }
+.orcamento .rc-values { margin:14px 0 10px; }
+.orcamento .rc-total { margin:12px 0 12px; padding:18px 24px; }
+@media (max-width:600px) {
+  .rc-row-qty { grid-template-columns:1fr; }
+}
