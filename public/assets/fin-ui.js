@@ -121,6 +121,8 @@ const errorMessages = {
   unsupported_attachment_type: 'O arquivo não parece ser um PDF ou imagem válida.',
   attachment_item_limit: 'Este recibo já tem 5 arquivos anexados.',
   attachment_storage_full: 'O espaço de anexos do financeiro está cheio.',
+  invalid_quote: 'Orçamento inválido. Confira cliente, datas (a validade não pode ser antes da emissão) e as linhas de valor.',
+  quote_creation_failed: 'Não foi possível criar o orçamento. Nada foi gravado.',
   forbidden: 'Sua conta não tem permissão master.',
   unauthorized: 'Sua sessão expirou. Entre de novo pela Área do cliente.',
 };

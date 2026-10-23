@@ -15,6 +15,7 @@
         <span class="group">Resumo</span>
         <a href="#/geral" data-nav="geral">Visão geral</a>
         <span class="group">Vendas</span>
+        <a href="#/orcamentos" data-nav="orcamentos">Orçamentos</a>
         <a href="#/vendas" data-nav="vendas">Vendas e recibos</a>
         <a href="#/voos" data-nav="voos">Lucro por voo</a>
         <span class="group">Dinheiro</span>
@@ -49,6 +50,15 @@
             <a class="button ghost small" id="exportObligationsCsv" href="#">Exportar contas a pagar (CSV)</a>
             <a class="button ghost small" id="exportReceivablesCsv" href="#">Exportar contas a receber (CSV)</a>
           </div>
+        </section>
+
+        <section class="fin-view" data-view="orcamentos" hidden>
+          <div class="fin-head"><div><h1>Orçamentos</h1><p class="muted">Monte o orçamento de uma passagem antes da venda, com itinerário e preço por passageiro, e gere o PDF para mandar ao cliente. Quando o cliente fechar, lance a venda em "Vendas e recibos".</p></div><a class="button" href="/orcamento.html">Novo orçamento</a></div>
+          <div class="fin-toolbar">
+            <label class="grow">Buscar<input id="quotesSearch" type="search" placeholder="Cliente, número ou rota"></label>
+            <label>Situação<select id="quotesFilter"><option value="">Todos</option><option value="draft">Rascunho</option><option value="sent">Enviados</option><option value="accepted">Aceitos</option><option value="declined">Recusados</option></select></label>
+          </div>
+          <section class="panel"><div class="table-wrap"><table class="fin-table"><thead><tr><th>Orçamento</th><th>Cliente e rota</th><th class="num">Total</th><th>Validade</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="quotes"></tbody></table></div></section>
         </section>
 
         <section class="fin-view" data-view="vendas" hidden>

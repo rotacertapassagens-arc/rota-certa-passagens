@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Orçamento | Rota Certa Passagens</title>
+  <link rel="stylesheet" href="/assets/fonts/fontes.css"><link rel="stylesheet" href="/assets/portal.css"><link rel="stylesheet" href="/assets/financeiro.css"><link rel="stylesheet" href="/assets/recibo.css"><link rel="stylesheet" href="/assets/orcamento.css"><link rel="icon" href="/assets/favicon.png">
+</head>
+<body>
+<main class="rc-app">
+  <section class="panel no-print" id="accessMessage"><h1>Orçamento</h1><p>Carregando...</p><a class="button" href="/#/cliente">Ir para a Área do cliente</a></section>
+  <div id="rcContent" class="hidden">
+    <header class="rc-bar no-print">
+      <a class="button ghost small" href="/financeiro#/orcamentos">Voltar aos orçamentos</a>
+      <div class="rc-bar-title"><strong id="qtTitle">Novo orçamento</strong><span class="muted" id="qtSub"></span></div>
+      <div class="rc-bar-actions">
+        <button type="button" id="qtSave">Salvar orçamento</button>
+        <button type="button" class="ghost" id="qtPrint">Imprimir / Salvar PDF</button>
+      </div>
+    </header>
+    <p class="status no-print" id="qtStatus" aria-live="polite"></p>
+    <div class="rc-grid">
+      <form class="rc-form panel no-print" id="qtForm" autocomplete="off" novalidate>
+        <h2>Dados do orçamento</h2>
+        <div class="rc-two">
+          <label>Data de emissão<input data-f="issuedOn" type="date"></label>
+          <label>Válido até<input data-f="validUntil" type="date"></label>
+        </div>
+        <label>Situação<select data-f="status"><option value="draft">Rascunho</option><option value="sent">Enviado ao cliente</option><option value="accepted">Aceito</option><option value="declined">Recusado</option></select></label>
+
+        <h3>Cliente</h3>
+        <label>Nome do cliente<input data-f="customerName" maxlength="120"></label>
+        <label>Contato (WhatsApp ou e-mail, opcional)<input data-f="customerContact" maxlength="120"></label>
+        <label>Bagagem<textarea data-f="baggage" maxlength="300" placeholder="Ex.: 1 mala de 23 kg + bagagem de mão"></textarea></label>
+
+        <h3>Itinerário</h3>
+        <div id="qtSegments"></div>
+        <button type="button" class="ghost small" id="qtAddSegment">Adicionar trecho</button>
+        <label style="margin-top:14px">Observação do itinerário (opcional)<input data-f="note" maxlength="300" placeholder="Ex.: Horários sujeitos a alteração pela companhia."></label>
+
+        <h3>Preço por passageiro</h3>
+        <div class="rc-two">
+          <label>Moeda do orçamento<select data-f="currency"><option value="EUR">Euro (€)</option><option value="BRL">Real (R$)</option><option value="USD">Dólar (US$)</option><option value="GBP">Libra (£)</option></select></label>
+          <span></span>
+        </div>
+        <div id="qtLines"></div>
+        <button type="button" class="ghost small" id="qtAddLine">Adicionar linha de valor</button>
+        <div class="rc-two" style="margin-top:14px">
+          <label>Valor equivalente em outra moeda (opcional)<select data-f="altCurrency"><option value="">Nenhum</option><option value="BRL">Real (R$)</option><option value="EUR">Euro (€)</option><option value="USD">Dólar (US$)</option><option value="GBP">Libra (£)</option></select></label>
+          <label>Valor equivalente<input data-f="altAmount" inputmode="decimal" placeholder="0,00"></label>
+        </div>
+
+        <h3>Pagamento e condições</h3>
+        <label>Formas de pagamento<textarea data-f="paymentTerms" maxlength="500" placeholder="Ex.: PIX ou cartão em até 12x. Reserva confirmada após o pagamento."></textarea></label>
+        <label>Condições (deixe vazio para o texto padrão)<textarea data-f="conditions" maxlength="600"></textarea></label>
+      </form>
+
+      <section class="rc-preview">
+        <div class="rc-scale" id="rcScale">
+          <article class="recibo orcamento" id="orcamento" aria-label="Prévia do orçamento"></article>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<script type="module" src="/assets/orcamento.js"></script>
+</body>
+</html>
