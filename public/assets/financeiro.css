@@ -105,6 +105,37 @@ button.small, .button.small { padding:7px 11px; font-size:.8rem; }
   .fin-nav a { white-space:nowrap; }
   .two-col { grid-template-columns:1fr; }
 }
+/* Carteira de milhas e clubes */
+.mile-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(158px,1fr)); gap:10px; margin-top:12px; }
+.mile-card { all:unset; box-sizing:border-box; cursor:pointer; background:var(--white); border:1px solid var(--line); border-top:2px solid var(--gold); border-radius:10px; padding:9px 12px; display:grid; gap:1px; align-content:start; box-shadow:none; transition:transform .12s ease, box-shadow .12s ease; }
+.mile-card:hover, .mile-card:focus-visible { transform:translateY(-2px); box-shadow:0 14px 30px -14px rgba(13,27,42,.35); }
+.mile-card:focus-visible { outline:2px solid var(--navy); outline-offset:2px; }
+.mile-card.warn { border-top-color:#e8c766; }
+.mile-card.bad { border-color:var(--danger); border-top-color:var(--danger); }
+.mile-card .tag { justify-self:start; margin-top:3px; font-size:.64rem; padding:2px 7px; }
+.mile-name { color:var(--muted); font-size:.64rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.mile-balance { font-family:var(--font-display); font-size:1.2rem; line-height:1.2; font-variant-numeric:tabular-nums; }
+.mile-balance small { font-family:var(--font-body); font-size:.72rem; font-weight:400; color:var(--muted); }
+.mile-sub { color:var(--muted); font-size:.74rem; font-variant-numeric:tabular-nums; }
+.chip-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.chip { padding:6px 14px; border-radius:999px; background:transparent; color:var(--navy); border:1.5px solid var(--line); font-size:.85rem; }
+.chip:hover { border-color:var(--navy); background:transparent; color:var(--navy); }
+.chip.on { background:var(--navy); border-color:var(--navy); color:var(--gold); }
+.club-group { margin-top:18px; }
+.club-group h2 { margin:0; }
+.mile-person { border-top:1px solid var(--line); padding:14px 0; display:grid; gap:8px; }
+.mile-person-head { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
+.mile-person-num { text-align:right; display:grid; font-variant-numeric:tabular-nums; }
+.mile-person-num strong { font-family:var(--font-display); font-size:1.25rem; }
+.mile-reported { margin:0; font-size:.88rem; }
+.club-dl { display:grid; grid-template-columns:1fr 1fr; gap:12px 18px; margin:14px 0; }
+.club-dl dt { color:var(--muted); font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+.club-dl dd { margin:2px 0 0; font-variant-numeric:tabular-nums; }
+#walletAlerts .alert { padding:8px 14px; margin-bottom:6px; font-size:.9rem; }
+#walletAlertsPanel summary { cursor:pointer; display:flex; align-items:center; gap:10px; }
+#walletAlerts { margin-top:12px; }
+.club-event { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; padding:10px 0; border-top:1px solid var(--line); }
+.alert-warn { background:#fff7e0; border:1px solid #e8c766; border-radius:10px; padding:10px 14px; margin-bottom:8px; }
 @media (max-width:600px) {
   .fin-dialog-grid { grid-template-columns:1fr; }
   .kpi strong { font-size:1.4rem; }

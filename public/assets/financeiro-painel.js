@@ -2,6 +2,7 @@
 // Cadastros, contas a pagar, assinaturas e milhas ficam em financeiro.js. Dinheiro sempre por moeda, nunca somado entre moedas.
 import { api, askConfirm, askForm, centsToInput, esc, financeErrorMessage, fmtDay, money, monthKey, today, toCents } from './fin-ui.js';
 import { initCadastros, loadMileageLots, loadObligations, state } from './financeiro.js';
+import { fetchWallet, initCarteira, loadCarteira, loadClubes, useWalletMiles, voidWalletUsage, walletUsages } from './financeiro-carteira.js';
 
 const $ = (id) => document.getElementById(id);
 const CURRENCY_NAMES = { EUR: 'Euro', BRL: 'Real', USD: 'Dólar', GBP: 'Libra' };
@@ -64,7 +65,7 @@ async function fetchSales() {
 // --- acesso e rotas -----------------------------------------------------------------------------------
 const VIEWS = {
   geral: loadGeral, orcamentos: loadQuotes, vendas: loadSales, voos: loadFlights, contas: loadAccountBalances, receber: loadReceivables, alertas: loadAlerts,
-  pagar: () => loadObligations(), milhas: () => loadMileageLots(), assinaturas: async () => {}, cadastros: async () => {},
+  pagar: () => loadObligations(), carteira: loadCarteira, clubes: loadClubes, milhas: () => loadMileageLots(), assinaturas: async () => {}, cadastros: async () => {},
 };
 function route() {
   const requested = location.hash.replace(/^#\//, '').split('?')[0];
@@ -85,6 +86,8 @@ try {
   throw error;
 }
 try { await initCadastros(); } catch (error) { flash(financeErrorMessage(error, 'Não foi possível carregar os cadastros.'), true); }
+initCarteira();
+fetchWallet().catch(() => {});
 wireGeral();
 wireSales();
 wireQuotes();
@@ -643,9 +646,22 @@ async function openFlightDialog(saleId) {
   dialog.addEventListener('close', () => { dialog.remove(); const view = document.querySelector('.fin-view:not([hidden])')?.dataset.view; if (view === 'voos') loadFlights(); else if (view === 'vendas') loadSales(); else if (view === 'geral') loadGeral(); });
   dialog.addEventListener('cancel', () => dialog.close());
   let detail;
+  let allocations = {};
+  let walletUses = {};
+  let lotNames = {};
   const reload = async () => {
     detail = await api(`/api/admin/finance/sales/${saleId}`);
     await fetchFlights();
+    const withMiles = detail.issuances.filter((i) => i.milesQuantity > 0);
+    allocations = {};
+    walletUses = {};
+    if (withMiles.length) {
+      lotNames = Object.fromEntries((await api('/api/admin/finance/mileage-lots')).mileageLots.map((lot) => [lot.id, lot.program]));
+      await Promise.all(withMiles.map(async (i) => {
+        allocations[i.id] = (await api(`/api/admin/finance/issuances/${i.id}/mileage-allocations`)).allocations.filter((a) => !a.voidedAt);
+        walletUses[i.id] = await walletUsages(i.id);
+      }));
+    }
     render();
   };
 
@@ -666,26 +682,31 @@ async function openFlightDialog(saleId) {
       ${issuances.map((i) => `<article class="issuance">
         <header><strong>${esc(modeLabels[i.mode] || i.mode)}${i.airline ? ` · ${esc(i.airline)}` : ''}${i.loyaltyProgram ? ` · ${esc(i.loyaltyProgram)}` : ''}</strong><span class="tag ${i.status === 'issued' ? 'tag-paid' : i.status === 'pending' ? 'tag-warn' : 'tag-void'}">${issuanceStatusLabels[i.status]}</span></header>
         <p class="muted">${i.pnr ? `PNR ${esc(i.pnr)}` : 'Sem PNR'}${i.ticketNumbers ? ` · bilhete ${esc(i.ticketNumbers)}` : ''}</p>
+        ${(allocations[i.id] || []).map((a) => `<p class="muted">Milhas do lote ${esc(lotNames[a.lotId] || 'sem nome')}: ${a.quantity.toLocaleString('pt-BR')} (${money(a.costCentsSnapshot, cur)})${i.status === 'pending' || i.status === 'issued' ? ` <button type="button" class="small ghost" data-void-allocation="${a.id}">Estornar milhas</button>` : ''}</p>`).join('')}
+        ${(walletUses[i.id] || []).map((u) => `<p class="muted">Milhas da carteira (${esc(u.holder)} · ${esc(u.program)}): ${u.miles.toLocaleString('pt-BR')} (custo ${money(u.costCents, 'BRL')}${cur !== 'BRL' ? `, ${money(u.issuanceCostCents, cur)} a ${esc(u.fxRate)}` : ''})${i.status === 'pending' || i.status === 'issued' ? ` <button type="button" class="small ghost" data-void-wallet="${u.id}">Estornar milhas</button>` : ''}</p>`).join('')}
         <dl>
           ${i.milesQuantity ? `<div><dt>Milhas usadas</dt><dd>${i.milesQuantity.toLocaleString('pt-BR')} (${money(i.milesCostCents, cur)})</dd></div>` : ''}
           <div><dt>Passagem em dinheiro</dt><dd>${money(i.cashAmountCents, cur)}</dd></div>
           <div><dt>Taxas de aeroporto</dt><dd>${money(i.airportFeesCents, cur)}</dd></div>
-          <div><dt>Taxa de emissão</dt><dd>${money(i.issuanceFeeCents, cur)}</dd></div>
+          <div><dt>Comissão afiliado</dt><dd>${money(i.issuanceFeeCents, cur)}</dd></div>
           <div><dt>Outros custos</dt><dd>${money(i.otherCostsCents + i.consolidatorFeeCents + i.gatewayFeeCents + i.agentCommissionCents, cur)}</dd></div>
           <div><dt>Custo desta emissão</dt><dd>${money(total(i), cur)}</dd></div>
         </dl>
         <div class="row-actions">
-          ${i.status === 'pending' && (i.mode === 'miles' || i.mode === 'hybrid') ? `<button type="button" class="small" data-allocate="${i.id}">Usar milhas de um lote</button>` : ''}
+          ${(i.status === 'pending' || i.status === 'issued') && (i.mode === 'miles' || i.mode === 'hybrid') ? `<button type="button" class="small" data-wallet-use="${i.id}">Usar milhas da minha carteira</button><button type="button" class="small ghost" data-allocate="${i.id}">Usar milhas de um lote</button>` : ''}
           ${i.status === 'pending' ? `<button type="button" class="small" data-issue="${i.id}">Marcar como emitida</button><button type="button" class="small ghost" data-edit="${i.id}">Editar custos</button><button type="button" class="small ghost" data-cancel="${i.id}">Cancelar</button>` : ''}
-          ${i.status === 'issued' ? `<button type="button" class="small ghost" data-refund="${i.id}">Reembolsar</button><button type="button" class="small ghost" data-cancel="${i.id}">Cancelar</button>` : ''}
+          ${i.status === 'issued' ? `<button type="button" class="small ghost" data-edit="${i.id}">Editar custos</button><button type="button" class="small ghost" data-refund="${i.id}">Reembolsar</button><button type="button" class="small ghost" data-cancel="${i.id}">Cancelar</button>` : ''}
         </div></article>`).join('') || '<p class="muted">Nenhuma emissão lançada ainda. Adicione a primeira para calcular o lucro.</p>'}
       <div class="fin-dialog-actions" style="justify-content:flex-start"><button type="button" id="addIssuance">Adicionar emissão</button></div>
     </div>`;
     dialog.querySelector('[data-close]').addEventListener('click', () => dialog.close());
     dialog.querySelector('#addIssuance').addEventListener('click', () => addIssuance(sale));
     dialog.querySelectorAll('[data-allocate]').forEach((button) => button.addEventListener('click', () => allocate(issuances.find((i) => i.id === button.dataset.allocate), sale)));
+    dialog.querySelectorAll('[data-wallet-use]').forEach((button) => button.addEventListener('click', async () => { if (await useWalletMiles(issuances.find((i) => i.id === button.dataset.walletUse), sale)) await reload(); }));
+    dialog.querySelectorAll('[data-void-wallet]').forEach((button) => button.addEventListener('click', async () => { if (await voidWalletUsage(button.dataset.voidWallet)) await reload(); }));
     dialog.querySelectorAll('[data-issue]').forEach((button) => button.addEventListener('click', () => issue(issuances.find((i) => i.id === button.dataset.issue))));
     dialog.querySelectorAll('[data-edit]').forEach((button) => button.addEventListener('click', () => editIssuance(issuances.find((i) => i.id === button.dataset.edit))));
+    dialog.querySelectorAll('[data-void-allocation]').forEach((button) => button.addEventListener('click', () => voidAllocation(button.dataset.voidAllocation)));
     dialog.querySelectorAll('[data-cancel]').forEach((button) => button.addEventListener('click', () => terminate(button.dataset.cancel, 'cancel')));
     dialog.querySelectorAll('[data-refund]').forEach((button) => button.addEventListener('click', () => terminate(button.dataset.refund, 'refund')));
   }
@@ -698,7 +719,7 @@ async function openFlightDialog(saleId) {
     { name: 'ticketNumbers', label: 'Número do bilhete', type: 'text', value: i.ticketNumbers || '' },
     { name: 'cash', label: 'Passagem paga em dinheiro', type: 'money', value: centsToInput(i.cashAmountCents || 0) },
     { name: 'airportFees', label: 'Taxas de aeroporto', type: 'money', value: centsToInput(i.airportFeesCents || 0) },
-    { name: 'issuanceFee', label: 'Taxa de emissão', type: 'money', value: centsToInput(i.issuanceFeeCents || 0) },
+    { name: 'issuanceFee', label: 'Comissão afiliado', type: 'money', value: centsToInput(i.issuanceFeeCents || 0) },
     { name: 'otherCosts', label: 'Outros custos', type: 'money', value: centsToInput(i.otherCostsCents || 0) },
   ];
   const costBody = (v) => ({ airline: v.airline, loyaltyProgram: v.loyaltyProgram, pnr: v.pnr, ticketNumbers: v.ticketNumbers, cashAmountCents: v.cash || 0, airportFeesCents: v.airportFees || 0, issuanceFeeCents: v.issuanceFee || 0, otherCostsCents: v.otherCosts || 0 });
@@ -731,9 +752,15 @@ async function openFlightDialog(saleId) {
   }
 
   async function editIssuance(i) {
-    const values = await askForm({ title: 'Editar custos da emissão', submitLabel: 'Salvar', fields: costFields(i) });
+    const issued = i.status === 'issued';
+    const values = await askForm({
+      title: 'Editar custos da emissão', submitLabel: 'Salvar',
+      fields: [{ name: 'mode', label: 'Como foi emitido', type: 'select', options: Object.entries(modeLabels).map(([value, label]) => ({ value, label })), value: i.mode, wide: true }, ...costFields(i)],
+      intro: issued ? 'Esta emissão já foi emitida. Ao salvar, o custo e o lucro do voo são recalculados e a correção fica registrada. Se mudar para milhas, use "Usar milhas de um lote" depois de salvar e zere a passagem em dinheiro.' : '',
+    });
     if (!values) return;
-    await guard(async () => { await api(`/api/admin/finance/issuances/${i.id}`, { method: 'PATCH', body: JSON.stringify(costBody(values)) }); await reload(); }, 'Não foi possível salvar os custos.');
+    if (issued && !values.pnr) { flash('Uma emissão já emitida precisa de PNR.', true); return; }
+    await guard(async () => { await api(`/api/admin/finance/issuances/${i.id}`, { method: 'PATCH', body: JSON.stringify({ ...costBody(values), mode: values.mode }) }); await reload(); }, 'Não foi possível salvar os custos.');
   }
 
   async function allocate(i, sale) {
@@ -750,6 +777,12 @@ async function openFlightDialog(saleId) {
     await guard(async () => { await api(`/api/admin/finance/issuances/${i.id}/mileage-allocations`, { method: 'POST', body: JSON.stringify({ lotId: values.lotId, quantity: values.quantity }) }); await reload(); loadMileageLots(); }, 'Não foi possível usar as milhas.');
   }
 
+  async function voidAllocation(id) {
+    const values = await askForm({ title: 'Estornar milhas do lote', submitLabel: 'Estornar', danger: true, intro: 'As milhas voltam para o saldo do lote e o custo da emissão é recalculado.', fields: [{ name: 'reason', label: 'Motivo', type: 'text', required: true, wide: true }] });
+    if (!values) return;
+    await guard(async () => { await api(`/api/admin/finance/mileage-allocations/${id}/void`, { method: 'POST', body: JSON.stringify({ reason: values.reason }) }); await reload(); loadMileageLots(); }, 'Não foi possível estornar as milhas.');
+  }
+
   async function issue(i) {
     let pnr = i.pnr;
     if (!pnr) {
@@ -758,7 +791,7 @@ async function openFlightDialog(saleId) {
       pnr = values.pnr;
     }
     if ((i.mode === 'miles' || i.mode === 'hybrid') && !i.milesQuantity && !(await askConfirm('Esta emissão ainda não tem milhas de um lote. O custo das milhas ficaria zerado e o lucro apareceria maior que o real. Marcar como emitida mesmo assim?', { title: 'Sem milhas lançadas', submitLabel: 'Marcar mesmo assim' }))) return;
-    if (!(await askConfirm('Depois de emitida, o custo desta emissão não pode mais ser alterado. Confirmar?', { title: 'Marcar como emitida', submitLabel: 'Marcar como emitida' }))) return;
+    if (!(await askConfirm('Confirmar o custo desta emissão? Depois de emitida, o lucro do voo passa a contar e qualquer correção fica registrada no histórico.', { title: 'Marcar como emitida', submitLabel: 'Marcar como emitida' }))) return;
     await guard(async () => {
       if (pnr !== i.pnr) await api(`/api/admin/finance/issuances/${i.id}`, { method: 'PATCH', body: JSON.stringify({ pnr }) });
       await api(`/api/admin/finance/issuances/${i.id}/issue`, { method: 'POST', body: JSON.stringify({}) });

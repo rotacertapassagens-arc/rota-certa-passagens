@@ -24,7 +24,9 @@
         <a href="#/pagar" data-nav="pagar">Contas a pagar</a>
         <a href="#/alertas" data-nav="alertas">Alertas <span class="badge" id="alertBadge"></span></a>
         <span class="group">Estoque e cadastros</span>
-        <a href="#/milhas" data-nav="milhas">Milhas</a>
+        <a href="#/carteira" data-nav="carteira">Carteira de milhas</a>
+        <a href="#/clubes" data-nav="clubes">Clubes <span class="badge" id="clubBadge"></span></a>
+        <a href="#/milhas" data-nav="milhas">Lotes de fornecedor</a>
         <a href="#/assinaturas" data-nav="assinaturas">Assinaturas</a>
         <a href="#/cadastros" data-nav="cadastros">Cadastros</a>
       </nav>
@@ -133,8 +135,23 @@
           <div id="dashboardAlerts"></div>
         </section>
 
+        <section class="fin-view" data-view="carteira" hidden>
+          <div class="fin-head"><div><h1>Carteira de milhas</h1><p class="muted">Um cartão por programa: clique para ver cada pessoa, lançar milhas, conferir o saldo e abrir o histórico. Ao vender um voo com milhas, a emissão desconta daqui sozinha e o lucro já usa o custo certo. O saldo "no programa" vem dos e-mails que a Livelo, Smiles, LATAM e Esfera mandam.</p></div><div class="row-actions"><button type="button" id="walletNewAccount">Nova conta</button></div></div>
+          <div class="kpi-row" id="walletKpis"></div>
+          <details class="panel" id="walletAlertsPanel"><summary><strong>Precisa de atenção</strong> <span class="tag tag-void" id="walletAlertsCount"></span></summary><div id="walletAlerts"></div></details>
+          <div class="chip-row" id="walletPeople"></div>
+          <div class="mile-grid" id="walletCards"></div>
+          <section class="panel" id="walletUnmatchedPanel" hidden><h2>E-mails sem dono</h2><p class="muted">Chegaram dos programas mas não sei de quem são. Escolha a conta e o e-mail passa a valer.</p><div id="walletUnmatched"></div></section>
+        </section>
+
+        <section class="fin-view" data-view="clubes" hidden>
+          <div class="fin-head"><div><h1>Clubes de milhas</h1><p class="muted">Um cartão por clube: clique para ver cartão e crédito, e editar. Quando o programa avisa que o pagamento falhou ou que o clube foi cancelado, ele sobe para o topo em vermelho. O crédito do mês é lançado sozinho quando o e-mail chega.</p></div><div class="row-actions"><button type="button" id="walletNewClub">Novo clube</button></div></div>
+          <div class="kpi-row" id="clubKpis"></div>
+          <div id="clubGroups"></div>
+        </section>
+
         <section class="fin-view" data-view="milhas" hidden>
-          <div class="fin-head"><div><h1>Milhas</h1><p class="muted">Lotes comprados dos fornecedores. A compra de um lote cria sozinha a conta a pagar ao fornecedor. As milhas são usadas em Lucro por voo, ao lançar o custo de uma emissão.</p></div></div>
+          <div class="fin-head"><div><h1>Lotes de fornecedor</h1><p class="muted">Lotes comprados dos fornecedores (milhas que não são suas). A compra de um lote cria sozinha a conta a pagar ao fornecedor. As milhas são usadas em Lucro por voo, ao lançar o custo de uma emissão.</p></div></div>
           <section class="panel">
             <form id="mileageLotForm">
               <div class="section-head" style="flex-wrap:wrap">
@@ -147,6 +164,11 @@
                 <label>Data da compra<input id="mileageLotPurchasedAt" type="date" required></label>
                 <label>Vencimento do pagamento<input id="mileageLotDueDate" type="date" required></label>
                 <label>Validade das milhas (opcional)<input id="mileageLotExpiresAt" type="date"></label>
+              </div>
+              <p class="muted">Fornecedor é de quem você comprou as milhas ou os pontos. Ex.: se você pagou pontos na Livelo e transferiu para a LATAM, o fornecedor é a Livelo e o programa é LATAM Pass. O custo total é tudo que você pagou por elas. Ainda não tem fornecedor ou categoria? Crie aqui mesmo:</p>
+              <div class="row-actions" style="margin-bottom:14px">
+                <button type="button" class="small ghost" id="newMileageProviderBtn">Cadastrar fornecedor de milhas</button>
+                <button type="button" class="small ghost" id="newMileageCategoryBtn">Criar categoria "Compra de milhas"</button>
               </div>
               <button type="submit">Comprar lote</button>
               <p class="status" id="mileageLotStatus" aria-live="polite"></p>

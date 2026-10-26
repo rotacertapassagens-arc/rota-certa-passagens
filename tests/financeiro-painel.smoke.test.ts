@@ -297,4 +297,65 @@ describe('Financeiro: painel novo, venda direta, lucro por voo e recibos (Worker
     const terceiro = await send(jar, 'POST', '/api/admin/finance/quotes', valido);
     expect(terceiro.json.number).toMatch(/^ORC-\d{4}-503$/);
   }, 120_000);
+
+  it('corrige os custos de uma emissão já emitida (lucro recalcula), muda para milhas usando um lote, e emissões reembolsadas seguem travadas', async () => {
+    const jar = await masterJar();
+    const venda = await send(jar, 'POST', '/api/admin/finance/sales/direct', { customerName: 'Cliente Correção', origin: 'VDC', destination: 'CWB', saleDate: today, currency: 'BRL', grossAmountCents: 200000 });
+    expect(venda.status).toBe(201);
+    const emissao = await send(jar, 'POST', `/api/admin/finance/sales/${venda.json.id}/issuances`, { mode: 'cash', currency: 'BRL', pnr: 'SORAAH', cashAmountCents: 139471, airportFeesCents: 9461 });
+    expect(emissao.status).toBe(201);
+    const url = `/api/admin/finance/issuances/${emissao.json.id}`;
+    const lucro = async () => (await send(jar, 'GET', '/api/admin/finance/flights')).json.flights.find((f: any) => f.id === venda.json.id).profit;
+
+    expect((await send(jar, 'POST', `${url}/issue`, {})).status).toBe(200);
+    expect((await lucro()).realizedDirectCostCents).toBe(148932);
+
+    // Emitida: corrige comissão, PNR e bilhete; o lucro recalcula na hora.
+    const corrigida = await send(jar, 'PATCH', url, { pnr: 'SORBBB', ticketNumbers: '9572400012345', issuanceFeeCents: 16729 });
+    expect(corrigida.status).toBe(200);
+    expect((await lucro()).realizedDirectCostCents).toBe(148932 + 16729);
+    const lida = await send(jar, 'GET', `/api/admin/finance/sales/${venda.json.id}`);
+    expect(lida.json.issuances[0]).toMatchObject({ status: 'issued', pnr: 'SORBBB', ticketNumbers: '9572400012345', issuanceFeeCents: 16729, cashAmountCents: 139471 });
+
+    // Emitida como dinheiro por falta de saldo cadastrado: muda para milhas e usa um lote. O custo das milhas vem do lote
+    // (R$ 1.000,00 por 50.000 milhas), nunca do pedido de edição.
+    const fornecedor = await send(jar, 'POST', '/api/admin/finance/counterparties', { displayName: 'Fornecedor de Milhas Teste', kind: 'mileage_provider' });
+    expect(fornecedor.status).toBe(201);
+    const categoria = await send(jar, 'POST', '/api/admin/finance/categories', { kind: 'direct_cost', name: 'Compra de milhas (teste)' });
+    expect(categoria.status).toBe(201);
+    const lote = await send(jar, 'POST', '/api/admin/finance/mileage-lots', { counterpartyId: fornecedor.json.id, program: 'LATAM Pass', quantityPurchased: 50000, totalCostCents: 100000, currency: 'BRL', purchasedAt: today, dueDate: today, categoryId: categoria.json.id });
+    expect(lote.status).toBe(201);
+    const issuanceOf = async () => (await send(jar, 'GET', `/api/admin/finance/sales/${venda.json.id}`)).json.issuances[0];
+
+    // Enquanto o modo é dinheiro, não aceita milhas de lote.
+    expect((await send(jar, 'POST', `${url}/mileage-allocations`, { lotId: lote.json.id, quantity: 30000 })).status).toBe(422);
+    expect((await send(jar, 'PATCH', url, { mode: 'miles', cashAmountCents: 0, milesCostCents: 99999 })).status).toBe(200);
+    expect(await issuanceOf()).toMatchObject({ status: 'issued', mode: 'miles', cashAmountCents: 0, milesQuantity: 0, milesCostCents: 0 });
+    const uso = await send(jar, 'POST', `${url}/mileage-allocations`, { lotId: lote.json.id, quantity: 30000 });
+    expect(uso.status).toBe(201);
+    expect(await issuanceOf()).toMatchObject({ milesQuantity: 30000, milesCostCents: 60000 });
+    expect((await lucro()).realizedDirectCostCents).toBe(60000 + 9461 + 16729);
+
+    // Com milhas de lote ativas não volta para um modo sem milhas; depois de estornar, volta.
+    const bloqueio = await send(jar, 'PATCH', url, { mode: 'cash' });
+    expect(bloqueio.status).toBe(409);
+    expect(bloqueio.json.error).toBe('issuance_has_mileage_allocations');
+    expect((await send(jar, 'POST', `/api/admin/finance/mileage-allocations/${uso.json.id}/void`, { reason: 'lote errado' })).status).toBe(200);
+    expect(await issuanceOf()).toMatchObject({ milesQuantity: 0, milesCostCents: 0 });
+    expect((await send(jar, 'PATCH', url, { mode: 'cash', cashAmountCents: 139471 })).status).toBe(200);
+
+    // Emitida não fica sem PNR.
+    const semPnr = await send(jar, 'PATCH', url, { pnr: '' });
+    expect(semPnr.status).toBe(422);
+    expect(semPnr.json.error).toBe('pnr_required_to_issue');
+
+    // Reembolsada continua travada.
+    expect((await send(jar, 'POST', `${url}/refund`, { reason: 'teste de reembolso' })).status).toBe(200);
+    const travada = await send(jar, 'PATCH', url, { cashAmountCents: 1 });
+    expect(travada.status).toBe(409);
+    expect(travada.json.error).toBe('issuance_locked_after_issued');
+    // Reembolsada também não aceita milhas de lote nem estorno.
+    await send(jar, 'PATCH', url, { mode: 'miles' });
+    expect((await send(jar, 'POST', `${url}/mileage-allocations`, { lotId: lote.json.id, quantity: 1000 })).status).toBe(409);
+  }, 120_000);
 });

@@ -292,6 +292,32 @@ function wireForms() {
     });
     form.reset(); status.textContent = 'Lote comprado. A conta a pagar ao fornecedor foi criada sozinha.'; await loadMileageLots(); await loadObligations();
   });
+  // Atalhos na própria tela de Milhas: quem ainda não cadastrou fornecedor ou categoria não precisa procurar em Cadastros.
+  byId('newMileageProviderBtn')?.addEventListener('click', async () => {
+    const status = byId('mileageLotStatus');
+    const values = await askForm({
+      title: 'Novo fornecedor de milhas', submitLabel: 'Cadastrar',
+      intro: 'De quem você comprou as milhas ou os pontos. Ex.: Livelo, se você comprou pontos Livelo e transferiu para a LATAM.',
+      fields: [{ name: 'name', label: 'Nome do fornecedor', type: 'text', required: true, placeholder: 'Livelo', wide: true }],
+    });
+    if (!values) return;
+    try {
+      const created = await api('/api/admin/finance/counterparties', { method: 'POST', body: JSON.stringify({ displayName: values.name, kind: 'mileage_provider' }) });
+      await loadCounterparties();
+      byId('mileageLotCounterparty').value = created.id;
+      status.textContent = `Fornecedor "${values.name}" cadastrado e escolhido.`;
+    } catch (error) { status.textContent = financeErrorMessage(error, 'Não foi possível cadastrar o fornecedor.'); }
+  });
+  byId('newMileageCategoryBtn')?.addEventListener('click', async () => {
+    const status = byId('mileageLotStatus');
+    try {
+      const existing = state.categories.find((item) => item.active && item.kind === 'direct_cost' && item.name === 'Compra de milhas');
+      const created = existing || await api('/api/admin/finance/categories', { method: 'POST', body: JSON.stringify({ kind: 'direct_cost', name: 'Compra de milhas' }) });
+      await loadCategories();
+      byId('mileageLotCategory').value = created.id;
+      status.textContent = 'Categoria "Compra de milhas" pronta e escolhida.';
+    } catch (error) { status.textContent = financeErrorMessage(error, 'Não foi possível criar a categoria.'); }
+  });
   byId('generateChargesButton')?.addEventListener('click', async () => {
     const status = byId('generateChargesStatus');
     try {

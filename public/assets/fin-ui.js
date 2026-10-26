@@ -94,7 +94,7 @@ const errorMessages = {
   issuance_currency_must_match_sale: 'A moeda da emissão precisa ser igual à moeda da venda.',
   mileage_provider_not_found: 'Fornecedor de milhas não encontrado ou inativo.',
   consolidator_not_found: 'Consolidadora não encontrada ou inativa.',
-  issuance_locked_after_issued: 'Esta emissão já foi emitida: o custo histórico não pode mais ser alterado.',
+  issuance_locked_after_issued: 'Esta emissão já foi cancelada ou reembolsada: o custo não pode mais ser alterado.',
   pnr_required_to_issue: 'Informe o PNR antes de marcar esta emissão como emitida.',
   invalid_mileage_lot: 'Dados do lote de milhas inválidos.',
   category_must_be_direct_cost: 'Compra de milhas só pode usar categoria do tipo custo direto.',
@@ -123,6 +123,7 @@ const errorMessages = {
   attachment_storage_full: 'O espaço de anexos do financeiro está cheio.',
   invalid_quote: 'Orçamento inválido. Confira cliente, datas (a validade não pode ser antes da emissão) e as linhas de valor.',
   quote_creation_failed: 'Não foi possível criar o orçamento. Nada foi gravado.',
+  issuance_has_mileage_allocations: 'Esta emissão tem milhas de lotes. Estorne as milhas antes de mudar para um modo sem milhas.',
   forbidden: 'Sua conta não tem permissão master.',
   unauthorized: 'Sua sessão expirou. Entre de novo pela Área do cliente.',
 };
