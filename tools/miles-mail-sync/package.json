@@ -1,0 +1,10 @@
+{
+  "name": "miles-mail-sync",
+  "private": true,
+  "type": "module",
+  "description": "Lê os e-mails dos programas de milhas no Gmail e manda os eventos para a carteira do painel financeiro.",
+  "dependencies": {
+    "imapflow": "^1.0.200",
+    "mailparser": "^3.7.4"
+  }
+}

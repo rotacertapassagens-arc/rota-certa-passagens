@@ -11,7 +11,12 @@ export interface InternalApiDeps {
   safeEqual: (a: string, b: string) => Promise<boolean>;
   rateLimit: (req: Request, env: Env, scope: string, target: string, max: number, windowSeconds: number) => Promise<boolean>;
   rateLimitBlocked: (req: Request, env: Env, scope: string, target: string) => Promise<boolean>;
+  /** Carteira de milhas: grava os eventos lidos dos e-mails dos programas (worker/finance-wallet.ts). */
+  ingestWalletEvents: (env: Env, events: unknown[]) => Promise<Record<string, number>>;
 }
+
+const WALLET_EVENTS_PER_REQUEST = 200;
+const WALLET_EVENTS_MAX_BYTES = 256 * 1024;
 
 const MIN_TOKEN_LENGTH = 32;
 // Por IP de origem. O n8n faz uma consulta por mensagem com protocolo; 120 por minuto sobra para picos.
@@ -27,9 +32,20 @@ export async function internalApi(req: Request, env: Env, url: URL, deps: Intern
     await deps.rateLimit(req, env, 'internal_api_auth_fail', 'all', AUTH_FAILURES, AUTH_FAILURE_WINDOW_SECONDS);
     return deps.reply({ error: 'unauthorized' }, 401, { 'www-authenticate': 'Bearer' });
   }
+  if (req.method === 'POST' && url.pathname === '/api/internal/wallet/events') return walletEvents(req, env, deps);
   const match = url.pathname.match(/^\/api\/internal\/proposals\/([^/]+)$/);
   if (req.method !== 'GET' || !match) return deps.reply({ error: 'not_found' }, 404);
   return proposalByProtocol(env, match[1]!, url.searchParams.get('phone'), deps);
+}
+
+// Carteira de milhas: o sincronizador de e-mails (tools/miles-mail-sync.mjs) manda { events: [...] } com o token do servidor.
+async function walletEvents(req: Request, env: Env, deps: InternalApiDeps) {
+  const text = await req.text();
+  if (text.length > WALLET_EVENTS_MAX_BYTES) return deps.reply({ error: 'payload_too_large' }, 413);
+  let body: { events?: unknown } | null = null;
+  try { body = JSON.parse(text) as { events?: unknown }; } catch { /* corpo inválido tratado abaixo */ }
+  if (!body || !Array.isArray(body.events) || body.events.length > WALLET_EVENTS_PER_REQUEST) return deps.reply({ error: 'invalid_request' }, 400);
+  return deps.reply(await deps.ingestWalletEvents(env, body.events));
 }
 
 async function authorized(req: Request, env: Env, deps: InternalApiDeps) {

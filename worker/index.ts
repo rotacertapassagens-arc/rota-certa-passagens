@@ -9,6 +9,7 @@ import { buildCsv } from '../shared/financeCsv.js';
 import { blogAdmin, blogPublic, type BlogDeps } from './blog.js';
 import { applyPendingFlights, checkinReminders, CURRENCIES, plannerExtras, reactivationReminders, sharedTripPage, type ExtrasDeps } from './planner-extras.js';
 import { financeExtras, type FinanceExtrasDeps } from './finance-extras.js';
+import { financeWallet, ingestWalletEvents, type WalletDeps } from './finance-wallet.js';
 import { internalApi, type InternalApiDeps } from './proposal-handoff.js';
 import { customerPhoneDigits, QUOTE_CONSENT_VERSION, RECEIVED_STATUS, RECEIVED_STATUS_LABEL, stopsPreferenceOf, submissionIdOf, visitSourceOf, whatsappHandoffUrl } from '../shared/proposalHandoff.js';
 
@@ -79,13 +80,15 @@ function secureResponse(response: Response) {
 const blogDeps: BlogDeps = { reply, getAuth, mutationAuth, audit };
 const extrasDeps: ExtrasDeps = { reply, getAuth, mutationAuth, requirePlannerAccess, sendEmail, audit };
 const financeExtrasDeps: FinanceExtrasDeps = { reply, getAuth, mutationAuth, audit, profitSummary: calculateFinSaleProfitSummary };
-const internalApiDeps: InternalApiDeps ={ reply, safeEqual, rateLimit, rateLimitBlocked };
+const walletDeps: WalletDeps = { reply, getAuth, mutationAuth, audit, recomputeIssuanceMiles: (env, issuanceId) => financeRecomputeIssuanceMiles(env, issuanceId) };
+const internalApiDeps: InternalApiDeps ={ reply, safeEqual, rateLimit, rateLimitBlocked, ingestWalletEvents };
 
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
   // Servidor para servidor (WHA-04): toda rota /api/internal/ exige o token antes de qualquer outra resposta.
   if (p.startsWith('/api/internal/')) return internalApi(req, env, url, internalApiDeps);
   if (p.startsWith('/api/admin/blog')) { const blog = await blogAdmin(req, env, url, blogDeps); if (blog) return blog; }
+  if (p.startsWith('/api/admin/finance/')) { const wallet = await financeWallet(req, env, url, walletDeps); if (wallet) return wallet; }
   if (p.startsWith('/api/admin/finance/')) { const finance = await financeExtras(req, env, url, financeExtrasDeps); if (finance) return finance; }
   if (p.startsWith('/api/planner/') || p.startsWith('/api/admin/leads/') || p === '/api/admin/subscriptions/grant') { const extra = await plannerExtras(req, env, url, extrasDeps); if (extra) return extra; }
   if (req.method === 'POST' && p === '/api/partner-applications') return partnerApplicationCreate(req, env);
@@ -2303,7 +2306,10 @@ async function financeIssuanceUpdate(req: Request, env: Env, id: string) {
   const has = (key: string) => b != null && key in b;
   const existing = await env.DB.prepare('SELECT status FROM fin_issuances WHERE id=?').bind(id).first<{ status: string }>();
   if (!existing) return reply({ error: 'not_found' }, 404);
-  if (existing.status !== 'pending') return reply({ error: 'issuance_locked_after_issued' }, 409);
+  // Pendente ou já emitida: dá para corrigir custos, PNR, bilhete e o modo (ex.: dinheiro para milhas); o lucro recalcula. As milhas
+  // e o custo delas vêm sempre dos lotes (mileage-allocations), nunca deste pedido. Cancelada e reembolsada continuam travadas.
+  if (existing.status !== 'pending' && existing.status !== 'issued') return reply({ error: 'issuance_locked_after_issued' }, 409);
+  const issued = existing.status === 'issued';
 
   const mode = typeof b?.mode === 'string' && FINANCE_ISSUANCE_MODES.includes(b.mode) ? b.mode : null;
   const airline = text(b?.airline, 120) || null;
@@ -2311,8 +2317,8 @@ async function financeIssuanceUpdate(req: Request, env: Env, id: string) {
   const pnr = text(b?.pnr, 20) || null;
   const ticketNumbers = text(b?.ticketNumbers, 500) || null;
   const cashAmountCents = intOf(b?.cashAmountCents, 0, 100_000_000_00);
-  const milesQuantity = intOf(b?.milesQuantity, 0, 100_000_000);
-  const milesCostCents = intOf(b?.milesCostCents, 0, 100_000_000_00);
+  const milesQuantity = issued ? null : intOf(b?.milesQuantity, 0, 100_000_000);
+  const milesCostCents = issued ? null : intOf(b?.milesCostCents, 0, 100_000_000_00);
   const airportFeesCents = intOf(b?.airportFeesCents, 0, 100_000_000_00);
   const issuanceFeeCents = intOf(b?.issuanceFeeCents, 0, 100_000_000_00);
   const consolidatorFeeCents = intOf(b?.consolidatorFeeCents, 0, 100_000_000_00);
@@ -2322,6 +2328,11 @@ async function financeIssuanceUpdate(req: Request, env: Env, id: string) {
   const mileageProviderId = typeof b?.mileageProviderId === 'string' && UUID_RE.test(b.mileageProviderId) ? b.mileageProviderId : null;
   const consolidatorId = typeof b?.consolidatorId === 'string' && UUID_RE.test(b.consolidatorId) ? b.consolidatorId : null;
   const notes = text(b?.notes, 1000) || null;
+  if (issued && has('pnr') && !pnr) return reply({ error: 'pnr_required_to_issue' }, 422);
+  if (mode && mode !== 'miles' && mode !== 'hybrid') {
+    const active = await env.DB.prepare('SELECT 1 FROM fin_mileage_allocations WHERE issuance_id=? AND voided_at IS NULL UNION ALL SELECT 1 FROM fin_wallet_movements WHERE issuance_id=? AND voided_at IS NULL LIMIT 1').bind(id, id).first();
+    if (active) return reply({ error: 'issuance_has_mileage_allocations' }, 409);
+  }
 
   if (mileageProviderId) { const c = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(mileageProviderId).first(); if (!c) return reply({ error: 'mileage_provider_not_found' }, 422); }
   if (consolidatorId) { const c = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(consolidatorId).first(); if (!c) return reply({ error: 'consolidator_not_found' }, 422); }
@@ -2346,7 +2357,7 @@ async function financeIssuanceUpdate(req: Request, env: Env, id: string) {
         consolidator_id=CASE WHEN ?=1 THEN ? ELSE consolidator_id END,
         notes=CASE WHEN ?=1 THEN ? ELSE notes END,
         updated_at=CURRENT_TIMESTAMP
-      WHERE id=? AND status='pending'`,
+      WHERE id=? AND status IN ('pending','issued')`,
   ).bind(
     mode, has('airline') ? 1 : 0, airline, has('loyaltyProgram') ? 1 : 0, loyaltyProgram, has('pnr') ? 1 : 0, pnr,
     has('ticketNumbers') ? 1 : 0, ticketNumbers, cashAmountCents, milesQuantity, milesCostCents, airportFeesCents,
@@ -2355,7 +2366,7 @@ async function financeIssuanceUpdate(req: Request, env: Env, id: string) {
     has('notes') ? 1 : 0, notes, id,
   ).run();
   if (!result.meta.changes) return reply({ error: 'issuance_locked_after_issued' }, 409);
-  await audit(env, auth.userId, 'finance.issuance_updated', 'fin_issuance', id);
+  await audit(env, auth.userId, issued ? 'finance.issued_issuance_corrected' : 'finance.issuance_updated', 'fin_issuance', id);
   return reply({ ok: true });
 }
 
@@ -2434,7 +2445,9 @@ async function financeAllocatedQuantityByLot(env: Env): Promise<Map<string, numb
 }
 async function financeRecomputeIssuanceMiles(env: Env, issuanceId: string) {
   const totals = await env.DB.prepare("SELECT COALESCE(sum(quantity),0) qty,COALESCE(sum(cost_cents_snapshot),0) cost FROM fin_mileage_allocations WHERE issuance_id=? AND voided_at IS NULL").bind(issuanceId).first<{ qty: number; cost: number }>();
-  await env.DB.prepare('UPDATE fin_issuances SET miles_quantity=?,miles_cost_cents=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(totals?.qty ?? 0, totals?.cost ?? 0, issuanceId).run();
+  // Milhas da carteira própria (fin_wallet_movements, kind usage): saída negativa; o custo já vem na moeda da emissão.
+  const wallet = await env.DB.prepare("SELECT COALESCE(-sum(miles),0) qty,COALESCE(sum(issuance_cost_cents),0) cost FROM fin_wallet_movements WHERE issuance_id=? AND voided_at IS NULL").bind(issuanceId).first<{ qty: number; cost: number }>();
+  await env.DB.prepare('UPDATE fin_issuances SET miles_quantity=?,miles_cost_cents=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind((totals?.qty ?? 0) + (wallet?.qty ?? 0), (totals?.cost ?? 0) + (wallet?.cost ?? 0), issuanceId).run();
 }
 
 async function financeMileageLots(req: Request, env: Env, url: URL) {
@@ -2538,7 +2551,8 @@ async function financeMileageAllocationCreate(req: Request, env: Env, issuanceId
 
   const issuance = await env.DB.prepare('SELECT status,mode,currency FROM fin_issuances WHERE id=?').bind(issuanceId).first<{ status: string; mode: string; currency: string }>();
   if (!issuance) return reply({ error: 'issuance_not_found' }, 404);
-  if (issuance.status !== 'pending') return reply({ error: 'issuance_locked_after_issued' }, 409);
+  // Emissão já emitida também aceita milhas de lote (conserto de quem emitiu antes de cadastrar o saldo); cancelada e reembolsada não.
+  if (issuance.status !== 'pending' && issuance.status !== 'issued') return reply({ error: 'issuance_locked_after_issued' }, 409);
   if (issuance.mode !== 'miles' && issuance.mode !== 'hybrid') return reply({ error: 'issuance_mode_does_not_use_miles' }, 422);
 
   const lot = await env.DB.prepare('SELECT status,currency,quantity_purchased,total_cost_cents,expires_at FROM fin_mileage_lots WHERE id=?').bind(lotId).first<{ status: string; currency: string; quantity_purchased: number; total_cost_cents: number; expires_at: string | null }>();
@@ -2586,7 +2600,7 @@ async function financeMileageAllocationVoid(req: Request, env: Env, id: string) 
   if (!allocation) return reply({ error: 'not_found' }, 404);
   if (allocation.voided_at) return reply({ error: 'allocation_already_voided' }, 409);
   const issuance = await env.DB.prepare('SELECT status FROM fin_issuances WHERE id=?').bind(allocation.issuance_id).first<{ status: string }>();
-  if (issuance?.status !== 'pending') return reply({ error: 'issuance_locked_after_issued' }, 409);
+  if (issuance?.status !== 'pending' && issuance?.status !== 'issued') return reply({ error: 'issuance_locked_after_issued' }, 409);
 
   await env.DB.prepare('UPDATE fin_mileage_allocations SET voided_at=CURRENT_TIMESTAMP,voided_by=?,void_reason=? WHERE id=?').bind(auth.userId, reasonValue, id).run();
   await env.DB.prepare("UPDATE fin_mileage_lots SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='depleted'").bind(allocation.lot_id).run();
