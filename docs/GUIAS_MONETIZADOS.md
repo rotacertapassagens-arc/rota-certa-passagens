@@ -53,6 +53,10 @@ Para artigos que o dono já aprovou e que devem ir ao ar junto com o deploy, o g
 
 Artigos que não são de um destino (milhas, promoções, erros de compra, roteiro, checklist) usam a categoria `dicas-de-viagem` (migration `0036_blog_regiao_dicas_de_viagem.sql`). Ela só aparece no filtro de `/blog/` quando tem ao menos um artigo publicado. Os cinco artigos estão em `content/guias/` (`milhas-sem-misterio`, `promocao-e-real`, `erros-ao-comprar-passagem`, `modelo-de-roteiro`, `checklist-antes-de-viajar`) e cada um começa pelo botão do PDF `/guias/<mesmo-slug>.pdf`. Fotos: Pexels, com autor em `Foto: <autor> / Pexels`.
 
+### Guia de escala: Escala em Istambul (`/guia/escala`)
+
+Primeiro guia que não é de destino fechado: ensina a montar a escala longa (palavra-chave `ESCALA`, Reel D12). Conteúdo em `content/guias/escala-em-istambul.json` (fatos do `guide.json` v0.3, 26/10/2026), PDF `public/guias/escala-em-istambul.pdf` (13 páginas), fotos próprias `istambul-escala-*` (crédito `Foto: Carlos Victor / Rota Certa`) e chave curta `escala` em `GUIAS_CURTOS` (`worker/blog-parceiros.ts`). A migration `0042_blog_guia_escala_istambul.sql` entra como rascunho, como as dos guias de destino: publicar pelo painel depois de aplicada. Ordem: deploy primeiro, migration depois (o botão e o PDF só existem depois do deploy).
+
 ## Etapa 2 (futuro): gerar os guias a partir do `guide.json`
 
 `rota-certa-motion-factory/guides/<cidade>/guide.json` já tem título, versão, data, fontes com data de conferência, palavra-chave e CTA de contato. Falta o roteiro estruturado (hoje está só no `guia.html`). Plano:
