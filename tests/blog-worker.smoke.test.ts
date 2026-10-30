@@ -140,6 +140,15 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const curtoPunta = await worker.fetch('/guia/puntacana?utm_source=tiktok&utm_campaign=d04', { redirect: 'manual' });
     expect(curtoPunta.status).toBe(302);
     expect(curtoPunta.headers.get('location')).toBe('/blog/punta-cana-praias-e-passeios?utm_source=tiktok&utm_campaign=d04');
+    // guia Escala em Istambul (migration 0042): rascunho invisível, com atalho /guia/escala e PDF no ar
+    expect((await worker.fetch('/blog/escala-em-istambul')).status).toBe(404);
+    expect(indiceHtml).not.toContain('Escala em Istambul');
+    const curtoEscala = await worker.fetch('/guia/escala?utm_source=instagram&utm_campaign=d12', { redirect: 'manual' });
+    expect(curtoEscala.status).toBe(302);
+    expect(curtoEscala.headers.get('location')).toBe('/blog/escala-em-istambul?utm_source=instagram&utm_campaign=d12');
+    const pdfEscala = await worker.fetch('/guias/escala-em-istambul.pdf');
+    expect(pdfEscala.status).toBe(200);
+    expect(pdfEscala.headers.get('content-type')).toContain('pdf');
     const pdf = await worker.fetch('/guias/roma-em-3-dias.pdf');
     expect(pdf.status).toBe(200);
     expect(pdf.headers.get('content-type')).toContain('pdf');
@@ -194,7 +203,7 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(22); // 6 publicados + os rascunhos dos 11 guias de destino (0024 e 0026 a 0035) + 5 artigos de "Dicas de viagem" (0037)
+    expect(listaJson.posts).toHaveLength(23); // 6 publicados + os rascunhos dos 12 guias (0024, 0026 a 0035 e Escala em Istambul, 0042) + 5 artigos de "Dicas de viagem" (0037)
     // regiões novas das migrations dos guias (América do Sul 4, Américas 5, Caribe 6); "Dicas de viagem" (0036) vai para o fim na 0038
     expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa', 'america-do-sul', 'americas', 'caribe', 'dicas-de-viagem']);
 
@@ -321,6 +330,6 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(22);
+    expect(depois.posts).toHaveLength(23);
   }, 120_000);
 });
