@@ -17,6 +17,12 @@ const CLUB_STATUS = {
   active: { label: 'Em dia', tag: 'tag-paid' }, payment_failed: { label: 'Pagamento recusado', tag: 'tag-void' },
   canceled: { label: 'Cancelado', tag: 'tag-void' }, paused: { label: 'Pausado', tag: 'tag-muted' },
 };
+// Controle de promoções por conta e mês (ex.: Livelo para LATAM Turbo). Por enquanto só nas contas LATAM Pass.
+const PROMO_PROGRAMS = ['LATAM Pass'];
+const DEFAULT_PROMO = 'Livelo para LATAM Turbo';
+const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const monthName = (ym) => MONTHS[Number(ym.slice(5, 7)) - 1] || ym;
+const promosThisMonth = (a) => (a.promos || []).filter((p) => p.month === today().slice(0, 7));
 const fmt = (n) => Number(n || 0).toLocaleString('pt-BR');
 const perThousand = (cents) => (cents === null || cents === undefined ? '-' : `${money(cents, 'BRL')} / mil`);
 const kpi = (label, value, sub = '', cls = '') => `<div class="kpi ${cls}"><small>${esc(label)}</small><strong>${value}</strong>${sub ? `<span class="sub">${sub}</span>` : ''}</div>`;
@@ -44,6 +50,8 @@ const WALLET_ERRORS = {
   wallet_club_not_found: 'Clube não encontrado.',
   wallet_no_reported_balance: 'O programa ainda não informou o saldo desta conta. Digite o saldo que aparece no app.',
   wallet_movement_already_voided: 'Esse lançamento já foi estornado.',
+  invalid_wallet_promo: 'Confira o nome da promoção, a data e os números (pontos, bônus e milhas).',
+  wallet_promo_already_voided: 'Essa promoção já foi estornada.',
   wallet_event_already_applied: 'Esse e-mail já foi aplicado.',
   fx_rate_required: 'A venda é em outra moeda: informe o câmbio (quantos reais vale 1 unidade dela).',
 };
@@ -106,11 +114,14 @@ function renderWalletCards() {
     const avg = balance > 0 ? Math.round((cost * 1000) / balance) : null;
     const off = list.filter((a) => a.divergence).length;
     const people = list.length === 1 ? list[0].holder : `${list.length} pessoas`;
+    const promoPending = PROMO_PROGRAMS.includes(program) ? list.filter((a) => !promosThisMonth(a).length).length : 0;
+    const promoTag = PROMO_PROGRAMS.includes(program)
+      ? `<span class="tag ${promoPending ? 'tag-muted' : 'tag-paid'}">${promoPending ? `${promoPending} sem promoção em ${monthName(today().slice(0, 7))}` : `promoção de ${monthName(today().slice(0, 7))} feita`}</span>` : '';
     return { balance, html: `<button type="button" class="mile-card${off ? ' warn' : ''}" data-program="${esc(program)}">
       <span class="mile-name">${esc(program)}</span>
       <strong class="mile-balance">${fmt(balance)}</strong>
       <span class="mile-sub">${esc(people)}${avg === null ? '' : ` · ${perThousand(avg)}`}</span>
-      ${off ? `<span class="tag tag-warn">${off} saldo${off > 1 ? 's' : ''} não confere${off > 1 ? 'm' : ''}</span>` : ''}</button>` };
+      ${off ? `<span class="tag tag-warn">${off} saldo${off > 1 ? 's' : ''} não confere${off > 1 ? 'm' : ''}</span>` : ''}${promoTag}</button>` };
   }).sort((a, b) => b.balance - a.balance);
   $('walletCards').innerHTML = cards.map((c) => c.html).join('') || '<p class="muted">Nenhuma conta ainda. Use "Nova conta" para cadastrar a primeira.</p>';
 }
@@ -124,9 +135,18 @@ function programDetailHtml(program) {
     const reported = a.reportedBalance === null
       ? '<span class="muted">o programa ainda não avisou o saldo</span>'
       : `No programa: ${fmt(a.reportedBalance)} <small class="muted">em ${fmtDay(a.reportedAt)}</small> ${diff ? `<span class="tag tag-warn">${diff > 0 ? '+' : ''}${fmt(diff)}</span>` : '<span class="tag tag-paid">confere</span>'}`;
+    const promoRow = PROMO_PROGRAMS.includes(a.program) ? (() => {
+      const done = promosThisMonth(a);
+      const ym = today().slice(0, 7);
+      const text = done.length
+        ? done.map((p) => `<span class="tag tag-paid">${esc(p.name)}</span> <small class="muted">${fmtDay(p.doneOn)}${p.milesReceived ? ` · +${fmt(p.milesReceived)} milhas` : ''}${p.bonusPercent !== null && p.bonusPercent !== undefined ? ` · bônus ${p.bonusPercent}%` : ''}</small>`).join('<br>')
+        : `<span class="tag tag-muted">Nenhuma promoção em ${monthName(ym)}</span>`;
+      return `<p class="mile-reported"><strong>Promoções de ${monthName(ym)}:</strong> ${text}</p>`;
+    })() : '';
+    const promoButtons = PROMO_PROGRAMS.includes(a.program) ? `<button type="button" class="small" data-promo="${a.id}">Registrar promoção</button><button type="button" class="small ghost" data-promos="${a.id}">Promoções feitas</button>` : '';
     return `<div class="mile-person"><div class="mile-person-head"><div><strong>${esc(a.holder)}</strong>${a.memberNumber ? ` <small class="muted">nº ${esc(a.memberNumber)}</small>` : ''}${a.cpfLimit ? `<br><small class="muted">limite ${a.cpfLimit} CPFs/ano</small>` : ''}</div><div class="mile-person-num"><strong>${fmt(a.balance)}</strong><small class="muted">${perThousand(a.avgPerThousandCents)} · ${money(a.costCents, 'BRL')}</small></div></div>
-      <p class="mile-reported">${reported}</p>
-      <div class="row-actions"><button type="button" class="small" data-move="${a.id}">Lançar</button><button type="button" class="small ghost" data-reconcile="${a.id}">Conferir saldo</button><button type="button" class="small ghost" data-history="${a.id}">Histórico</button></div></div>`;
+      <p class="mile-reported">${reported}</p>${promoRow}
+      <div class="row-actions"><button type="button" class="small" data-move="${a.id}">Lançar</button><button type="button" class="small ghost" data-reconcile="${a.id}">Conferir saldo</button><button type="button" class="small ghost" data-history="${a.id}">Histórico</button>${promoButtons}</div></div>`;
   }).join('');
   return `<div class="section-head"><div><h2>${esc(program)}</h2><p class="muted">${fmt(balance)} milhas · custo ${money(cost, 'BRL')}</p></div><button type="button" class="ghost" data-close>Fechar</button></div>
     ${rows || '<p class="muted">Nenhuma conta ativa neste programa.</p>'}
@@ -243,6 +263,48 @@ async function history(accountId) {
   dialog.showModal();
 }
 
+async function newPromo(accountId) {
+  const account = data.accounts.find((a) => a.id === accountId);
+  const values = await askForm({
+    title: `Registrar promoção: ${accountLabel(account)}`, submitLabel: 'Registrar',
+    intro: 'Só anota que a promoção foi feita nesta conta. O saldo muda pelo Lançar ou pelo Conferir saldo.',
+    fields: [
+      { name: 'name', label: 'Promoção', type: 'text', required: true, wide: true, value: DEFAULT_PROMO },
+      { name: 'doneOn', label: 'Data em que fez', type: 'date', value: today(), required: true },
+      { name: 'pointsSent', label: 'Pontos enviados (opcional)', type: 'number', hint: 'Ex.: pontos da Livelo transferidos.' },
+      { name: 'bonusPercent', label: 'Bônus % (opcional)', type: 'number' },
+      { name: 'milesReceived', label: 'Milhas recebidas (opcional)', type: 'number' },
+      { name: 'note', label: 'Observação', type: 'text', wide: true },
+    ],
+  });
+  if (!values) return;
+  await guard(async () => {
+    await api(`/api/admin/finance/wallet/accounts/${accountId}/promos`, { method: 'POST', body: JSON.stringify({ name: values.name, doneOn: values.doneOn, pointsSent: values.pointsSent ?? undefined, bonusPercent: values.bonusPercent ?? undefined, milesReceived: values.milesReceived ?? undefined, note: values.note }) });
+    await loadCarteira();
+    flash('Promoção registrada.');
+  }, 'Não foi possível registrar a promoção.');
+}
+
+function promoHistory(accountId) {
+  const account = data.accounts.find((a) => a.id === accountId);
+  const dialog = document.createElement('dialog');
+  dialog.className = 'fin-dialog big';
+  const promos = account.promos || [];
+  dialog.innerHTML = `<div class="fin-dialog-body"><div class="section-head"><div><h2>Promoções feitas: ${esc(accountLabel(account))}</h2><p class="muted">Últimos 12 meses. Estornar tira a promoção da lista sem apagar o registro.</p></div><button type="button" class="ghost" data-close>Fechar</button></div>
+    <div class="table-wrap"><table class="fin-table"><thead><tr><th>Mês</th><th>Data</th><th>Promoção</th><th class="num">Pontos</th><th class="num">Bônus</th><th class="num">Milhas</th><th>Observação</th><th></th></tr></thead><tbody>
+    ${promos.map((p) => `<tr><td>${esc(monthName(p.month))}</td><td>${fmtDay(p.doneOn)}</td><td>${esc(p.name)}</td><td class="num">${p.pointsSent ? fmt(p.pointsSent) : '-'}</td><td class="num">${p.bonusPercent !== null && p.bonusPercent !== undefined ? `${p.bonusPercent}%` : '-'}</td><td class="num">${p.milesReceived ? fmt(p.milesReceived) : '-'}</td><td>${esc(p.note || '')}</td><td><button type="button" class="small ghost" data-void-promo="${p.id}">Estornar</button></td></tr>`).join('') || '<tr><td colspan="8" class="muted">Nenhuma promoção registrada.</td></tr>'}
+    </tbody></table></div></div>`;
+  document.body.append(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+  dialog.querySelector('[data-close]').addEventListener('click', () => dialog.close());
+  dialog.querySelectorAll('[data-void-promo]').forEach((button) => button.addEventListener('click', async () => {
+    const values = await askForm({ title: 'Estornar promoção', submitLabel: 'Estornar', danger: true, fields: [{ name: 'reason', label: 'Motivo', type: 'text', required: true, wide: true }] });
+    if (!values) return;
+    if (await guard(async () => { await api(`/api/admin/finance/wallet/promos/${button.dataset.voidPromo}/void`, { method: 'POST', body: JSON.stringify({ reason: values.reason }) }); }, 'Não foi possível estornar a promoção.')) { dialog.close(); await loadCarteira(); promoHistory(accountId); }
+  }));
+  dialog.showModal();
+}
+
 // --- Clubes -----------------------------------------------------------------------------------------------
 export async function loadClubes() {
   await fetchWallet();
@@ -349,6 +411,8 @@ export function initCarteira() {
     else if (t.dataset.move) newMovement(t.dataset.move);
     else if (t.dataset.reconcile) reconcile(t.dataset.reconcile);
     else if (t.dataset.history) history(t.dataset.history);
+    else if (t.dataset.promo) newPromo(t.dataset.promo);
+    else if (t.dataset.promos) promoHistory(t.dataset.promos);
     else if (t.dataset.clubEdit) editClub(t.dataset.clubEdit);
     else if (t.dataset.clubStatus) { const [id, status] = t.dataset.clubStatus.split('|'); setClubStatus(id, status); }
     else if (t.dataset.eventLink) {
