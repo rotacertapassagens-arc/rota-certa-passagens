@@ -39,6 +39,9 @@ const EXIT_KINDS = ['transfer_out', 'sale', 'expire'];
 const MANUAL_KINDS = [...ENTRY_KINDS, ...EXIT_KINDS, 'adjust'];
 const CLUB_STATUSES = ['active', 'payment_failed', 'canceled', 'paused'];
 const EVENT_KINDS = ['club_credited', 'club_payment_ok', 'club_payment_failed', 'club_canceled', 'balance'];
+/** Programas em que a promoção de transferência com bônus é controlada por mês (aviso quando a conta fica sem). */
+const PROMO_PROGRAMS = ['LATAM Pass'];
+const PROMO_LATE_DAY = 20;
 const GRACE_DAYS = 3;
 const STALE_REPORT_DAYS = 35;
 const EXPIRY_WARN_DAYS = 45;
@@ -79,6 +82,10 @@ export async function financeWallet(req: Request, env: Env, url: URL, deps: Wall
   if (m === 'POST' && accountMovements) return movementCreate(req, env, accountMovements[1]!, deps);
   const reconcile = p.match(new RegExp(`^/api/admin/finance/wallet/accounts/(${UUID})/reconcile$`, 'i'));
   if (m === 'POST' && reconcile) return reconcileAccount(req, env, reconcile[1]!, deps);
+  const accountPromos = p.match(new RegExp(`^/api/admin/finance/wallet/accounts/(${UUID})/promos$`, 'i'));
+  if (m === 'POST' && accountPromos) return promoCreate(req, env, accountPromos[1]!, deps);
+  const voidPromo = p.match(new RegExp(`^/api/admin/finance/wallet/promos/(${UUID})/void$`, 'i'));
+  if (m === 'POST' && voidPromo) return promoVoid(req, env, voidPromo[1]!, deps);
   const voidMovement = p.match(new RegExp(`^/api/admin/finance/wallet/movements/(${UUID})/void$`, 'i'));
   if (m === 'POST' && voidMovement) return movementVoid(req, env, voidMovement[1]!, deps);
   if (m === 'POST' && p === '/api/admin/finance/wallet/clubs') return clubCreate(req, env, deps);
@@ -125,6 +132,17 @@ function serializeMovement(row: Row) {
   };
 }
 
+const promoColumns = 'id,account_id,promo_name,month,done_on,points_sent,bonus_percent,miles_received,note';
+function serializePromo(row: Row) {
+  return { id: row.id, accountId: row.account_id, name: row.promo_name, month: row.month, doneOn: row.done_on, pointsSent: row.points_sent, bonusPercent: row.bonus_percent, milesReceived: row.miles_received, note: row.note };
+}
+/** Primeiro mês (YYYY-MM) devolvido na visão geral: os 12 meses até hoje, para ver o que já foi feito sem carregar o histórico todo. */
+function promoSince(today: string) {
+  const [y, mo] = today.split('-').map(Number) as [number, number];
+  const d = new Date(Date.UTC(y, mo - 12, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 /** Data em que o clube deveria ter creditado neste mês (dia do crédito, limitado ao último dia do mês). */
 function expectedCreditDate(creditDay: number, today: string) {
   const [y, mo] = today.split('-').map(Number) as [number, number];
@@ -137,12 +155,15 @@ type Alert = { level: 'danger' | 'warn' | 'info'; kind: string; accountId: strin
 async function overview(req: Request, env: Env, deps: WalletDeps) {
   if (!(await master(req, env, deps))) return deps.reply({ error: 'forbidden' }, 403);
   const today = todayIso();
-  const [accountsRes, movementsRes, clubsRes, eventsRes] = await Promise.all([
+  const [accountsRes, movementsRes, clubsRes, eventsRes, promosRes] = await Promise.all([
     env.DB.prepare(`SELECT ${accountColumns} FROM fin_wallet_accounts ORDER BY holder COLLATE NOCASE, program`).all<Row>(),
     env.DB.prepare('SELECT account_id,kind,miles,cost_cents,expires_on FROM fin_wallet_movements WHERE voided_at IS NULL').all<Row>(),
     env.DB.prepare(`SELECT ${clubColumns} FROM fin_wallet_clubs ORDER BY created_at`).all<Row>(),
     env.DB.prepare("SELECT id,source_id,kind,program,holder_hint,member_number,miles,balance,plan_name,occurred_at,subject FROM fin_wallet_events WHERE applied=0 AND account_id IS NULL ORDER BY occurred_at DESC LIMIT 50").all<Row>(),
+    env.DB.prepare(`SELECT ${promoColumns} FROM fin_wallet_promos WHERE voided_at IS NULL AND month >= ? ORDER BY done_on DESC, created_at DESC`).bind(promoSince(today)).all<Row>(),
   ]);
+  const promosByAccount = new Map<string, ReturnType<typeof serializePromo>[]>();
+  for (const promo of promosRes.results) { const key = String(promo.account_id); (promosByAccount.get(key) ?? promosByAccount.set(key, []).get(key)!).push(serializePromo(promo)); }
   const movementsByAccount = new Map<string, Row[]>();
   for (const mv of movementsRes.results) { const key = String(mv.account_id); (movementsByAccount.get(key) ?? movementsByAccount.set(key, []).get(key)!).push(mv); }
   const clubsByAccount = new Map<string, Row[]>();
@@ -158,6 +179,17 @@ async function overview(req: Request, env: Env, deps: WalletDeps) {
     const label = `${acc.holder} · ${acc.program}`;
     if (Number(acc.active) === 1 && divergence !== null && divergence !== 0) {
       alerts.push({ level: 'warn', kind: 'divergence', accountId: id, title: `Saldo diferente do programa: ${label}`, detail: `Aqui ${pos.miles.toLocaleString('pt-BR')}, no programa ${reported!.toLocaleString('pt-BR')} (${divergence > 0 ? '+' : ''}${divergence.toLocaleString('pt-BR')}).` });
+    }
+    if (Number(acc.active) === 1 && PROMO_PROGRAMS.includes(String(acc.program))) {
+      const mine = promosByAccount.get(id) ?? [];
+      if (!mine.some((promo) => promo.month === today.slice(0, 7))) {
+        const last = mine[0];
+        alerts.push({
+          level: Number(today.slice(8, 10)) >= PROMO_LATE_DAY ? 'warn' : 'info', kind: 'promo_missing', accountId: id,
+          title: `Sem promoção neste mês: ${label}`,
+          detail: last ? `Última registrada: ${last.name} em ${String(last.doneOn).split('-').reverse().join('/')}. Registre em "Registrar promoção" quando fizer.` : 'Nenhuma promoção registrada nesta conta ainda. Registre em "Registrar promoção" quando fizer.',
+        });
+      }
     }
     if (Number(acc.active) === 1 && acc.reported_at && daysBetween(String(acc.reported_at), today) > STALE_REPORT_DAYS) {
       alerts.push({ level: 'info', kind: 'stale_report', accountId: id, title: `Sem confirmação do programa há mais de ${STALE_REPORT_DAYS} dias: ${label}`, detail: 'Nenhum e-mail do programa trouxe o saldo desde então. Confira no app.' });
@@ -186,6 +218,7 @@ async function overview(req: Request, env: Env, deps: WalletDeps) {
       id, holder: acc.holder, program: acc.program, memberNumber: acc.member_number, cpfLimit: acc.cpf_limit, active: Number(acc.active) === 1, notes: acc.notes,
       balance: pos.miles, costCents: pos.costCents, avgPerThousandCents: pos.avgPerThousandCents,
       reportedBalance: reported, reportedAt: acc.reported_at, reportedSource: acc.reported_source, divergence, clubs,
+      promos: promosByAccount.get(id) ?? [],
     };
   });
   const activeClubs = clubsRes.results.filter((c) => c.status === 'active' || c.status === 'payment_failed');
@@ -317,6 +350,42 @@ async function reconcileAccount(req: Request, env: Env, accountId: string, deps:
   if (!(await insertMovement(env, { accountId, kind: 'adjust', miles: diff, costCents, occurredOn: todayIso(), note, actor: auth.userId }))) return deps.reply({ error: 'insufficient_wallet_balance' }, 409);
   await deps.audit(env, auth.userId, 'finance.wallet_account_reconciled', 'fin_wallet_account', accountId);
   return deps.reply({ ok: true, adjusted: diff });
+}
+
+/** Promoção feita numa conta (ex.: Livelo para LATAM Turbo). É só controle: o saldo muda pelos lançamentos ou pelo "Conferir saldo". */
+async function promoCreate(req: Request, env: Env, accountId: string, deps: WalletDeps) {
+  const auth = await masterMutation(req, env, deps);
+  if (!auth) return deps.reply({ error: 'forbidden' }, 403);
+  const account = await env.DB.prepare('SELECT id FROM fin_wallet_accounts WHERE id=?').bind(accountId).first();
+  if (!account) return deps.reply({ error: 'wallet_account_not_found' }, 404);
+  const b = await readJson(req);
+  const name = clean(b?.name, 80);
+  const doneOn = b?.doneOn ? dateOk(b.doneOn) : todayIso();
+  const optional = (value: unknown, max: number) => (value === undefined || value === null || value === '' ? null : intIn(value, 1, max));
+  const pointsSent = optional(b?.pointsSent, MAX_MILES);
+  const milesReceived = optional(b?.milesReceived, MAX_MILES);
+  const bonusPercent = b?.bonusPercent === undefined || b?.bonusPercent === null || b?.bonusPercent === '' ? null : intIn(b.bonusPercent, 0, 1000);
+  const hasBad = (b?.pointsSent ?? '') !== '' && pointsSent === null || (b?.milesReceived ?? '') !== '' && milesReceived === null || (b?.bonusPercent ?? '') !== '' && bonusPercent === null;
+  if (!name || !doneOn || hasBad) return deps.reply({ error: 'invalid_wallet_promo' }, 400);
+  const id = crypto.randomUUID();
+  await env.DB.prepare('INSERT INTO fin_wallet_promos (id,account_id,promo_name,month,done_on,points_sent,bonus_percent,miles_received,note,created_by) VALUES (?,?,?,?,?,?,?,?,?,?)')
+    .bind(id, accountId, name, doneOn.slice(0, 7), doneOn, pointsSent, bonusPercent, milesReceived, clean(b?.note, 300) || null, auth.userId).run();
+  await deps.audit(env, auth.userId, 'finance.wallet_promo_created', 'fin_wallet_account', accountId);
+  return deps.reply({ id }, 201);
+}
+
+async function promoVoid(req: Request, env: Env, id: string, deps: WalletDeps) {
+  const auth = await masterMutation(req, env, deps);
+  if (!auth) return deps.reply({ error: 'forbidden' }, 403);
+  const b = await readJson(req);
+  const reason = clean(b?.reason, 300);
+  if (reason.length < 3) return deps.reply({ error: 'invalid_request' }, 400);
+  const promo = await env.DB.prepare('SELECT account_id,voided_at FROM fin_wallet_promos WHERE id=?').bind(id).first<{ account_id: string; voided_at: string | null }>();
+  if (!promo) return deps.reply({ error: 'not_found' }, 404);
+  if (promo.voided_at) return deps.reply({ error: 'wallet_promo_already_voided' }, 409);
+  await env.DB.prepare('UPDATE fin_wallet_promos SET voided_at=CURRENT_TIMESTAMP,void_reason=? WHERE id=? AND voided_at IS NULL').bind(reason, id).run();
+  await deps.audit(env, auth.userId, 'finance.wallet_promo_voided', 'fin_wallet_account', promo.account_id);
+  return deps.reply({ ok: true });
 }
 
 async function movementVoid(req: Request, env: Env, id: string, deps: WalletDeps) {
