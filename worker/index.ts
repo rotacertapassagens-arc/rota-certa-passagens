@@ -626,7 +626,7 @@ async function createCommissionForLead(env:Env,actorUserId:string,leadId:string,
   if(effectiveCurrency!==rule.currency)return{error:'sale_currency_must_match_partner_currency',statusCode:409};
   const leadPassengers=await env.DB.prepare('SELECT adults+children+infants count FROM lead_requests WHERE id=?').bind(leadId).first<{count:number}>();
   const passengerCount=Number(leadPassengers?.count||0);if(passengerCount<1)return{error:'invalid_passenger_count',statusCode:422};
-  const monthStart=lisbonMonthStartUtc(new Date()).toISOString();
+  const monthStart=d1Timestamp(lisbonMonthStartUtc(new Date()));
   const monthPassengers=await env.DB.prepare("SELECT COALESCE(sum(l.adults+l.children+l.infants),0) count FROM partner_commissions pc JOIN lead_requests l ON l.id=pc.lead_request_id WHERE pc.partner_id=? AND pc.status<>'void' AND pc.created_at>=?").bind(partnerId,monthStart).first<{count:number}>();
   const policy=await getWorkerPartnerProgramPolicy(env);
   const calculated=calculateProgramCommission(effectiveAmount,passengerCount,Number(monthPassengers?.count||0),policy);
@@ -1169,7 +1169,7 @@ async function partnerSummary(req:Request,env:Env){
   const commissionRows=await env.DB.prepare('SELECT status,COALESCE(sum(amount_cents),0) total FROM partner_commissions WHERE partner_id=? GROUP BY status').bind(partner.id).all<{status:string;total:number}>();
   const totals:Record<string,number>={pending:0,approved:0,paid:0,void:0};
   for(const row of commissionRows.results)totals[row.status]=row.total;
-  const monthStart=lisbonMonthStartUtc(new Date()).toISOString();
+  const monthStart=d1Timestamp(lisbonMonthStartUtc(new Date()));
   const monthPassengers=await env.DB.prepare("SELECT COALESCE(sum(l.adults+l.children+l.infants),0) count FROM partner_commissions pc JOIN lead_requests l ON l.id=pc.lead_request_id WHERE pc.partner_id=? AND pc.status<>'void' AND pc.created_at>=?").bind(partner.id,monthStart).first<{count:number}>();
   const currentMonthPassengers=Number(monthPassengers?.count||0),policy=await getWorkerPartnerProgramPolicy(env);
   const rateForPosition=(position:number)=>position<=policy.tier1MaxPassengers?policy.tier1Bps:position<=policy.tier2MaxPassengers?policy.tier2Bps:position<=policy.tier3MaxPassengers?policy.tier3Bps:policy.tier4Bps;
@@ -1338,6 +1338,9 @@ async function notificationsProcess(req:Request,env:Env){
  * target calendar date (via Intl's shortOffset, which already accounts for DST) instead of
  * parsing a local-looking string in the host process's own timezone.
  */
+// D1 grava CURRENT_TIMESTAMP como 'YYYY-MM-DD HH:MM:SS' (espaço). Comparar isso com um ISO ('...T...Z') como
+// texto deixa de fora tudo criado no próprio dia do limite, porque ' ' < 'T'. Sempre converter antes de comparar.
+function d1Timestamp(value:Date){return value.toISOString().slice(0,19).replace('T',' ');}
 function lisbonWeekStartIso(reference:Date){
   const dateFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
   const parts=Object.fromEntries(dateFormatter.formatToParts(reference).map(p=>[p.type,p.value]));
@@ -1355,17 +1358,17 @@ function lisbonWeekStartIso(reference:Date){
 
 async function notificationsWeeklySummary(req:Request,env:Env){
   const actorUserId=await requireMasterOrCronUserId(req,env);if(actorUserId===undefined)return reply({error:'forbidden'},403);
-  const weekStart=lisbonWeekStartIso(new Date());const weekStartIso=weekStart.toISOString();
+  const weekStart=lisbonWeekStartIso(new Date());const weekStartIso=weekStart.toISOString();const weekStartSql=d1Timestamp(weekStart);
   // `currency` selected alongside the partner so the payload always carries the partner's own
   // configured currency — see src/routes/notifications.ts's mirrored fix and
   // ../shared/notificationPayloads.ts's WeeklySummaryPayload contract both backends share.
   const partners=await env.DB.prepare('SELECT id,code,display_name,currency FROM partners WHERE active=1').all<Row>();
   let created=0;
   for(const partner of partners.results){
-    const clicks=await env.DB.prepare('SELECT count(*) n FROM referral_clicks WHERE partner_id=? AND clicked_at>=?').bind(partner.id,weekStartIso).first<{n:number}>();
-    const proposals=await env.DB.prepare('SELECT count(*) n FROM lead_requests WHERE partner_id=? AND created_at>=?').bind(partner.id,weekStartIso).first<{n:number}>();
-    const conversions=await env.DB.prepare("SELECT count(*) n FROM lead_requests WHERE partner_id=? AND status='converted' AND converted_at>=?").bind(partner.id,weekStartIso).first<{n:number}>();
-    const commission=await env.DB.prepare("SELECT COALESCE(sum(amount_cents),0) n FROM partner_commissions WHERE partner_id=? AND status<>'void' AND created_at>=?").bind(partner.id,weekStartIso).first<{n:number}>();
+    const clicks=await env.DB.prepare('SELECT count(*) n FROM referral_clicks WHERE partner_id=? AND clicked_at>=?').bind(partner.id,weekStartSql).first<{n:number}>();
+    const proposals=await env.DB.prepare('SELECT count(*) n FROM lead_requests WHERE partner_id=? AND created_at>=?').bind(partner.id,weekStartSql).first<{n:number}>();
+    const conversions=await env.DB.prepare("SELECT count(*) n FROM lead_requests WHERE partner_id=? AND status='converted' AND converted_at>=?").bind(partner.id,weekStartSql).first<{n:number}>();
+    const commission=await env.DB.prepare("SELECT COALESCE(sum(amount_cents),0) n FROM partner_commissions WHERE partner_id=? AND status<>'void' AND created_at>=?").bind(partner.id,weekStartSql).first<{n:number}>();
     const idempotencyKey=`weekly_summary:${partner.id}:${weekStartIso.slice(0,10)}`;
     const result=await env.DB.prepare(`INSERT INTO notification_outbox (id,idempotency_key,event_type,partner_id,payload) VALUES (?,?,'weekly_summary',?,?) ON CONFLICT(idempotency_key) DO NOTHING`)
       .bind(crypto.randomUUID(),idempotencyKey,partner.id,JSON.stringify({weekStart:weekStartIso,clicks:clicks?.n||0,proposals:proposals?.n||0,conversions:conversions?.n||0,commissionCents:commission?.n||0,currency:partner.currency})).run();
