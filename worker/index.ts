@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { timingSafeEqual } from 'node:crypto';
 import { parseCommissionPaidPayload, parseWeeklySummaryPayload } from '../shared/notificationPayloads.js';
+import { d1Timestamp } from '../shared/d1Timestamp.js';
 import { calculateProgramCommission, lisbonMonthStartUtc, nextProgressiveTier, PARTNER_PRIVACY_POLICY_VERSION, type PartnerCommissionPolicy } from '../shared/partnerCommission.js';
 import { isValidSubscriptionTransition, nextChargeDate, subscriptionChargeIdempotencyKey, type SubscriptionPeriodicity } from '../shared/subscriptionSchedule.js';
 import { calculateSaleProfit, isValidIssuanceTransition, sumIssuanceDirectCostCents } from '../shared/salesProfit.js';
@@ -1338,9 +1339,6 @@ async function notificationsProcess(req:Request,env:Env){
  * target calendar date (via Intl's shortOffset, which already accounts for DST) instead of
  * parsing a local-looking string in the host process's own timezone.
  */
-// D1 grava CURRENT_TIMESTAMP como 'YYYY-MM-DD HH:MM:SS' (espaço). Comparar isso com um ISO ('...T...Z') como
-// texto deixa de fora tudo criado no próprio dia do limite, porque ' ' < 'T'. Sempre converter antes de comparar.
-function d1Timestamp(value:Date){return value.toISOString().slice(0,19).replace('T',' ');}
 function lisbonWeekStartIso(reference:Date){
   const dateFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
   const parts=Object.fromEntries(dateFormatter.formatToParts(reference).map(p=>[p.type,p.value]));
