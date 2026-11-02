@@ -75,9 +75,9 @@ describe('WHA-04: proposta do site → WhatsApp → consulta interna (Worker + D
   const internal = (path: string, headers: Record<string, string> = { authorization: `Bearer ${API_TOKEN}` }) => worker.fetch(path, { headers });
   const count = (sql: string) => Number(d1Query<{ n: number }>(persistTo, sql)[0]!.n);
 
-  it('grava o pedido, gera um protocolo único e é idempotente no reenvio', async () => {
+  it('grava atribuição e howHeard, gera um protocolo único e é idempotente no reenvio', async () => {
     const submissionId = crypto.randomUUID();
-    const first = await sendLead({ ...baseLead, submissionId, source: { utm_source: 'instagram', utm_medium: 'bio', utm_campaign: 'outubro', utm_content: 'reel-1', utm_term: 'lisboa', page: '/', referrer: 'l.instagram.com', capturedAt: new Date().toISOString() } });
+    const first = await sendLead({ ...baseLead, submissionId, howHeard: 'Instagram', source: { utm_source: 'instagram', utm_medium: 'bio', utm_campaign: 'outubro', utm_content: 'reel-1', utm_term: 'lisboa', page: '/', referrer: 'l.instagram.com', capturedAt: new Date().toISOString() } });
     const created = await first.json() as Record<string, unknown>;
     expect(first.status, JSON.stringify(created)).toBe(201);
     expect(created).toMatchObject({ ok: true, protocol: `RC-${YEAR}-00001`, status: 'received_awaiting_whatsapp' });
@@ -93,15 +93,22 @@ describe('WHA-04: proposta do site → WhatsApp → consulta interna (Worker + D
 
     expect(count("SELECT count(*) n FROM lead_requests WHERE kind='flight_quote'")).toBe(1);
     expect(count("SELECT count(*) n FROM email_events WHERE template='flight_quote_customer'")).toBe(1);
-    const [stored] = d1Query<Record<string, unknown>>(persistTo, `SELECT customer_phone,customer_phone_digits,contact_consent,consent_version,whatsapp_consent_at,stops_preference,
+    const [stored] = d1Query<Record<string, unknown>>(persistTo, `SELECT customer_phone,customer_phone_digits,contact_consent,consent_version,whatsapp_consent_at,stops_preference,how_heard,
       utm_source,utm_medium,utm_campaign,utm_content,utm_term,source_page,source_referrer,source_captured_at,status FROM lead_requests WHERE protocol='RC-${YEAR}-00001'`);
     expect(stored).toMatchObject({
       customer_phone: '+351912345678', customer_phone_digits: '351912345678', contact_consent: 1, consent_version: QUOTE_CONSENT_VERSION,
-      stops_preference: 'Aceito escalas', utm_source: 'instagram', utm_medium: 'bio', utm_campaign: 'outubro', utm_content: 'reel-1', utm_term: 'lisboa',
+      stops_preference: 'Aceito escalas', how_heard: 'Instagram', utm_source: 'instagram', utm_medium: 'bio', utm_campaign: 'outubro', utm_content: 'reel-1', utm_term: 'lisboa',
       source_page: '/', source_referrer: 'l.instagram.com', status: 'new',
     });
     expect(stored!.whatsapp_consent_at).toBeTruthy();
     expect(stored!.source_captured_at).toBeTruthy();
+    const handoff = await internal(`/api/internal/proposals/RC-${YEAR}-00001?phone=351912345678`);
+    expect(handoff.status).toBe(200);
+    expect(await handoff.json()).toMatchObject({ attribution: {
+      howHeard: 'Instagram', referralSource: 'none', referralCode: null,
+      utm: { source: 'instagram', medium: 'bio', campaign: 'outubro', content: 'reel-1', term: 'lisboa' },
+      sourcePage: '/', sourceReferrer: 'l.instagram.com',
+    } });
   }, 60_000);
 
   it('telefone é obrigatório e precisa do código do país', async () => {
@@ -136,6 +143,7 @@ describe('WHA-04: proposta do site → WhatsApp → consulta interna (Worker + D
     const text = await ok.text();
     expect(JSON.parse(text)).toEqual({
       protocol, phone: '351912345678', name: 'Maria Souza', contactName: 'Maria Souza',
+      attribution: expect.objectContaining({ howHeard: 'Instagram', utm: expect.objectContaining({ source: 'instagram', campaign: 'outubro' }) }),
       collected: {
         origem: 'Lisboa', destino: 'São Paulo', tipoViagem: 'ida_e_volta', dataIda: '2027-03-10', dataVolta: '2027-03-25',
         adultos: 2, criancas: 0, bebes: 0, cabine: 'economica', bagagem: 'bagagem_de_mao', aceitaEscalas: true, vooDireto: false,
@@ -143,7 +151,7 @@ describe('WHA-04: proposta do site → WhatsApp → consulta interna (Worker + D
       },
       classificacao: 'normal',
     });
-    for (const leaked of [API_TOKEN, 'maria@example.com', 'Pix', 'Prefiro voo', 'instagram']) expect(text).not.toContain(leaked);
+    for (const leaked of [API_TOKEN, 'maria@example.com', 'Pix', 'Prefiro voo']) expect(text).not.toContain(leaked);
     expect(ok.headers.get('cache-control')).toBe('no-store');
 
     // Telefone vindo formatado do WhatsApp e protocolo em minúsculas continuam valendo (número inteiro).

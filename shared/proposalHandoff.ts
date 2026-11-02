@@ -125,6 +125,22 @@ export interface InternalProposal {
   phone: string;
   name: string;
   contactName: string;
+  /** Optional attribution metadata; kept outside collected so existing WHA-04 parsing stays unchanged. */
+  attribution?: {
+    howHeard: string | null;
+    referralSource: string | null;
+    referralCode: string | null;
+    utm: {
+      source: string | null;
+      medium: string | null;
+      campaign: string | null;
+      content: string | null;
+      term: string | null;
+    };
+    sourcePage: string | null;
+    sourceReferrer: string | null;
+    sourceCapturedAt: string | null;
+  };
   collected: {
     origem: string;
     destino: string;
@@ -154,11 +170,31 @@ export function toInternalProposal(row: Record<string, unknown>): InternalPropos
   const int = (v: unknown) => (Number.isInteger(Number(v)) ? Number(v) : 0);
   const stops = str(row.stops_preference);
   const name = str(row.customer_name) ?? '';
+  const attribution = {
+    howHeard: str(row.how_heard),
+    referralSource: str(row.referral_source),
+    referralCode: str(row.referral_code_snapshot),
+    utm: {
+      source: str(row.utm_source),
+      medium: str(row.utm_medium),
+      campaign: str(row.utm_campaign),
+      content: str(row.utm_content),
+      term: str(row.utm_term),
+    },
+    sourcePage: str(row.source_page),
+    sourceReferrer: str(row.source_referrer),
+    sourceCapturedAt: str(row.source_captured_at),
+  };
+  const hasAttribution = Boolean(
+    attribution.howHeard || (attribution.referralSource && attribution.referralSource !== 'none') || attribution.referralCode ||
+    Object.values(attribution.utm).some(Boolean) || attribution.sourcePage || attribution.sourceReferrer || attribution.sourceCapturedAt,
+  );
   return {
     protocol: String(row.protocol),
     phone: String(row.customer_phone_digits),
     name,
     contactName: name,
+    ...(hasAttribution ? { attribution } : {}),
     collected: {
       origem: str(row.origin) ?? '',
       destino: str(row.destination) ?? '',

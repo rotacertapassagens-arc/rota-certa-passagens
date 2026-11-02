@@ -71,6 +71,26 @@ function normalizeOptionalText(value, max = 200) {
   return String(value).trim().slice(0, max) || null;
 }
 
+function normalizeSiteAttribution(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const utm = raw.utm && typeof raw.utm === "object" && !Array.isArray(raw.utm) ? raw.utm : {};
+  const attribution = {
+    howHeard: normalizeOptionalText(raw.howHeard, 120),
+    referralSource: normalizeOptionalText(raw.referralSource, 40),
+    referralCode: normalizeOptionalText(raw.referralCode, 64),
+    utm: {
+      source: normalizeOptionalText(utm.source, 200),
+      medium: normalizeOptionalText(utm.medium, 200),
+      campaign: normalizeOptionalText(utm.campaign, 200),
+      content: normalizeOptionalText(utm.content, 200),
+      term: normalizeOptionalText(utm.term, 200),
+    },
+  };
+  return attribution.howHeard || (attribution.referralSource && attribution.referralSource !== "none") || attribution.referralCode || Object.values(attribution.utm).some(Boolean)
+    ? attribution
+    : null;
+}
+
 function aliasKey(value) {
   return String(value || "")
     .toLowerCase()
@@ -242,6 +262,7 @@ function mergeSiteProposal(normalized, proposal) {
     ...normalized,
     contactName: normalized.contactName || normalizeOptionalText(proposal.contactName || proposal.name, 100),
     needsSiteLookup: false,
+    attribution: normalizeSiteAttribution(proposal.attribution),
     collected: normalizeCollected(
       { ...proposal.collected, nome: proposal.name || null, consentimento: proposal.collected?.consentimento === true },
       { source: "SITE_FORM" },
@@ -290,6 +311,7 @@ function buildNotionDraft(normalized) {
         source: normalized.source,
         protocol: normalized.protocol,
         requestId: normalized.requestId,
+        ...(normalized.attribution ? { attribution: normalized.attribution } : {}),
         collected: c,
         classificacao: normalized.classificacao,
       }).slice(0, 1990),

@@ -203,6 +203,8 @@ async function overview(req: Request, env: Env, deps: WalletDeps) {
     const clubs = (clubsByAccount.get(id) ?? []).map((club) => {
       const view = serializeClub(club);
       const status = String(club.status);
+      // Conta escondida (active=0): o clube continua gravado, mas não gera alerta nem entra nas somas.
+      if (Number(acc.active) !== 1) return view;
       if (status === 'payment_failed') alerts.push({ level: 'danger', kind: 'club_payment_failed', accountId: id, clubId: String(club.id), title: `Pagamento do clube recusado: ${label}`, detail: `${club.name}${club.card_label ? ` · cartão ${club.card_label}` : ''}. Troque ou regularize o cartão no programa antes de perder o clube.` });
       else if (status === 'canceled') alerts.push({ level: 'danger', kind: 'club_canceled', accountId: id, clubId: String(club.id), title: `Clube cancelado: ${label}`, detail: `${club.name}. Se foi sem querer, assine de novo no programa.` });
       // Só cobra atraso de quem já teve crédito avisado por e-mail antes: programa sem e-mail de crédito lido não gera alarme falso.
@@ -221,7 +223,8 @@ async function overview(req: Request, env: Env, deps: WalletDeps) {
       promos: promosByAccount.get(id) ?? [],
     };
   });
-  const activeClubs = clubsRes.results.filter((c) => c.status === 'active' || c.status === 'payment_failed');
+  const visibleAccountIds = new Set(accounts.filter((a) => a.active).map((a) => a.id));
+  const activeClubs = clubsRes.results.filter((c) => visibleAccountIds.has(String(c.account_id)) && (c.status === 'active' || c.status === 'payment_failed'));
   const level = { danger: 0, warn: 1, info: 2 } as const;
   alerts.sort((a, b) => level[a.level] - level[b.level]);
   return deps.reply({
