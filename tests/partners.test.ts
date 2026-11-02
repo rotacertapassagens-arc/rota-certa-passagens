@@ -145,6 +145,38 @@ describe('Partner referral program', () => {
     expect(snapshot.rows[0]).toEqual({ commission_rate_snapshot: 250, passenger_count_snapshot: 2 });
   });
 
+  it('lets a master delete a test proposal, but never one tied to a commission or to a non-master', async () => {
+    const master = await createMaster(app, email, 'master-delete-lead@example.com');
+    const submitted = await app.inject({ method: 'POST', url: '/api/lead', payload: validLeadPayload({ email: 'teste-apagar@example.com' }) });
+    expect(submitted.statusCode, submitted.body).toBeLessThan(300);
+    const found = await db.query<{ id: string; protocol: string }>('SELECT id,protocol FROM lead_requests WHERE protocol=$1', [submitted.json().protocol]);
+    const plain = found.rows[0]!;
+
+    expect((await app.inject({ method: 'DELETE', url: `/api/admin/leads/${plain.id}` })).statusCode).toBe(401);
+    const user = await createVerifiedUser(app, email, 'cliente-delete@example.com', 'Cliente');
+    expect((await app.inject({ method: 'DELETE', url: `/api/admin/leads/${plain.id}`, headers: mutationHeaders(user) })).statusCode).toBe(403);
+    expect((await app.inject({ method: 'DELETE', url: '/api/admin/leads/not-a-uuid', headers: mutationHeaders(master) })).statusCode).toBe(400);
+    expect((await db.query('SELECT 1 FROM lead_requests WHERE id=$1', [plain.id])).rowCount).toBe(1);
+
+    const removed = await app.inject({ method: 'DELETE', url: `/api/admin/leads/${plain.id}`, headers: mutationHeaders(master) });
+    expect(removed.statusCode, removed.body).toBe(200);
+    expect(removed.json()).toEqual({ deleted: true, id: plain.id, protocol: plain.protocol });
+    expect((await db.query('SELECT 1 FROM lead_requests WHERE id=$1', [plain.id])).rowCount).toBe(0);
+    const trail = await db.query<{ metadata: { protocol: string } }>("SELECT metadata FROM audit_events WHERE action='admin.lead_deleted' AND target_id=$1", [plain.id]);
+    expect(trail.rows).toHaveLength(1);
+    expect(trail.rows[0]!.metadata.protocol).toBe(plain.protocol);
+    expect((await app.inject({ method: 'DELETE', url: `/api/admin/leads/${plain.id}`, headers: mutationHeaders(master) })).statusCode).toBe(404);
+
+    await createPartner(app, master, { code: 'apagar-bloqueado', commissionType: 'fixed', commissionFixedCents: 5000 });
+    const sold = await submitAndGetLeadId(app, db, 'apagar-bloqueado', 'vendida@example.com');
+    const converted = await app.inject({ method: 'PATCH', url: `/api/admin/leads/${sold}`, headers: mutationHeaders(master), payload: { status: 'converted', saleAmountCents: 100000, saleCurrency: 'EUR' } });
+    expect(converted.statusCode, converted.body).toBe(200);
+    const blocked = await app.inject({ method: 'DELETE', url: `/api/admin/leads/${sold}`, headers: mutationHeaders(master) });
+    expect(blocked.statusCode, blocked.body).toBe(409);
+    expect(blocked.json().error).toBe('lead_has_financial_records');
+    expect((await db.query('SELECT 1 FROM lead_requests WHERE id=$1', [sold])).rowCount).toBe(1);
+  });
+
   it('redirects valid active codes with a click and cookie, and inactive/invalid codes without one', async () => {
     const master = await createMaster(app, email, 'master2@example.com');
     await createPartner(app, master, { code: 'ativo', commissionType: 'fixed', commissionFixedCents: 5000 });

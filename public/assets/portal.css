@@ -260,6 +260,9 @@ body { background:#e8ecf1; }
 /* Painel: enviar voo emitido ao Planner do cliente */
 .planner-flight { margin-top:14px; padding-top:14px; border-top:1px solid rgba(13,27,42,.12); }
 .pf-toggle { background:var(--navy); color:var(--gold); }
+.lead-delete { margin-top:10px; display:flex; align-items:center; gap:12px; }
+.btn-danger { background:transparent; color:var(--danger); border:1px solid var(--danger); padding:8px 14px; font-size:.85rem; }
+.btn-danger:hover { background:var(--danger-bg); }
 .pf-form { margin-top:12px; }
 .pf-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:10px 0; }
 .pf-grid label { margin:0; font-size:.8rem; }

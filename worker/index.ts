@@ -217,6 +217,7 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   if (req.method === 'GET' && p === '/api/admin/leads') return adminLeads(req, env, url);
   const adminLead = p.match(/^\/api\/admin\/leads\/([0-9a-f-]+)$/i);
   if (req.method === 'PATCH' && adminLead) return adminLeadUpdate(req, env, adminLead[1]);
+  if (req.method === 'DELETE' && adminLead) return adminLeadDelete(req, env, adminLead[1]);
   if (req.method === 'POST' && p === '/api/payments/checkout') return reply({ error: 'payments_disabled' }, 503);
   if (req.method === 'POST' && p === '/api/payments/stripe-webhook') return reply({ error: 'payments_disabled' }, 503);
   if (req.method === 'GET' && p === '/api/planner') return plannerGet(req, env, url);
@@ -713,6 +714,25 @@ async function adminLeadUpdate(req:Request,env:Env,id:string){
   const leadUpdateResult=results[leadUpdateIndex];
   if(!leadUpdateResult?.meta.changes)return reply({error:'conflict_retry'},409);
   return reply({lead:{id,status,internal_notes:notes,assigned_to:assign?auth.userId:null,updated_at:new Date().toISOString()},commissionPreview});
+}
+
+/**
+ * Mirrors src/routes/admin.ts's DELETE /api/admin/leads/:id. Only a proposal with no financial
+ * trail can be removed: any commission row (even a voided one) or fin_sales row ties the proposal
+ * to money, and both foreign keys are ON DELETE RESTRICT on purpose. The DELETE itself repeats
+ * that check, so a commission/sale created between the read and the write still blocks it, and
+ * the audit event is written in the same batch (it keeps the protocol after the row is gone).
+ */
+async function adminLeadDelete(req:Request,env:Env,id:string){
+  const auth=await mutationAuth(req,env);if(!auth)return reply({error:'unauthorized'},401);if(!auth.roles.includes('master'))return reply({error:'forbidden'},403);
+  const existing=await env.DB.prepare("SELECT id,protocol FROM lead_requests WHERE id=? AND kind='flight_quote'").bind(id).first<Row>();
+  if(!existing)return reply({error:'not_found'},404);
+  const results=await env.DB.batch([
+    env.DB.prepare("DELETE FROM lead_requests WHERE id=? AND kind='flight_quote' AND NOT EXISTS (SELECT 1 FROM partner_commissions WHERE lead_request_id=?) AND NOT EXISTS (SELECT 1 FROM fin_sales WHERE lead_request_id=?)").bind(id,id,id),
+    env.DB.prepare("INSERT INTO audit_events(id,actor_user_id,action,target_type,target_id,metadata) SELECT ?,?,'admin.lead_deleted','lead_request',?,? WHERE changes()>0").bind(crypto.randomUUID(),auth.userId,id,JSON.stringify({protocol:existing.protocol})),
+  ]);
+  if(!results[0]?.meta.changes)return reply({error:'lead_has_financial_records'},409);
+  return reply({deleted:true,id,protocol:existing.protocol});
 }
 
 async function flightQuoteLead(req:Request,env:Env){
