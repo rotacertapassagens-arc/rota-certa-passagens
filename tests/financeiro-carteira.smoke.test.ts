@@ -157,6 +157,39 @@ describe('Financeiro: carteira de milhas própria (Worker + D1 local)', () => {
     expect(await minha()).toMatchObject({ balance: 80000, divergence: 0 });
   }, 120_000);
 
+  it('promoções por conta e mês: registra, aparece na visão geral, valida e estorna sem mexer no saldo', async () => {
+    const jar = await masterJar();
+    const conta = await send(jar, 'POST', '/api/admin/finance/wallet/accounts', { holder: 'Mateus', program: 'LATAM Pass', openingMiles: 10000, openingCostCents: 34930 });
+    expect(conta.status).toBe(201);
+    const id = conta.json.id as string;
+    const minha = async () => (await send(jar, 'GET', '/api/admin/finance/wallet')).json.accounts.find((a: any) => a.id === id);
+    expect((await minha()).promos).toEqual([]);
+    const semPromo = async () => (await send(jar, 'GET', '/api/admin/finance/wallet')).json.alerts.some((a: any) => a.kind === 'promo_missing' && a.accountId === id);
+    expect(await semPromo()).toBe(true);
+
+    const promoUrl = `/api/admin/finance/wallet/accounts/${id}/promos`;
+    expect((await send(jar, 'POST', promoUrl, { name: '', doneOn: today })).status).toBe(400);
+    expect((await send(jar, 'POST', promoUrl, { name: 'Livelo para LATAM Turbo', doneOn: '30/10/2026' })).status).toBe(400);
+    expect((await send(jar, 'POST', promoUrl, { name: 'Livelo para LATAM Turbo', doneOn: today, bonusPercent: 'muito' })).status).toBe(400);
+    expect((await send(jar, 'POST', '/api/admin/finance/wallet/accounts/00000000-0000-4000-8000-000000000000/promos', { name: 'X', doneOn: today })).status).toBe(404);
+
+    const feita = await send(jar, 'POST', promoUrl, { name: 'Livelo para LATAM Turbo', doneOn: today, pointsSent: 10000, bonusPercent: 90, milesReceived: 19000, note: 'teste' });
+    expect(feita.status).toBe(201);
+    const promos = (await minha()).promos;
+    expect(promos).toHaveLength(1);
+    expect(promos[0]).toMatchObject({ name: 'Livelo para LATAM Turbo', month: today.slice(0, 7), doneOn: today, pointsSent: 10000, bonusPercent: 90, milesReceived: 19000 });
+    // Só controle: o saldo da conta não muda, e o aviso de "sem promoção neste mês" some.
+    expect(await minha()).toMatchObject({ balance: 10000 });
+    expect(await semPromo()).toBe(false);
+
+    const voidUrl = `/api/admin/finance/wallet/promos/${feita.json.id}/void`;
+    expect((await send(jar, 'POST', voidUrl, { reason: '' })).status).toBe(400);
+    expect((await send(jar, 'POST', voidUrl, { reason: 'conta errada' })).status).toBe(200);
+    expect((await send(jar, 'POST', voidUrl, { reason: 'conta errada' })).status).toBe(409);
+    expect((await minha()).promos).toEqual([]);
+    expect(await semPromo()).toBe(true);
+  });
+
   it('clubes: e-mails dos programas atualizam crédito e situação, sem repetir e sem dono errado', async () => {
     const jar = await masterJar();
     const conta = await send(jar, 'POST', '/api/admin/finance/wallet/accounts', { holder: 'Mateus', program: 'Smiles', memberNumber: '186196592', openingMiles: 33500, openingCostCents: 50000, openingDate: '2026-01-01' });
