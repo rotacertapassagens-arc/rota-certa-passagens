@@ -15,6 +15,9 @@ const row = {
   adults: 2, children: 0, infants: 0, cabin_class: 'Econômica', baggage: 'Ainda não sei', stops_preference: 'Aceito escalas',
   payment_preference: 'Pix', notes: 'nota interna', contact_consent: 1, whatsapp_consent_at: '2026-10-01 10:00:00',
   utm_source: 'instagram', internal_notes: 'segredo', sale_amount_cents: 99900,
+  how_heard: 'Instagram', referral_source: 'link', referral_code_snapshot: 'maria10', utm_medium: 'paid',
+  utm_campaign: 'teste-outubro', utm_content: 'reel-1', utm_term: 'passagem', source_page: '/proposta-voo.html',
+  source_referrer: 'l.instagram.com', source_captured_at: '2026-10-26T10:00:00.000Z',
 };
 
 describe('mensagem e link do WhatsApp', () => {
@@ -101,6 +104,11 @@ describe('contrato devolvido ao WHA-04', () => {
       phone: '351912345678',
       name: 'Maria Souza',
       contactName: 'Maria Souza',
+      attribution: {
+        howHeard: 'Instagram', referralSource: 'link', referralCode: 'maria10',
+        utm: { source: 'instagram', medium: 'paid', campaign: 'teste-outubro', content: 'reel-1', term: 'passagem' },
+        sourcePage: '/proposta-voo.html', sourceReferrer: 'l.instagram.com', sourceCapturedAt: '2026-10-26T10:00:00.000Z',
+      },
       collected: {
         origem: 'Lisboa', destino: 'São Paulo', tipoViagem: 'ida_e_volta', dataIda: '2026-11-10', dataVolta: '2026-11-25',
         adultos: 2, criancas: 0, bebes: 0, cabine: 'economica', bagagem: null, aceitaEscalas: true, vooDireto: false,
@@ -109,7 +117,13 @@ describe('contrato devolvido ao WHA-04', () => {
       classificacao: 'normal',
     });
     const json = JSON.stringify(toInternalProposal(row));
-    for (const leaked of ['maria@example.com', 'Pix', 'nota interna', 'segredo', '99900', 'instagram']) expect(json).not.toContain(leaked);
+    for (const leaked of ['maria@example.com', 'Pix', 'nota interna', 'segredo', '99900']) expect(json).not.toContain(leaked);
+    expect(json).toContain('instagram'); // Attribution is intentionally passed as a separate optional object.
+  });
+  it('omite o bloco de atribuição para leads antigos sem dados de origem', () => {
+    expect(toInternalProposal({ ...row, how_heard: null, referral_source: null, referral_code_snapshot: null,
+      utm_source: null, utm_medium: null, utm_campaign: null, utm_content: null, utm_term: null,
+      source_page: null, source_referrer: null, source_captured_at: null })).not.toHaveProperty('attribution');
   });
   it('usa os valores canônicos do WHA-04 para todas as classes e trechos', () => {
     const cabine = (cabin_class: string) => toInternalProposal({ ...row, cabin_class }).collected.cabine;

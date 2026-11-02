@@ -68,7 +68,9 @@ async function proposalByProtocol(env: Env, rawProtocol: string, rawPhone: strin
   if (!protocol || !phone) return deps.reply({ error: 'not_found' }, 404);
   const row = await env.DB.prepare(
     `SELECT protocol,customer_phone_digits,customer_name,origin,destination,trip_type,outbound_on,return_on,
-            adults,children,infants,cabin_class,baggage,stops_preference,contact_consent,whatsapp_consent_at
+            adults,children,infants,cabin_class,baggage,stops_preference,contact_consent,whatsapp_consent_at,
+            how_heard,referral_source,referral_code_snapshot,utm_source,utm_medium,utm_campaign,utm_content,utm_term,
+            source_page,source_referrer,source_captured_at
        FROM lead_requests WHERE protocol=? AND kind='flight_quote'`,
   ).bind(protocol).first<Row>();
   const stored = typeof row?.customer_phone_digits === 'string' ? row.customer_phone_digits : '';
