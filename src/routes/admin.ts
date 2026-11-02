@@ -277,6 +277,36 @@ export function registerAdminRoutes(app: FastifyInstance, db: Database, config: 
     if (!updatedRow) return reply.code(404).send({ error: 'not_found' });
     return reply.send({ lead: updatedRow, commissionPreview });
   });
+
+  // Only a proposal with no financial trail can be removed: any commission row (even a voided one)
+  // or fin_sales row ties it to money, and both foreign keys are ON DELETE RESTRICT on purpose.
+  app.delete('/api/admin/leads/:id', async (request, reply) => {
+    const auth = await requireMutationAuth(db, config, request, reply);
+    if (!auth || !auth.roles.includes('master')) return auth ? reply.code(403).send({ error: 'forbidden' }) : undefined;
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: 'invalid_request' });
+
+    let protocol: string | undefined;
+    try {
+      await db.transaction(async (tx) => {
+        const existing = await tx.query<{ protocol: string }>("SELECT protocol FROM lead_requests WHERE id=$1 AND kind='flight_quote' FOR UPDATE", [params.data.id]);
+        const lead = existing.rows[0];
+        if (!lead) throw new RequestError(404, 'not_found');
+        const linked = await tx.query(
+          'SELECT 1 FROM partner_commissions WHERE lead_request_id=$1 UNION ALL SELECT 1 FROM fin_sales WHERE lead_request_id=$1 LIMIT 1',
+          [params.data.id],
+        );
+        if (linked.rowCount) throw new RequestError(409, 'lead_has_financial_records');
+        protocol = lead.protocol;
+        await tx.query("DELETE FROM lead_requests WHERE id=$1 AND kind='flight_quote'", [params.data.id]);
+        await audit(tx, config, request, 'admin.lead_deleted', auth.userId, 'lead_request', params.data.id, { protocol: lead.protocol });
+      });
+    } catch (error) {
+      if (error instanceof RequestError) return reply.code(error.statusCode).send({ error: error.code });
+      throw error;
+    }
+    return reply.send({ deleted: true, id: params.data.id, protocol });
+  });
 }
 
 /**

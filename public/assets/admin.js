@@ -29,6 +29,7 @@ const financialErrorMessages = {
   invalid_partner: 'Dados inválidos. Confira os campos obrigatórios.',
   invalid_partner_program_settings: 'A regra é inválida. Confira percentuais e limites crescentes das faixas.',
   partner_inactive: 'Este parceiro está desativado. Ative-o antes de enviar um novo convite.',
+  lead_has_financial_records: 'Esta proposta já tem comissão ou venda registrada e não pode ser excluída.',
   invalid_transition: 'Esta comissão não está mais no estado esperado para essa ação. Atualize a página e tente novamente.',
 };
 function financialErrorMessage(error, fallback) {
@@ -277,6 +278,25 @@ function plannerFlightBlock(lead){
   const id=escapeHtml(lead.id);
   return `<div class="planner-flight"><button type="button" class="pf-toggle" data-planner-flight="${id}">Enviar voo ao Planner do cliente</button><form class="pf-form hidden" data-planner-form="${id}"><p class="muted">O voo entra no roteiro de ${escapeHtml(lead.customer_email)} com as datas e o código da reserva. Se o cliente ainda não tiver conta, entra assim que ele criar a conta com este e-mail. Ele recebe um aviso por e-mail.</p><div class="pf-grid"><label>Ida<input type="date" name="outboundDate" required value="${escapeHtml(lead.outbound_on||'')}"></label><label>Horário da ida<input type="time" name="outboundTime"></label><label>Voo de ida<input name="flightOut" maxlength="40" placeholder="Ex.: TP 088"></label><label>Volta<input type="date" name="returnDate" value="${escapeHtml(lead.return_on||'')}"></label><label>Horário da volta<input type="time" name="returnTime"></label><label>Voo de volta<input name="flightBack" maxlength="40"></label><label>Código da reserva<input name="bookingCode" maxlength="80"></label><label class="pf-wide">Observações para o cliente<input name="notes" maxlength="500" placeholder="Ex.: 1 mala de 23 kg incluída"></label></div><button type="submit">Enviar ao Planner</button> <span class="pf-status" aria-live="polite"></span></form></div>`;
 }
+// Excluir só aparece enquanto a proposta não virou venda nem comissão (o servidor também recusa).
+function deleteLeadBlock(lead){
+  if(lead.status==='converted'||lead.commission_id)return '';
+  return `<div class="lead-delete"><button type="button" class="btn-danger" data-delete-lead="${escapeHtml(lead.id)}" data-delete-protocol="${escapeHtml(lead.protocol)}">Excluir proposta</button><span class="lead-feedback" aria-live="polite"></span></div>`;
+}
+document.getElementById('leads')?.addEventListener('click',async(event)=>{
+  const del=event.target.closest('[data-delete-lead]');
+  if(!del)return;
+  const feedback=del.closest('.lead-delete').querySelector('.lead-feedback');
+  if(!confirm(`Excluir a proposta ${del.dataset.deleteProtocol}? Ela some da lista e não dá para desfazer.`))return;
+  del.disabled=true;
+  try{
+    await api(`/api/admin/leads/${del.dataset.deleteLead}`,{method:'DELETE'});
+    await loadLeads();await loadPartners();
+  }catch(error){
+    feedback.textContent=financialErrorMessage(error,'Não foi possível excluir a proposta.');
+    del.disabled=false;
+  }
+});
 document.getElementById('leads')?.addEventListener('click',(event)=>{
   const toggle=event.target.closest('[data-planner-flight]');
   if(!toggle)return;
@@ -301,7 +321,7 @@ function renderLead(lead){
   const commissionActions=lead.commission_status==='pending'?`<button type="button" data-commission-action="approve" data-commission-id="${lead.commission_id||''}">Aprovar comissão</button>`
     :lead.commission_status==='approved'?`<button type="button" data-commission-action="pay" data-commission-id="${lead.commission_id||''}">Marcar como paga</button>`:'';
   const commissionInfo=lead.commission_status?`<span>Comissão: ${fmtMoney(lead.commission_amount_cents,lead.commission_currency)} · ${escapeHtml(commissionLabels[lead.commission_status]||lead.commission_status)} ${commissionActions}</span>`:'';
-  return `<article class="lead-card ${overdue?'overdue':''}" data-partner-id="${lead.partner_id||''}"><div class="lead-title"><div><span class="protocol">${escapeHtml(lead.protocol)}</span><h3>${escapeHtml(lead.origin)} → ${escapeHtml(lead.destination)}</h3></div><span class="deadline">${overdue?'Prazo vencido':'Responder até'}<strong>${fmtDate(lead.deadline_at)}</strong></span></div><div class="lead-details"><div><small>Cliente</small><strong>${escapeHtml(lead.customer_name)}</strong><a href="mailto:${encodeURIComponent(lead.customer_email)}">${escapeHtml(lead.customer_email)}</a><span>${escapeHtml(lead.customer_phone)}</span></div><div><small>Viagem</small><strong>${fmtDay(lead.outbound_on)}${lead.return_on?` — ${fmtDay(lead.return_on)}`:''}</strong><span>${lead.adults} adulto(s), ${lead.children} criança(s), ${lead.infants} bebê(s)</span><span>${escapeHtml(lead.trip_type)} · ${escapeHtml(lead.cabin_class)}</span></div><div><small>Origem</small><span>${originLabel}</span>${commissionInfo}</div></div>${lead.notes?`<p class="customer-notes"><strong>Observações:</strong> ${escapeHtml(lead.notes)}</p>`:''}<div class="lead-actions"><label>Status<select data-lead-status>${options}</select></label><label class="sale-amount hidden" data-sale-fields>Valor da venda<input type="number" min="0" step="0.01" data-sale-amount value="${lead.sale_amount_cents!=null?(lead.sale_amount_cents/100).toFixed(2):''}"></label><label class="sale-currency hidden" data-sale-fields>Moeda<input maxlength="3" data-sale-currency value="${escapeHtml(lead.sale_currency||lead.partner_code?'EUR':'')}"></label><label class="notes-label">Notas internas<textarea data-lead-notes maxlength="3000" placeholder="Visíveis somente para masters">${escapeHtml(lead.internal_notes||'')}</textarea></label><label class="assign"><input type="checkbox" data-lead-assign> Assumir atendimento${lead.assigned_name?` · atual: ${escapeHtml(lead.assigned_name)}`:''}</label><button data-save-lead="${escapeHtml(lead.id)}">Salvar</button><span class="lead-feedback" aria-live="polite"></span></div>${plannerFlightBlock(lead)}</article>`;
+  return `<article class="lead-card ${overdue?'overdue':''}" data-partner-id="${lead.partner_id||''}"><div class="lead-title"><div><span class="protocol">${escapeHtml(lead.protocol)}</span><h3>${escapeHtml(lead.origin)} → ${escapeHtml(lead.destination)}</h3></div><span class="deadline">${overdue?'Prazo vencido':'Responder até'}<strong>${fmtDate(lead.deadline_at)}</strong></span></div><div class="lead-details"><div><small>Cliente</small><strong>${escapeHtml(lead.customer_name)}</strong><a href="mailto:${encodeURIComponent(lead.customer_email)}">${escapeHtml(lead.customer_email)}</a><span>${escapeHtml(lead.customer_phone)}</span></div><div><small>Viagem</small><strong>${fmtDay(lead.outbound_on)}${lead.return_on?` — ${fmtDay(lead.return_on)}`:''}</strong><span>${lead.adults} adulto(s), ${lead.children} criança(s), ${lead.infants} bebê(s)</span><span>${escapeHtml(lead.trip_type)} · ${escapeHtml(lead.cabin_class)}</span></div><div><small>Origem</small><span>${originLabel}</span>${commissionInfo}</div></div>${lead.notes?`<p class="customer-notes"><strong>Observações:</strong> ${escapeHtml(lead.notes)}</p>`:''}<div class="lead-actions"><label>Status<select data-lead-status>${options}</select></label><label class="sale-amount hidden" data-sale-fields>Valor da venda<input type="number" min="0" step="0.01" data-sale-amount value="${lead.sale_amount_cents!=null?(lead.sale_amount_cents/100).toFixed(2):''}"></label><label class="sale-currency hidden" data-sale-fields>Moeda<input maxlength="3" data-sale-currency value="${escapeHtml(lead.sale_currency||lead.partner_code?'EUR':'')}"></label><label class="notes-label">Notas internas<textarea data-lead-notes maxlength="3000" placeholder="Visíveis somente para masters">${escapeHtml(lead.internal_notes||'')}</textarea></label><label class="assign"><input type="checkbox" data-lead-assign> Assumir atendimento${lead.assigned_name?` · atual: ${escapeHtml(lead.assigned_name)}`:''}</label><button data-save-lead="${escapeHtml(lead.id)}">Salvar</button><span class="lead-feedback" aria-live="polite"></span></div>${plannerFlightBlock(lead)}${deleteLeadBlock(lead)}</article>`;
 }
 
 document.getElementById('leads')?.addEventListener('change',(event)=>{
