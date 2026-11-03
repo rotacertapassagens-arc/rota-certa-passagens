@@ -716,10 +716,34 @@ function showClient() {
   const firstName = String(session.user.name || '').trim().split(/\s+/)[0];
   document.getElementById('clientApp').dataset.state = 'logado';
   document.getElementById('clientTitle').textContent = firstName ? `Olá, ${firstName}` : 'O seu espaço Rota Certa';
-  document.getElementById('planContext').textContent = 'O seu planejamento, reservas e anexos em um só lugar.';
+  const isMaster = Boolean(session.user.roles?.includes('master'));
+  document.getElementById('clientApp').dataset.master = isMaster ? '1' : '';
+  document.getElementById('planContext').textContent = isMaster ? 'Resumo do dia e atalhos de gestão.' : 'O seu planejamento, reservas e anexos em um só lugar.';
   document.querySelector('.client-grid').classList.add('hidden');
   document.getElementById('clientDashboard').classList.remove('hidden');
-  document.getElementById('masterPanelLink')?.classList.toggle('hidden', !session.user.roles?.includes('master'));
+  document.getElementById('masterPanelLink')?.classList.toggle('hidden', !isMaster);
+  document.getElementById('masterDeck')?.classList.toggle('hidden', !isMaster);
+  const top = document.querySelector('#clientDashboard .dashboard-top');
+  if (top) { top.querySelector('.sec-eyebrow').textContent = isMaster ? 'Gestão' : 'Atalhos'; top.querySelector('h2').textContent = isMaster ? 'Painel de comando' : 'O que você quer fazer agora?'; }
+  if (isMaster) loadMasterStats();
+}
+/** Faixa de números do dia só para master. Usa endpoints de leitura que já existem; se falhar, a faixa some e os atalhos seguem. */
+async function loadMasterStats() {
+  const box = document.getElementById('masterStats');
+  if (!box) return;
+  const [overview, alerts] = await Promise.allSettled([api('/api/admin/overview'), api('/api/admin/finance/dashboard/alerts')]);
+  const tiles = [];
+  if (overview.status === 'fulfilled') {
+    const o = overview.value;
+    tiles.push([o.new_leads, 'Propostas novas', '/admin', false], [o.overdue_leads, 'Propostas atrasadas', '/admin', true], [o.pending_payments, 'Pagamentos pendentes', '/admin', false]);
+  }
+  if (alerts.status === 'fulfilled') {
+    const a = alerts.value;
+    tiles.push([(a.overdueObligations?.length || 0) + (a.overdueReceivables?.length || 0), 'Contas vencidas', '/financeiro#/pagar', true], [a.upcomingObligations7d?.length || 0, 'Contas a vencer em 7 dias', '/financeiro#/pagar', false], [a.mileageLotsExpiringSoon?.length || 0, 'Milhas vencendo em breve', '/financeiro#/milhas', true]);
+  }
+  const html = tiles.filter(([count]) => Number.isFinite(Number(count))).map(([count, label, href, urgent]) => { const n = Number(count); const tone = urgent ? (n > 0 ? ' is-alert' : ' is-ok') : ''; return `<a href="${href}" class="${tone.trim()}"><strong>${n}</strong><small>${label}</small></a>`; }).join('');
+  box.innerHTML = html;
+  box.hidden = !html;
 }
 async function clientInit() {
   bindClientForms();
