@@ -48,6 +48,10 @@ let selectedPartnerApplicationId=null;
 try {
   const session=await api('/api/auth/session');
   if(!session.user.roles.includes('master')) throw Object.assign(new Error('forbidden'),{status:403});
+  // Parceiros, regra de comissão, candidaturas e propostas não dependem uns dos outros: saem junto com o resumo
+  // (antes iam depois, um por vez, e cada um custa uma ida e volta de rede).
+  const partnerSections=Promise.all([loadPartners(),loadPartnerProgramSettings(),loadPartnerApplications(),loadLeads()]);
+  partnerSections.catch(()=>{}); // o erro de verdade sai no await mais abaixo
   const [overview,users,plans,payments]=await Promise.all([api('/api/admin/overview'),api('/api/admin/users'),api('/api/admin/plans'),api('/api/admin/payments')]);
   document.getElementById('accessMessage').classList.add('hidden');
   document.getElementById('adminContent').classList.remove('hidden');
@@ -58,10 +62,7 @@ try {
   const activePlans=plans.plans.filter((p)=>p.active).sort((a,b)=>(planOrder[a.code]||9)-(planOrder[b.code]||9));
   document.getElementById('plans').innerHTML=activePlans.map((p)=>`<tr><td>${escapeHtml(p.name)}</td><td>${fmtMoney(p.price_cents,p.currency)}</td><td>${p.duration_days?`${p.duration_days} dias`:p.code==='personalized'?'Sob proposta':'Sem prazo'}</td><td>${p.checkout_enabled?'Sandbox':'Manual'}</td></tr>`).join('');
   document.getElementById('payments').innerHTML=payments.payments.map((p)=>`<tr><td>${fmtDate(p.created_at)}</td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.plan_code||'-')}</td><td>${fmtMoney(p.amount_cents,p.currency)}</td><td>${escapeHtml(p.status)}</td></tr>`).join('')||'<tr><td colspan="5">Nenhum pagamento registrado.</td></tr>';
-  await loadPartners();
-  await loadPartnerProgramSettings();
-  await loadPartnerApplications();
-  await loadLeads();
+  await partnerSections;
 } catch(error) {
   document.querySelector('#accessMessage p').textContent=error.status===403?'Sua conta não tem permissão master.':'Entre primeiro pela Área do cliente com uma conta master.';
 }
