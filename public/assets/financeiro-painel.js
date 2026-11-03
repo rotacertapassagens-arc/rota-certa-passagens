@@ -65,7 +65,8 @@ async function fetchSales() {
 // --- acesso e rotas -----------------------------------------------------------------------------------
 const VIEWS = {
   geral: loadGeral, orcamentos: loadQuotes, vendas: loadSales, voos: loadFlights, contas: loadAccountBalances, receber: loadReceivables, alertas: loadAlerts,
-  pagar: () => loadObligations(), carteira: loadCarteira, clubes: loadClubes, milhas: () => loadMileageLots(), assinaturas: async () => {}, cadastros: async () => {},
+  pagar: async () => { await cadastrosReady; return loadObligations(); }, carteira: loadCarteira, clubes: loadClubes,
+  milhas: async () => { await cadastrosReady; return loadMileageLots(); }, assinaturas: async () => {}, cadastros: async () => {},
 };
 function route() {
   const requested = location.hash.replace(/^#\//, '').split('?')[0];
@@ -85,7 +86,9 @@ try {
   $('accessMessage').querySelector('p').textContent = error.status === 403 ? 'Sua conta não tem permissão master.' : 'Entre primeiro pela Área do cliente com uma conta master.';
   throw error;
 }
-try { await initCadastros(); } catch (error) { flash(financeErrorMessage(error, 'Não foi possível carregar os cadastros.'), true); }
+// Os cadastros e a primeira aba carregam ao mesmo tempo. Só "A pagar" e "Milhas" usam os cadastros para desenhar
+// a tabela, então elas esperam por eles (ver VIEWS); as outras abas leem `state` só quando alguém clica.
+const cadastrosReady = initCadastros().catch((error) => flash(financeErrorMessage(error, 'Não foi possível carregar os cadastros.'), true));
 initCarteira();
 fetchWallet().catch(() => {});
 wireGeral();
@@ -95,7 +98,8 @@ wireFlights();
 $('receivablesAll').addEventListener('change', () => loadReceivables().catch(() => {}));
 window.addEventListener('hashchange', route);
 route();
-refreshBadge();
+// A visão geral já busca alertas e parcelas a receber e atualiza o selo (setBadge); só pede de novo nas outras abas.
+if ($('financeContent').querySelector('.fin-view[data-view="geral"]')?.hidden) refreshBadge();
 
 // --- visão geral --------------------------------------------------------------------------------------
 function presetRange(preset) {
@@ -123,11 +127,14 @@ function wireGeral() {
   $('dashboardForm').addEventListener('submit', (event) => { event.preventDefault(); loadGeral().catch(() => {}); });
 }
 
+function setBadge(alerts, receivables) {
+  const total = alerts.overdueObligations.length + receivables.filter((item) => item.isOverdue).length;
+  $('alertBadge').textContent = total ? String(total) : '';
+}
 async function refreshBadge() {
   try {
     const [alerts, receivables] = await Promise.all([api('/api/admin/finance/dashboard/alerts'), api('/api/admin/finance/receivables')]);
-    const total = alerts.overdueObligations.length + receivables.receivables.filter((item) => item.isOverdue).length;
-    $('alertBadge').textContent = total ? String(total) : '';
+    setBadge(alerts, receivables.receivables);
   } catch { /* o selo é só um aviso */ }
 }
 
@@ -186,6 +193,7 @@ async function loadGeral() {
     renderChart(to);
     renderRank(inRange);
     renderAttention(alerts, receivables.receivables);
+    setBadge(alerts, receivables.receivables);
   } catch (error) {
     $('dashboardStatus').textContent = financeErrorMessage(error, 'Não foi possível carregar a visão geral.');
   }

@@ -7,17 +7,26 @@ const byId = (id) => document.getElementById(id);
 
 export async function initCadastros() {
   wireForms();
-  await loadCostCenters();
-  await loadCategories();
-  await loadAccounts();
-  await loadCounterparties();
-  await loadSubscriptions();
-  await loadObligations();
-  await loadMileageLots();
+  // Os 7 pedidos saem juntos: antes iam um depois do outro, e cada um custa uma ida e volta de rede.
+  // As tabelas continuam sendo desenhadas na mesma ordem de antes, porque obrigações usam o nome das
+  // categorias e os lotes de milhas usam o das contrapartes.
+  const pending = [
+    api('/api/admin/finance/cost-centers'), api('/api/admin/finance/categories'), api('/api/admin/finance/accounts'),
+    api('/api/admin/finance/counterparties'), api('/api/admin/finance/subscriptions'), api('/api/admin/finance/obligations'),
+    api('/api/admin/finance/mileage-lots'),
+  ];
+  pending.forEach((request) => request.catch(() => {})); // o erro de verdade sai no await de cada tabela abaixo
+  await loadCostCenters(pending[0]);
+  await loadCategories(pending[1]);
+  await loadAccounts(pending[2]);
+  await loadCounterparties(pending[3]);
+  await loadSubscriptions(pending[4]);
+  await loadObligations(pending[5]);
+  await loadMileageLots(pending[6]);
 }
 
-async function loadCostCenters() {
-  const result = await api('/api/admin/finance/cost-centers');
+async function loadCostCenters(request = api('/api/admin/finance/cost-centers')) {
+  const result = await request;
   state.costCenters = result.costCenters;
   byId('costCenters').innerHTML = state.costCenters.map((item) => `<tr><td>${esc(item.name)}</td><td>${item.active ? 'Sim' : 'Não'}</td><td><button type="button" class="small ghost" data-toggle-cost-center="${item.id}" data-active="${item.active}">${item.active ? 'Desativar' : 'Ativar'}</button></td></tr>`).join('') || '<tr><td colspan="3">Nenhum centro de custo cadastrado.</td></tr>';
   const parentSelect = byId('categoryCostCenter');
@@ -32,8 +41,8 @@ async function loadCostCenters() {
   }));
 }
 
-async function loadCategories() {
-  const result = await api('/api/admin/finance/categories');
+async function loadCategories(request = api('/api/admin/finance/categories')) {
+  const result = await request;
   state.categories = result.categories;
   const nameOf = (id) => state.categories.find((item) => item.id === id)?.name || '-';
   const kindLabel = { revenue: 'Receita', direct_cost: 'Custo direto', operating_expense: 'Despesa operacional' };
@@ -65,8 +74,8 @@ function refreshObligationCategoryOptions() {
   fillSelect('obligationCategory', state.categories.filter((item) => item.active && item.kind === kind), 'Nenhuma categoria cadastrada para este tipo');
 }
 
-async function loadAccounts() {
-  const result = await api('/api/admin/finance/accounts');
+async function loadAccounts(request = api('/api/admin/finance/accounts')) {
+  const result = await request;
   state.accounts = result.accounts;
   byId('accounts').innerHTML = state.accounts.map((item) => `<tr><td>${esc(item.name)}</td><td>${esc(item.type)}</td><td>${esc(item.currency)}</td><td>${item.active ? 'Sim' : 'Não'}</td><td><button type="button" class="small ghost" data-toggle-account="${item.id}" data-active="${item.active}">${item.active ? 'Desativar' : 'Ativar'}</button></td></tr>`).join('') || '<tr><td colspan="5">Nenhuma conta cadastrada. Crie pelo menos uma para registrar recebimentos e pagamentos.</td></tr>';
   document.querySelectorAll('[data-toggle-account]').forEach((button) => button.addEventListener('click', async () => {
@@ -77,8 +86,8 @@ async function loadAccounts() {
   }));
 }
 
-async function loadCounterparties() {
-  const result = await api('/api/admin/finance/counterparties');
+async function loadCounterparties(request = api('/api/admin/finance/counterparties')) {
+  const result = await request;
   state.counterparties = result.counterparties;
   const kindLabel = { supplier: 'Fornecedor', airline: 'Companhia aérea', consolidator: 'Consolidadora', mileage_provider: 'Fornecedor de milhas', other: 'Outro' };
   byId('counterparties').innerHTML = state.counterparties.map((item) => `<tr><td>${esc(item.displayName)}</td><td>${kindLabel[item.kind] || esc(item.kind)}</td><td>${esc(item.preferredCurrency || '-')}</td><td>${item.active ? 'Sim' : 'Não'}</td><td><button type="button" class="small ghost" data-toggle-counterparty="${item.id}" data-active="${item.active}">${item.active ? 'Desativar' : 'Ativar'}</button></td></tr>`).join('') || '<tr><td colspan="5">Nenhuma contraparte cadastrada.</td></tr>';
@@ -101,8 +110,8 @@ const subscriptionStatusLabels = { trial: 'Em teste', active: 'Ativa', suspended
 const periodicityLabels = { monthly: 'Mensal', quarterly: 'Trimestral', semiannual: 'Semestral', annual: 'Anual', custom: 'Personalizada' };
 const obligationStatusLabels = { open: 'Aberta', partial: 'Parcial', paid: 'Paga', canceled: 'Cancelada', reversed: 'Estornada' };
 
-async function loadSubscriptions() {
-  const result = await api('/api/admin/finance/subscriptions');
+async function loadSubscriptions(request = api('/api/admin/finance/subscriptions')) {
+  const result = await request;
   byId('subscriptions').innerHTML = result.subscriptions.map((item) => `<tr>
       <td>${esc(item.service)}</td>
       <td class="num">${money(item.amountCents, item.currency)}</td>
@@ -140,8 +149,8 @@ async function loadSubscriptions() {
   }));
 }
 
-export async function loadObligations() {
-  const result = await api('/api/admin/finance/obligations');
+export async function loadObligations(request = api('/api/admin/finance/obligations')) {
+  const result = await request;
   byId('obligations').innerHTML = result.obligations.map((item) => `<tr>
       <td>${esc(state.categories.find((category) => category.id === item.categoryId)?.name || '-')}</td>
       <td>${fmtDay(item.dueDate)}${item.isOverdue ? ' <span class="tag tag-void">vencida</span>' : ''}</td>
@@ -195,8 +204,8 @@ export async function loadObligations() {
 
 const mileageLotStatusLabels = { active: 'Ativo', depleted: 'Esgotado', expired: 'Vencido', canceled: 'Cancelado' };
 
-export async function loadMileageLots() {
-  const result = await api('/api/admin/finance/mileage-lots');
+export async function loadMileageLots(request = api('/api/admin/finance/mileage-lots')) {
+  const result = await request;
   byId('mileageLots').innerHTML = result.mileageLots.map((item) => `<tr>
       <td>${esc(state.counterparties.find((counterparty) => counterparty.id === item.counterpartyId)?.displayName || '-')}</td>
       <td>${esc(item.program)}</td>
