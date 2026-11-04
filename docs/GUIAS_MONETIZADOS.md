@@ -57,6 +57,10 @@ Artigos que não são de um destino (milhas, promoções, erros de compra, rotei
 
 Primeiro guia que não é de destino fechado: ensina a montar a escala longa (palavra-chave `ESCALA`, Reel D12). Conteúdo em `content/guias/escala-em-istambul.json` (fatos do `guide.json` v0.3, 26/10/2026), PDF `public/guias/escala-em-istambul.pdf` (13 páginas), fotos próprias `istambul-escala-*` (crédito `Foto: Carlos Victor / Rota Certa`) e chave curta `escala` em `GUIAS_CURTOS` (`worker/blog-parceiros.ts`). A migration `0042_blog_guia_escala_istambul.sql` entra como rascunho, como as dos guias de destino: publicar pelo painel depois de aplicada. Ordem: deploy primeiro, migration depois (o botão e o PDF só existem depois do deploy).
 
+### Lote 3: Cartagena, Praga, Miami, Atacama e Barcelona
+
+Cinco guias de destino no molde de Madri, todos entrando como rascunho (migrations `0043` a `0047`, sem região nova: Cartagena e Atacama em `america-do-sul`, Miami em `americas`, Praga e Barcelona em `europa`). Conteúdo em `content/guias/<slug>.json` (fatos do `guide.json` v0.1, conferidos em 27/10/2026), PDFs em `public/guias/<slug>.pdf` (16 páginas; Atacama, 17) e fotos Pexels `<cidade>-*` em `public/assets/blog/`. Chaves curtas, que o ManyRota e os Reels usam e não podem mudar: `cartagena`, `praga`, `miami`, `atacama` e `barcelona` (`GUIAS_CURTOS`). Miami leva também o botão de carro (Everglades). Publicação: `publicar-guias-lote3.sh` (fora do repositório), na ordem deploy, migrations, publicar os 5 posts por SQL com `audit_events`, verificação.
+
 ## Etapa 2 (futuro): gerar os guias a partir do `guide.json`
 
 `rota-certa-motion-factory/guides/<cidade>/guide.json` já tem título, versão, data, fontes com data de conferência, palavra-chave e CTA de contato. Falta o roteiro estruturado (hoje está só no `guia.html`). Plano:

@@ -39,4 +39,9 @@ export const GUIAS_CURTOS: Record<string, string> = {
   paris: 'paris-em-4-dias',
   orlando: 'orlando-a-ordem-dos-parques',
   escala: 'escala-em-istambul',
+  cartagena: 'cartagena-em-4-dias',
+  praga: 'praga-em-4-dias',
+  miami: 'miami-em-4-dias',
+  atacama: 'atacama-em-4-dias',
+  barcelona: 'barcelona-em-4-dias',
 };
