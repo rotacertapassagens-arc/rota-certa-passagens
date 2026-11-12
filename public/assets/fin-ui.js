@@ -151,7 +151,7 @@ export function askForm({ title, intro = '', fields = [], submitLabel = 'Salvar'
     };
     dialog.innerHTML = `<form method="dialog" class="fin-dialog-form" novalidate>
       <h2>${esc(title)}</h2>${intro ? `<p class="muted">${esc(intro)}</p>` : ''}
-      <div class="fin-dialog-grid">${fields.map((field) => `<label class="${field.wide ? 'wide' : ''}${field.type === 'checkbox' ? ' check' : ''}">
+      <div class="fin-dialog-grid">${fields.map((field) => `<label data-field="${esc(field.name)}" class="${field.wide ? 'wide' : ''}${field.type === 'checkbox' ? ' check' : ''}">
           <span>${esc(field.label)}</span>${inputFor(field)}${field.hint ? `<small class="muted">${esc(field.hint)}</small>` : ''}</label>`).join('')}</div>
       <p class="status alert-error hidden" role="alert"></p>
       <div class="fin-dialog-actions"><button type="button" class="ghost" data-cancel>${esc(cancelLabel)}</button><button type="submit"${danger ? ' class="danger"' : ''}>${esc(submitLabel)}</button></div>
@@ -163,10 +163,18 @@ export function askForm({ title, intro = '', fields = [], submitLabel = 'Salvar'
     const finish = (value) => { if (settled) return; settled = true; dialog.close(); dialog.remove(); resolve(value); };
     dialog.addEventListener('cancel', (event) => { event.preventDefault(); finish(null); });
     dialog.querySelector('[data-cancel]').addEventListener('click', () => finish(null));
+    // Campo com visibleWhen(get) só aparece enquanto a função devolver true (ex.: "em qual cartão?" só depois de digitar a taxa).
+    const getRaw = (name) => { const element = form.elements[name]; return !element ? '' : element.type === 'checkbox' ? element.checked : String(element.value ?? '').trim(); };
+    const isVisible = (field) => !field.visibleWhen || Boolean(field.visibleWhen(getRaw));
+    const refreshVisibility = () => { for (const field of fields) if (field.visibleWhen) { const label = dialog.querySelector(`[data-field="${field.name}"]`); if (label) label.style.display = isVisible(field) ? '' : 'none'; } };
+    form.addEventListener('input', refreshVisibility);
+    form.addEventListener('change', refreshVisibility);
+    refreshVisibility();
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       const values = {};
       for (const field of fields) {
+        if (!isVisible(field)) { values[field.name] = field.type === 'checkbox' ? false : field.type === 'money' || field.type === 'number' ? null : ''; continue; }
         const element = form.elements[field.name];
         const raw = field.type === 'checkbox' ? element.checked : String(element.value ?? '').trim();
         if (field.type === 'checkbox') { values[field.name] = raw; continue; }

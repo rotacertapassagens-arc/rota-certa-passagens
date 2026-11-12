@@ -2,7 +2,7 @@
 // Cadastros, contas a pagar, assinaturas e milhas ficam em financeiro.js. Dinheiro sempre por moeda, nunca somado entre moedas.
 import { api, askConfirm, askForm, centsToInput, esc, financeErrorMessage, fmtDay, money, monthKey, today, toCents } from './fin-ui.js';
 import { initCadastros, loadMileageLots, loadObligations, state } from './financeiro.js';
-import { fetchWallet, initCarteira, loadCarteira, loadClubes, useWalletMiles, voidWalletUsage, walletUsages } from './financeiro-carteira.js';
+import { fetchWallet, initCarteira, loadCarteira, loadClubes, postWalletUsage, useWalletMiles, voidWalletUsage, walletUsableAccounts, walletUsages } from './financeiro-carteira.js';
 
 const $ = (id) => document.getElementById(id);
 const CURRENCY_NAMES = { EUR: 'Euro', BRL: 'Real', USD: 'Dólar', GBP: 'Libra' };
@@ -682,6 +682,7 @@ async function openFlightDialog(saleId) {
       ${issuances.map((i) => `<article class="issuance">
         <header><strong>${esc(modeLabels[i.mode] || i.mode)}${i.airline ? ` · ${esc(i.airline)}` : ''}${i.loyaltyProgram ? ` · ${esc(i.loyaltyProgram)}` : ''}</strong><span class="tag ${i.status === 'issued' ? 'tag-paid' : i.status === 'pending' ? 'tag-warn' : 'tag-void'}">${issuanceStatusLabels[i.status]}</span></header>
         <p class="muted">${i.pnr ? `PNR ${esc(i.pnr)}` : 'Sem PNR'}${i.ticketNumbers ? ` · bilhete ${esc(i.ticketNumbers)}` : ''}</p>
+        ${i.feesObligationId && i.feesAccountId ? `<p class="muted">Taxa de embarque (${money(i.airportFeesCents, cur)}) paga no cartão ${esc(accountNameOf(i.feesAccountId))}</p>` : ''}
         ${(allocations[i.id] || []).map((a) => `<p class="muted">Milhas do lote ${esc(lotNames[a.lotId] || 'sem nome')}: ${a.quantity.toLocaleString('pt-BR')} (${money(a.costCentsSnapshot, cur)})${i.status === 'pending' || i.status === 'issued' ? ` <button type="button" class="small ghost" data-void-allocation="${a.id}">Estornar milhas</button>` : ''}</p>`).join('')}
         ${(walletUses[i.id] || []).map((u) => `<p class="muted">Milhas da carteira (${esc(u.holder)} · ${esc(u.program)}): ${u.miles.toLocaleString('pt-BR')} (custo ${money(u.costCents, 'BRL')}${cur !== 'BRL' ? `, ${money(u.issuanceCostCents, cur)} a ${esc(u.fxRate)}` : ''})${i.status === 'pending' || i.status === 'issued' ? ` <button type="button" class="small ghost" data-void-wallet="${u.id}">Estornar milhas</button>` : ''}</p>`).join('')}
         <dl>
@@ -712,38 +713,65 @@ async function openFlightDialog(saleId) {
   }
 
   const guard = async (action, fallback) => { try { await action(); } catch (error) { flash(financeErrorMessage(error, fallback), true); } };
-  const costFields = (i = {}) => [
+  // Cartão que pagou a taxa de embarque: a pergunta aparece assim que a taxa é digitada. Cartões primeiro, depois as outras contas.
+  const accountNameOf = (id) => { const account = state.accounts.find((item) => item.id === id); return account ? `${account.name}${account.last4 ? ` ····${account.last4}` : ''}` : 'conta removida'; };
+  const feesAccountOptions = () => {
+    const active = state.accounts.filter((account) => account.active);
+    return [{ value: '', label: 'Não foi no cartão / ainda não paguei' }, ...[...active.filter((a) => a.type === 'card'), ...active.filter((a) => a.type !== 'card')].map((account) => ({ value: account.id, label: `${account.name}${account.last4 ? ` ····${account.last4}` : ''} (${account.currency})` }))];
+  };
+  const feeTyped = (get) => (toCents(get('airportFees')) || 0) > 0;
+  const costFields = (i = {}, currency = 'BRL') => [
     { name: 'airline', label: 'Companhia aérea', type: 'text', value: i.airline || '' },
     { name: 'loyaltyProgram', label: 'Programa de milhas', type: 'text', value: i.loyaltyProgram || '' },
     { name: 'pnr', label: 'PNR (código da reserva)', type: 'text', value: i.pnr || '' },
     { name: 'ticketNumbers', label: 'Número do bilhete', type: 'text', value: i.ticketNumbers || '' },
     { name: 'cash', label: 'Passagem paga em dinheiro', type: 'money', value: centsToInput(i.cashAmountCents || 0) },
     { name: 'airportFees', label: 'Taxas de aeroporto', type: 'money', value: centsToInput(i.airportFeesCents || 0) },
+    { name: 'feesAccountId', label: 'Em qual cartão você pagou a taxa?', type: 'select', wide: true, value: i.feesAccountId || '', options: feesAccountOptions(), visibleWhen: feeTyped,
+      hint: state.accounts.some((account) => account.active) ? 'O valor sai desse cartão (conta a pagar já paga). O lucro não muda: ele já conta a taxa.' : 'Nenhum cartão cadastrado. Cadastre em Cadastros, em Contas, e depois escolha aqui.' },
+    { name: 'feesAccountAmount', label: 'Valor cobrado no cartão (na moeda do cartão)', type: 'money', wide: true,
+      visibleWhen: (get) => { const account = state.accounts.find((item) => item.id === get('feesAccountId')); return feeTyped(get) && Boolean(account) && account.currency !== currency; },
+      hint: 'O cartão é em outra moeda da venda: informe quanto foi cobrado nele.' },
     { name: 'issuanceFee', label: 'Comissão afiliado', type: 'money', value: centsToInput(i.issuanceFeeCents || 0) },
     { name: 'otherCosts', label: 'Outros custos', type: 'money', value: centsToInput(i.otherCostsCents || 0) },
   ];
-  const costBody = (v) => ({ airline: v.airline, loyaltyProgram: v.loyaltyProgram, pnr: v.pnr, ticketNumbers: v.ticketNumbers, cashAmountCents: v.cash || 0, airportFeesCents: v.airportFees || 0, issuanceFeeCents: v.issuanceFee || 0, otherCostsCents: v.otherCosts || 0 });
+  const costBody = (v) => ({ airline: v.airline, loyaltyProgram: v.loyaltyProgram, pnr: v.pnr, ticketNumbers: v.ticketNumbers, cashAmountCents: v.cash || 0, airportFeesCents: v.airportFees || 0, feesAccountId: v.airportFees ? (v.feesAccountId || null) : null, feesAccountAmountCents: v.airportFees ? (v.feesAccountAmount || null) : null, issuanceFeeCents: v.issuanceFee || 0, otherCostsCents: v.otherCosts || 0 });
 
   async function addIssuance(sale) {
     const lots = (await api('/api/admin/finance/mileage-lots?status=active')).mileageLots.filter((lot) => lot.currency === sale.currency && lot.balanceQuantity > 0);
+    // Contas da Carteira de milhas (ex.: Taís · LATAM Pass) escolhidas direto aqui; o lote antigo só aparece se existir algum com saldo.
+    const walletAccounts = await walletUsableAccounts().catch(() => []);
+    const hasMilesSource = (v) => Boolean(v.walletAccountId || v.lotId);
     const values = await askForm({
       title: 'Adicionar emissão', submitLabel: 'Adicionar',
-      intro: 'O custo das milhas vem do custo médio do lote escolhido. O lucro só é confirmado quando a emissão for marcada como emitida.',
+      intro: 'O custo das milhas vem do custo médio da conta da carteira (ou do lote) escolhida. O lucro só é confirmado quando a emissão for marcada como emitida.',
       fields: [
         { name: 'mode', label: 'Como foi emitido', type: 'select', options: Object.entries(modeLabels).map(([value, label]) => ({ value, label })), value: 'miles' },
-        ...costFields(),
-        { name: 'lotId', label: 'Lote de milhas usado', type: 'select', options: [{ value: '', label: lots.length ? 'Escolher depois' : 'Nenhum lote ativo com saldo nesta moeda' }, ...lots.map((lot) => ({ value: lot.id, label: `${lot.program} · saldo ${lot.balanceQuantity.toLocaleString('pt-BR')} · ${state.counterparties.find((c) => c.id === lot.counterpartyId)?.displayName || 'fornecedor'}` }))], wide: true },
-        { name: 'quantity', label: 'Milhas usadas deste lote', type: 'number' },
+        ...costFields({}, sale.currency),
+        { name: 'walletAccountId', label: 'Conta da carteira de milhas usada', type: 'select', wide: true, options: [{ value: '', label: walletAccounts.length ? 'Escolher depois' : 'Nenhuma conta com saldo na carteira' }, ...walletAccounts.map((account) => ({ value: account.id, label: account.label }))] },
+        { name: 'lotId', label: 'Ou lote comprado em Milhas', type: 'select', wide: true, visibleWhen: () => lots.length > 0, options: [{ value: '', label: 'Não usar lote' }, ...lots.map((lot) => ({ value: lot.id, label: `${lot.program} · saldo ${lot.balanceQuantity.toLocaleString('pt-BR')} · ${state.counterparties.find((c) => c.id === lot.counterpartyId)?.displayName || 'fornecedor'}` }))] },
+        { name: 'quantity', label: 'Milhas usadas', type: 'number' },
+        { name: 'fxRate', label: `Câmbio: quantos reais vale 1 ${sale.currency}`, type: 'number', visibleWhen: (get) => sale.currency !== 'BRL' && Boolean(get('walletAccountId')), hint: 'O custo das milhas é em reais; precisa converter para a moeda da venda.' },
         { name: 'markIssued', label: 'Já foi emitida (confirmar o custo agora)', type: 'checkbox', value: false },
       ],
     });
     if (!values) return;
-    if (values.lotId && !values.quantity) { flash('Informe quantas milhas foram usadas do lote.', true); return; }
+    if (values.walletAccountId && values.lotId) { flash('Escolha só uma origem das milhas: conta da carteira ou lote.', true); return; }
+    if (hasMilesSource(values) && !values.quantity) { flash('Informe quantas milhas foram usadas.', true); return; }
+    if (values.walletAccountId && sale.currency !== 'BRL' && !values.fxRate) { flash(`Informe o câmbio: quantos reais vale 1 ${sale.currency}.`, true); return; }
     if (values.markIssued && !values.pnr) { flash('Informe o PNR para marcar como emitida.', true); return; }
-    if (values.markIssued && (values.mode === 'miles' || values.mode === 'hybrid') && !values.lotId) { flash('Escolha o lote das milhas antes de confirmar o custo.', true); return; }
+    if (values.markIssued && (values.mode === 'miles' || values.mode === 'hybrid') && !hasMilesSource(values)) { flash('Escolha de onde saíram as milhas antes de confirmar o custo.', true); return; }
     await guard(async () => {
       const created = await api(`/api/admin/finance/sales/${sale.id}/issuances`, { method: 'POST', body: JSON.stringify({ mode: values.mode, currency: sale.currency, ...costBody(values) }) });
-      if (values.lotId) await api(`/api/admin/finance/issuances/${created.id}/mileage-allocations`, { method: 'POST', body: JSON.stringify({ lotId: values.lotId, quantity: values.quantity }) });
+      try {
+        if (values.walletAccountId) await postWalletUsage(created.id, { accountId: values.walletAccountId, miles: values.quantity, fxRate: values.fxRate });
+        else if (values.lotId) await api(`/api/admin/finance/issuances/${created.id}/mileage-allocations`, { method: 'POST', body: JSON.stringify({ lotId: values.lotId, quantity: values.quantity }) });
+      } catch (error) {
+        // A emissão já existe; só as milhas falharam. Não marca como emitida sem custo de milhas.
+        flash(`A emissão foi criada, mas as milhas não foram lançadas: ${financeErrorMessage(error, 'erro ao usar as milhas')}. Use "Usar milhas da minha carteira" no card dela.`, true);
+        await reload(); loadMileageLots();
+        return;
+      }
       if (values.markIssued) await api(`/api/admin/finance/issuances/${created.id}/issue`, { method: 'POST', body: JSON.stringify({}) });
       flash('Emissão adicionada.');
       await reload();
@@ -755,7 +783,7 @@ async function openFlightDialog(saleId) {
     const issued = i.status === 'issued';
     const values = await askForm({
       title: 'Editar custos da emissão', submitLabel: 'Salvar',
-      fields: [{ name: 'mode', label: 'Como foi emitido', type: 'select', options: Object.entries(modeLabels).map(([value, label]) => ({ value, label })), value: i.mode, wide: true }, ...costFields(i)],
+      fields: [{ name: 'mode', label: 'Como foi emitido', type: 'select', options: Object.entries(modeLabels).map(([value, label]) => ({ value, label })), value: i.mode, wide: true }, ...costFields(i, i.currency)],
       intro: issued ? 'Esta emissão já foi emitida. Ao salvar, o custo e o lucro do voo são recalculados e a correção fica registrada. Se mudar para milhas, use "Usar milhas de um lote" depois de salvar e zere a passagem em dinheiro.' : '',
     });
     if (!values) return;

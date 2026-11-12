@@ -369,6 +369,15 @@ async function setClubStatus(id, status) {
 export async function walletUsages(issuanceId) {
   return (await api(`/api/admin/finance/issuances/${issuanceId}/wallet-usage`)).usages;
 }
+/** Contas da carteira com saldo, para o modal "Adicionar emissão" escolher a conta direto (sem segundo passo). */
+export async function walletUsableAccounts() {
+  await fetchWallet();
+  return data.accounts.filter((a) => a.active && a.balance > 0).map((a) => ({ id: a.id, program: a.program, label: `${accountLabel(a)} · saldo ${fmt(a.balance)} · ${perThousand(a.avgPerThousandCents)}` }));
+}
+/** Lança as milhas de uma conta da carteira numa emissão. Quem chama trata o erro. */
+export async function postWalletUsage(issuanceId, { accountId, miles, fxRate }) {
+  return api(`/api/admin/finance/issuances/${issuanceId}/wallet-usage`, { method: 'POST', body: JSON.stringify({ accountId, miles, fxRate: fxRate ?? undefined }) });
+}
 /** Janela "Usar milhas da minha carteira". Devolve true quando lançou. */
 export async function useWalletMiles(issuance, sale) {
   await fetchWallet();
