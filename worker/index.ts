@@ -2234,7 +2234,7 @@ async function financeReceivablePaymentReverse(req: Request, env: Env, paymentId
 // Mirrors src/routes/finance-issuances.ts and the profit-summary addition to GET /sales/{id} in
 // src/routes/finance-sales.ts.
 const FINANCE_ISSUANCE_MODES = ['cash', 'miles', 'hybrid', 'consolidator', 'airline', 'other'];
-const financeIssuancesSelectColumns = 'id,sale_id,mode,airline,loyalty_program,pnr,ticket_numbers,currency,cash_amount_cents,miles_quantity,miles_cost_cents,airport_fees_cents,issuance_fee_cents,consolidator_fee_cents,gateway_fee_cents,agent_commission_cents,other_costs_cents,mileage_provider_id,consolidator_id,status,issued_at,issued_by,terminated_at,terminated_by,termination_reason,notes,created_at,updated_at';
+const financeIssuancesSelectColumns = 'id,sale_id,mode,airline,loyalty_program,pnr,ticket_numbers,currency,cash_amount_cents,miles_quantity,miles_cost_cents,airport_fees_cents,issuance_fee_cents,consolidator_fee_cents,gateway_fee_cents,agent_commission_cents,other_costs_cents,mileage_provider_id,consolidator_id,status,issued_at,issued_by,terminated_at,terminated_by,termination_reason,notes,fees_account_id,fees_obligation_id,created_at,updated_at';
 
 function serializeFinIssuance(row: Row) {
   return {
@@ -2245,8 +2245,92 @@ function serializeFinIssuance(row: Row) {
     agentCommissionCents: row.agent_commission_cents, otherCostsCents: row.other_costs_cents,
     mileageProviderId: row.mileage_provider_id, consolidatorId: row.consolidator_id, status: row.status,
     issuedAt: row.issued_at, issuedBy: row.issued_by, terminatedAt: row.terminated_at, terminationReason: row.termination_reason,
-    notes: row.notes, createdAt: row.created_at, updatedAt: row.updated_at,
+    notes: row.notes, feesAccountId: row.fees_account_id ?? null, feesObligationId: row.fees_obligation_id ?? null, createdAt: row.created_at, updatedAt: row.updated_at,
   };
+}
+
+/** Confere a conta/cartão escolhido para a taxa de embarque antes de gravar qualquer coisa. */
+async function financeValidateFeesAccount(env: Env, accountId: string | null, issuanceCurrency: string, accountAmountCents: number | null): Promise<{ error: string; status: 422 } | null> {
+  if (!accountId) return null;
+  const account = await env.DB.prepare('SELECT currency FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first<{ currency: string }>();
+  if (!account) return { error: 'account_not_found', status: 422 };
+  // Cartão em outra moeda da venda: o valor cobrado na moeda do cartão é obrigatório (igual ao pagamento de contas a pagar).
+  if (account.currency !== issuanceCurrency && !accountAmountCents) return { error: 'account_amount_required', status: 422 };
+  return null;
+}
+
+/**
+ * Taxa de embarque paga no cartão: vira uma conta a pagar de CUSTO DIRETO, já paga na conta escolhida, para o saldo/fatura do cartão
+ * refletirem o gasto. O lucro não soma essa conta a pagar (o painel só soma despesas operacionais; o custo direto do voo vem da emissão).
+ * Se a taxa ou o cartão mudar, o pagamento antigo é estornado, a conta a pagar antiga é cancelada e uma nova é criada, tudo num lote só.
+ */
+async function financeSyncAirportFeesPayment(env: Env, userId: string, issuanceId: string, input: { hasAccount: boolean; accountId: string | null; accountAmountCents: number | null }): Promise<{ error: string; status: 404 | 422 } | null> {
+  const row = await env.DB.prepare(
+    `SELECT i.currency,i.pnr,i.airport_fees_cents,i.fees_account_id,i.fees_obligation_id,s.protocol
+       FROM fin_issuances i JOIN fin_sales s ON s.id=i.sale_id WHERE i.id=?`,
+  ).bind(issuanceId).first<{ currency: string; pnr: string | null; airport_fees_cents: number; fees_account_id: string | null; fees_obligation_id: string | null; protocol: string }>();
+  if (!row) return { error: 'not_found', status: 404 };
+  const fee = Number(row.airport_fees_cents);
+  const accountId = input.hasAccount ? input.accountId : row.fees_account_id;
+  const wantPaid = fee > 0 && Boolean(accountId);
+  if (!wantPaid && !row.fees_obligation_id) {
+    if (input.hasAccount && row.fees_account_id !== accountId) await env.DB.prepare('UPDATE fin_issuances SET fees_account_id=? WHERE id=?').bind(accountId, issuanceId).run();
+    return null;
+  }
+
+  const existingObligation = row.fees_obligation_id
+    ? await env.DB.prepare('SELECT amount_cents,status FROM fin_obligations WHERE id=?').bind(row.fees_obligation_id).first<{ amount_cents: number; status: string }>()
+    : null;
+  // Já está certo (mesmo valor, mesmo cartão, pago): não mexe em nada.
+  if (wantPaid && existingObligation && existingObligation.status === 'paid' && Number(existingObligation.amount_cents) === fee && row.fees_account_id === accountId) return null;
+  const invalid = wantPaid ? await financeValidateFeesAccount(env, accountId, row.currency, input.accountAmountCents) : null;
+  if (invalid) return invalid;
+
+  const statements: D1PreparedStatement[] = [];
+  if (row.fees_obligation_id && existingObligation) {
+    const payments = await env.DB.prepare(
+      `SELECT id,paid_amount_cents,currency,account_id,account_amount_cents FROM fin_obligation_payments
+        WHERE obligation_id=? AND reversal_of IS NULL AND paid_amount_cents>0
+          AND id NOT IN (SELECT reversal_of FROM fin_obligation_payments WHERE reversal_of IS NOT NULL)`,
+    ).bind(row.fees_obligation_id).all<{ id: string; paid_amount_cents: number; currency: string; account_id: string; account_amount_cents: number | null }>();
+    for (const payment of payments.results) {
+      statements.push(env.DB.prepare('INSERT INTO fin_obligation_payments (id,obligation_id,paid_amount_cents,currency,account_id,reversal_of,reversal_reason,created_by,account_amount_cents) VALUES (?,?,?,?,?,?,?,?,?)')
+        .bind(crypto.randomUUID(), row.fees_obligation_id, -Number(payment.paid_amount_cents), payment.currency, payment.account_id, payment.id, 'Taxa de embarque corrigida na emissão', userId, payment.account_amount_cents === null ? null : -Number(payment.account_amount_cents)));
+    }
+    if (existingObligation.status !== 'canceled') {
+      statements.push(env.DB.prepare("UPDATE fin_obligations SET status='canceled',canceled_at=CURRENT_TIMESTAMP,canceled_by=?,cancel_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")
+        .bind(userId, 'Taxa de embarque corrigida na emissão', row.fees_obligation_id));
+    }
+  }
+
+  if (!wantPaid) {
+    statements.push(env.DB.prepare('UPDATE fin_issuances SET fees_account_id=?,fees_obligation_id=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(accountId, issuanceId));
+    await env.DB.batch(statements);
+    await audit(env, userId, 'finance.issuance_fees_payment_removed', 'fin_issuance', issuanceId);
+    return null;
+  }
+
+  const account = await env.DB.prepare('SELECT currency FROM fin_accounts WHERE id=? AND active=1').bind(accountId).first<{ currency: string }>();
+  const accountAmountCents = account && account.currency !== row.currency ? input.accountAmountCents : null;
+  let category = await env.DB.prepare("SELECT id,default_cost_center_id FROM fin_categories WHERE kind='direct_cost' AND name='Taxas de aeroporto' AND active=1 LIMIT 1").first<{ id: string; default_cost_center_id: string | null }>();
+  if (!category) {
+    const categoryId = crypto.randomUUID();
+    statements.push(env.DB.prepare("INSERT INTO fin_categories(id,parent_id,kind,name,default_cost_center_id) VALUES(?,NULL,'direct_cost','Taxas de aeroporto',NULL)").bind(categoryId));
+    category = { id: categoryId, default_cost_center_id: null };
+  }
+  const obligationId = crypto.randomUUID();
+  const day = new Date().toISOString().slice(0, 10);
+  const note = `Taxa de embarque${row.pnr ? ` · PNR ${row.pnr}` : ''} · venda ${row.protocol}`;
+  statements.push(
+    env.DB.prepare(`INSERT INTO fin_obligations (id,kind,counterparty_id,category_id,cost_center_id,competency_date,due_date,amount_cents,currency,account_id,status,notes,created_by)
+                    VALUES (?,'direct_cost',NULL,?,?,?,?,?,?,?,'paid',?,?)`).bind(obligationId, category.id, category.default_cost_center_id, day, day, fee, row.currency, accountId, note, userId),
+    env.DB.prepare('INSERT INTO fin_obligation_payments (id,obligation_id,paid_amount_cents,currency,account_id,reference,created_by,account_amount_cents) VALUES (?,?,?,?,?,?,?,?)')
+      .bind(crypto.randomUUID(), obligationId, fee, row.currency, accountId, note, userId, accountAmountCents),
+    env.DB.prepare('UPDATE fin_issuances SET fees_account_id=?,fees_obligation_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(accountId, obligationId, issuanceId),
+  );
+  await env.DB.batch(statements);
+  await audit(env, userId, 'finance.issuance_fees_paid_on_account', 'fin_issuance', issuanceId);
+  return null;
 }
 
 /** Mirrors src/routes/finance-sales.ts's calculateSaleProfitSummary exactly. */
@@ -2300,11 +2384,14 @@ async function financeSaleIssuanceCreate(req: Request, env: Env, saleId: string)
   const mileageProviderId = typeof b?.mileageProviderId === 'string' && UUID_RE.test(b.mileageProviderId) ? b.mileageProviderId : null;
   const consolidatorId = typeof b?.consolidatorId === 'string' && UUID_RE.test(b.consolidatorId) ? b.consolidatorId : null;
   const notes = text(b?.notes, 1000) || null;
+  const feesAccountId = typeof b?.feesAccountId === 'string' && UUID_RE.test(b.feesAccountId) ? b.feesAccountId : null;
+  const feesAccountAmountCents = intOf(b?.feesAccountAmountCents, 1, 100_000_000_00);
 
   const sale = await env.DB.prepare('SELECT status,currency FROM fin_sales WHERE id=?').bind(saleId).first<{ status: string; currency: string }>();
   if (!sale) return reply({ error: 'sale_not_found' }, 404);
   if (sale.status !== 'confirmed') return reply({ error: 'sale_not_confirmed' }, 409);
   if (currency !== sale.currency) return reply({ error: 'issuance_currency_must_match_sale' }, 422);
+  if (feesAccountId && airportFeesCents > 0) { const invalid = await financeValidateFeesAccount(env, feesAccountId, currency, feesAccountAmountCents); if (invalid) return reply({ error: invalid.error }, invalid.status); }
   if (mileageProviderId) { const c = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(mileageProviderId).first(); if (!c) return reply({ error: 'mileage_provider_not_found' }, 422); }
   if (consolidatorId) { const c = await env.DB.prepare('SELECT 1 FROM fin_counterparties WHERE id=? AND active=1').bind(consolidatorId).first(); if (!c) return reply({ error: 'consolidator_not_found' }, 422); }
 
@@ -2319,6 +2406,10 @@ async function financeSaleIssuanceCreate(req: Request, env: Env, saleId: string)
     airportFeesCents, issuanceFeeCents, consolidatorFeeCents, gatewayFeeCents, agentCommissionCents, otherCostsCents,
     mileageProviderId, consolidatorId, notes, auth.userId).run();
   await audit(env, auth.userId, 'finance.issuance_created', 'fin_issuance', id);
+  if (feesAccountId && airportFeesCents > 0) {
+    const failed = await financeSyncAirportFeesPayment(env, auth.userId, id, { hasAccount: true, accountId: feesAccountId, accountAmountCents: feesAccountAmountCents });
+    if (failed) return reply({ error: failed.error, id }, failed.status);
+  }
   return reply({ id }, 201);
 }
 
@@ -2326,7 +2417,7 @@ async function financeIssuanceUpdate(req: Request, env: Env, id: string) {
   const auth = await mutationAuth(req, env); if (!auth) return reply({ error: 'unauthorized' }, 401); if (!auth.roles.includes('master')) return reply({ error: 'forbidden' }, 403);
   const b = await body(req);
   const has = (key: string) => b != null && key in b;
-  const existing = await env.DB.prepare('SELECT status FROM fin_issuances WHERE id=?').bind(id).first<{ status: string }>();
+  const existing = await env.DB.prepare('SELECT status,currency,fees_obligation_id FROM fin_issuances WHERE id=?').bind(id).first<{ status: string; currency: string; fees_obligation_id: string | null }>();
   if (!existing) return reply({ error: 'not_found' }, 404);
   // Pendente ou já emitida: dá para corrigir custos, PNR, bilhete e o modo (ex.: dinheiro para milhas); o lucro recalcula. As milhas
   // e o custo delas vêm sempre dos lotes (mileage-allocations), nunca deste pedido. Cancelada e reembolsada continuam travadas.
@@ -2350,6 +2441,9 @@ async function financeIssuanceUpdate(req: Request, env: Env, id: string) {
   const mileageProviderId = typeof b?.mileageProviderId === 'string' && UUID_RE.test(b.mileageProviderId) ? b.mileageProviderId : null;
   const consolidatorId = typeof b?.consolidatorId === 'string' && UUID_RE.test(b.consolidatorId) ? b.consolidatorId : null;
   const notes = text(b?.notes, 1000) || null;
+  const feesAccountId = typeof b?.feesAccountId === 'string' && UUID_RE.test(b.feesAccountId) ? b.feesAccountId : null;
+  const feesAccountAmountCents = intOf(b?.feesAccountAmountCents, 1, 100_000_000_00);
+  const syncFees = has('feesAccountId') || Boolean(existing.fees_obligation_id);
   if (issued && has('pnr') && !pnr) return reply({ error: 'pnr_required_to_issue' }, 422);
   if (mode && mode !== 'miles' && mode !== 'hybrid') {
     const active = await env.DB.prepare('SELECT 1 FROM fin_mileage_allocations WHERE issuance_id=? AND voided_at IS NULL UNION ALL SELECT 1 FROM fin_wallet_movements WHERE issuance_id=? AND voided_at IS NULL LIMIT 1').bind(id, id).first();
@@ -2389,6 +2483,10 @@ async function financeIssuanceUpdate(req: Request, env: Env, id: string) {
   ).run();
   if (!result.meta.changes) return reply({ error: 'issuance_locked_after_issued' }, 409);
   await audit(env, auth.userId, issued ? 'finance.issued_issuance_corrected' : 'finance.issuance_updated', 'fin_issuance', id);
+  if (syncFees) {
+    const failed = await financeSyncAirportFeesPayment(env, auth.userId, id, { hasAccount: has('feesAccountId'), accountId: feesAccountId, accountAmountCents: feesAccountAmountCents });
+    if (failed) return reply({ error: failed.error }, failed.status);
+  }
   return reply({ ok: true });
 }
 

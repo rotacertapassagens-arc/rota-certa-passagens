@@ -358,4 +358,70 @@ describe('Financeiro: painel novo, venda direta, lucro por voo e recibos (Worker
     await send(jar, 'PATCH', url, { mode: 'miles' });
     expect((await send(jar, 'POST', `${url}/mileage-allocations`, { lotId: lote.json.id, quantity: 1000 })).status).toBe(409);
   }, 120_000);
+
+  it('taxa de embarque paga no cartão: vira conta a pagar de custo direto já paga, sem mexer no lucro; corrige, troca e remove o cartão', async () => {
+    const jar = await masterJar();
+    const cartao = await send(jar, 'POST', '/api/admin/finance/accounts', { name: 'Cartão Teste', type: 'card', currency: 'BRL', last4: '1234' });
+    expect(cartao.status).toBe(201);
+    const cartaoEur = await send(jar, 'POST', '/api/admin/finance/accounts', { name: 'Cartão Euro Teste', type: 'card', currency: 'EUR' });
+    expect(cartaoEur.status).toBe(201);
+    const balanceOf = async (id: string) => ((await send(jar, 'GET', '/api/admin/finance/accounts/balances')).json.accounts as Array<Record<string, any>>).find((account) => account.id === id)!;
+    const despesas = async () => ((await send(jar, 'GET', `/api/admin/finance/dashboard/overview?from=${today}&to=${today}`)).json.indicators as Array<Record<string, any>>).find((x) => x.currency === 'BRL')?.despesasOperacionaisCents ?? 0;
+    const despesasAntes = await despesas();
+
+    const venda = await send(jar, 'POST', '/api/admin/finance/sales/direct', { customerName: 'Cliente Taxa Cartão', origin: 'POA', destination: 'SSA', saleDate: today, currency: 'BRL', grossAmountCents: 86000 });
+    expect(venda.status).toBe(201);
+    const emissoesUrl = `/api/admin/finance/sales/${venda.json.id}/issuances`;
+    const issuanceOf = async () => (await send(jar, 'GET', `/api/admin/finance/sales/${venda.json.id}`)).json.issuances[0];
+    const lucro = async () => (await send(jar, 'GET', '/api/admin/finance/flights')).json.flights.find((f: any) => f.id === venda.json.id).profit;
+
+    // Cartão que não existe, ou em outra moeda sem o valor cobrado nele, não grava a emissão.
+    const fantasma = await send(jar, 'POST', emissoesUrl, { mode: 'cash', currency: 'BRL', pnr: 'DKKHKT', airportFeesCents: 6269, feesAccountId: '00000000-0000-4000-8000-000000000000' });
+    expect(fantasma.status).toBe(422);
+    expect(fantasma.json.error).toBe('account_not_found');
+    const semValor = await send(jar, 'POST', emissoesUrl, { mode: 'cash', currency: 'BRL', pnr: 'DKKHKT', airportFeesCents: 6269, feesAccountId: cartaoEur.json.id });
+    expect(semValor.status).toBe(422);
+    expect(semValor.json.error).toBe('account_amount_required');
+    expect((await send(jar, 'GET', emissoesUrl)).json.issuances).toHaveLength(0);
+
+    // Taxa digitada + cartão: a emissão guarda o cartão e a saída aparece no cartão.
+    const emissao = await send(jar, 'POST', emissoesUrl, { mode: 'cash', currency: 'BRL', pnr: 'DKKHKT', airportFeesCents: 6269, feesAccountId: cartao.json.id });
+    expect(emissao.status).toBe(201);
+    const url = `/api/admin/finance/issuances/${emissao.json.id}`;
+    const criada = await issuanceOf();
+    expect(criada).toMatchObject({ airportFeesCents: 6269, feesAccountId: cartao.json.id });
+    expect(criada.feesObligationId).toBeTruthy();
+    expect(await balanceOf(cartao.json.id)).toMatchObject({ currency: 'BRL', balanceCents: -6269, outCents: 6269 });
+    const obrigacao = (await send(jar, 'GET', '/api/admin/finance/obligations')).json.obligations.find((o: any) => o.id === criada.feesObligationId);
+    expect(obrigacao).toMatchObject({ kind: 'direct_cost', status: 'paid', amountCents: 6269, currency: 'BRL' });
+
+    // O lucro conta a taxa uma vez só (vem da emissão); a conta a pagar não entra em despesas operacionais.
+    expect((await send(jar, 'POST', `${url}/issue`, {})).status).toBe(200);
+    expect((await lucro()).realizedDirectCostCents).toBe(6269);
+    expect(await despesas()).toBe(despesasAntes);
+
+    // Reenviar a mesma taxa e o mesmo cartão não duplica a saída.
+    expect((await send(jar, 'PATCH', url, { airportFeesCents: 6269, feesAccountId: cartao.json.id })).status).toBe(200);
+    expect(await balanceOf(cartao.json.id)).toMatchObject({ balanceCents: -6269, outCents: 6269 });
+
+    // Corrigir o valor: estorna a saída antiga e lança a nova.
+    expect((await send(jar, 'PATCH', url, { airportFeesCents: 7000, feesAccountId: cartao.json.id })).status).toBe(200);
+    expect(await balanceOf(cartao.json.id)).toMatchObject({ balanceCents: -7000 });
+    expect((await lucro()).realizedDirectCostCents).toBe(7000);
+    const nova = await issuanceOf();
+    expect(nova.feesObligationId).not.toBe(criada.feesObligationId);
+
+    // Cartão em outra moeda: com o valor cobrado nele, debita na moeda do cartão.
+    expect((await send(jar, 'PATCH', url, { airportFeesCents: 7000, feesAccountId: cartaoEur.json.id })).status).toBe(422);
+    expect((await send(jar, 'PATCH', url, { airportFeesCents: 7000, feesAccountId: cartaoEur.json.id, feesAccountAmountCents: 1100 })).status).toBe(200);
+    expect(await balanceOf(cartao.json.id)).toMatchObject({ balanceCents: 0 });
+    expect(await balanceOf(cartaoEur.json.id)).toMatchObject({ currency: 'EUR', balanceCents: -1100 });
+
+    // "Não foi no cartão" remove a saída e o vínculo; o lucro continua refletindo a taxa digitada.
+    expect((await send(jar, 'PATCH', url, { airportFeesCents: 7000, feesAccountId: null })).status).toBe(200);
+    expect(await balanceOf(cartaoEur.json.id)).toMatchObject({ balanceCents: 0 });
+    expect(await issuanceOf()).toMatchObject({ feesAccountId: null, feesObligationId: null, airportFeesCents: 7000 });
+    expect((await lucro()).realizedDirectCostCents).toBe(7000);
+    expect(await despesas()).toBe(despesasAntes);
+  }, 120_000);
 });
