@@ -44,4 +44,9 @@ export const GUIAS_CURTOS: Record<string, string> = {
   miami: 'miami-em-4-dias',
   atacama: 'atacama-em-4-dias',
   barcelona: 'barcelona-em-4-dias',
+  cancun: 'cancun-em-4-dias',
+  amsterda: 'amsterda-em-4-dias',
+  montevideu: 'montevideu-em-3-dias',
+  dubai: 'dubai-em-4-dias',
+  porto: 'porto-em-3-dias',
 };
