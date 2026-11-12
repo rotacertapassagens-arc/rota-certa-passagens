@@ -308,7 +308,7 @@ function promoHistory(accountId) {
 // --- Clubes -----------------------------------------------------------------------------------------------
 export async function loadClubes() {
   await fetchWallet();
-  const clubs = data.accounts.flatMap((a) => a.clubs.map((c) => ({ ...c, account: a })));
+  const clubs = data.accounts.filter((a) => a.active).flatMap((a) => a.clubs.map((c) => ({ ...c, account: a })));
   const lateIds = lateClubIds();
   const problems = clubs.filter((c) => c.status === 'payment_failed' || c.status === 'canceled');
   const late = clubs.filter((c) => c.status === 'active' && lateIds.has(c.id));

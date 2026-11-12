@@ -581,7 +581,7 @@ async function adminLeads(req:Request,env:Env,url:URL){
   const conds=["l.kind='flight_quote'"];const binds:unknown[]=[];
   if(status){conds.push('l.status=?');binds.push(status);}
   if(partnerId){conds.push('l.partner_id=?');binds.push(partnerId);}
-  const sql=`SELECT l.id,l.protocol,l.customer_name,l.customer_email,l.customer_phone,l.origin,l.destination,l.outbound_on,l.return_on,l.adults,l.children,l.infants,l.trip_type,l.cabin_class,l.baggage,l.date_flexibility,l.payment_preference,l.notes,l.internal_notes,l.status,l.deadline_at,l.created_at,l.updated_at,l.assigned_to,p.display_name assigned_name,l.partner_id,l.referral_code_snapshot,l.referral_source,l.sale_amount_cents,l.sale_currency,l.converted_at,partner.code partner_code,partner.display_name partner_display_name FROM lead_requests l LEFT JOIN profiles p ON p.user_id=l.assigned_to LEFT JOIN partners partner ON partner.id=l.partner_id WHERE ${conds.join(' AND ')} ORDER BY CASE WHEN l.status IN ('new','reviewing','awaiting_customer','ready') THEN 0 ELSE 1 END,l.deadline_at ASC,l.created_at DESC LIMIT 200`;
+  const sql=`SELECT l.id,l.protocol,l.customer_name,l.customer_email,l.customer_phone,l.origin,l.destination,l.outbound_on,l.return_on,l.adults,l.children,l.infants,l.trip_type,l.cabin_class,l.baggage,l.date_flexibility,l.payment_preference,l.notes,l.internal_notes,l.status,l.deadline_at,l.created_at,l.updated_at,l.assigned_to,p.display_name assigned_name,l.partner_id,l.referral_code_snapshot,l.referral_source,l.how_heard,l.utm_source,l.utm_medium,l.utm_campaign,l.utm_content,l.utm_term,l.source_page,l.source_referrer,l.source_captured_at,l.sale_amount_cents,l.sale_currency,l.converted_at,partner.code partner_code,partner.display_name partner_display_name FROM lead_requests l LEFT JOIN profiles p ON p.user_id=l.assigned_to LEFT JOIN partners partner ON partner.id=l.partner_id WHERE ${conds.join(' AND ')} ORDER BY CASE WHEN l.status IN ('new','reviewing','awaiting_customer','ready') THEN 0 ELSE 1 END,l.deadline_at ASC,l.created_at DESC LIMIT 200`;
   const leads=(await env.DB.prepare(sql).bind(...binds).all<Row>()).results;
   // A lead can have more than one *historical* commission row (converted -> voided ->
   // reconverted); this listing must attach exactly one "current" commission per lead without
@@ -755,7 +755,8 @@ async function flightQuoteLead(req:Request,env:Env){
   if(submissionId){const prior=await priorSubmission(env,submissionId,submissionHash!);if(prior)return prior;}
   if(!(await rateLimit(req,env,'flight_quote',email,4,1800)))return reply({error:'try_again_later'},429);
   const id=crypto.randomUUID(),deadline=isoAfter(48*3600),year=new Date().getUTCFullYear();
-  const howHeard=typeof b?.howHeard==='string'?b.howHeard:null;
+  const HOW_HEARD_OPTIONS=['Instagram','Indicação de um amigo','Indicação de um parceiro/influenciador','Google','Outro'];
+  const howHeard=typeof b?.howHeard==='string'&&HOW_HEARD_OPTIONS.includes(b.howHeard)?b.howHeard:null;
   const manualCode=howHeard==='Indicação de um parceiro/influenciador'&&typeof b?.referralCode==='string'?b.referralCode:null;
   const attribution=await resolveAttribution(req,env,manualCode);
   const fields:Record<string,unknown>={id,kind:'flight_quote',customer_name:name,customer_email:email,customer_phone:phone,customer_phone_digits:phoneDigits,
@@ -764,7 +765,7 @@ async function flightQuoteLead(req:Request,env:Env){
     contact_consent:1,consent_version:whatsappConsent?QUOTE_CONSENT_VERSION:null,status:'new',deadline_at:deadline,ip_hash:await sha(clientKey(req)),
     partner_id:attribution?.partnerId??null,referral_code_snapshot:attribution?.code??null,referral_source:attribution?.source??'none',
     referral_captured_at:attribution?.capturedAtIso??null,attribution_expires_at:attribution?.expiresAtIso??null,
-    submission_id:submissionId,submission_hash:submissionHash,...source};
+    submission_id:submissionId,submission_hash:submissionHash,how_heard:howHeard,...source};
   const columns=Object.keys(fields);
   // Protocolo RC-AAAA-NNNNN: contador do ano e pedido na mesma transação (D1 batch), então não há número repetido nem pulado por falha.
   let protocol:string;

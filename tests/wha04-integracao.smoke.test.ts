@@ -83,7 +83,9 @@ describe('WHA-04 integrado: site → WHA-01 → WHA-04 → Notion → resposta',
       type: 'quote', name: 'Cliente Teste', email: `${crypto.randomUUID()}@example.com`, phone: '+351 912 345 678',
       origem: 'Lisboa', destino: 'São Paulo', ida: '2027-02-10', volta: '2027-02-24', adults: 1, children: 0, infants: 0,
       tipo: 'Ida e volta', cabinClass: 'Econômica', baggage: 'Bagagem de mão', flexibility: 'Datas fixas', paymentPreference: 'Pix',
-      contactConsent: true, consentVersion: QUOTE_CONSENT_VERSION, submissionId: crypto.randomUUID(), ...overrides,
+      contactConsent: true, consentVersion: QUOTE_CONSENT_VERSION, submissionId: crypto.randomUUID(), howHeard: 'Instagram',
+      source: { utm_source: 'instagram', utm_medium: 'paid', utm_campaign: 'piloto-outubro', utm_content: 'reel-a', utm_term: 'brasil', page: '/proposta-voo.html', referrer: 'l.instagram.com', capturedAt: new Date().toISOString() },
+      ...overrides,
     }) });
     const body = await res.json() as Json;
     expect(res.status, JSON.stringify(body)).toBe(201);
@@ -133,6 +135,10 @@ describe('WHA-04 integrado: site → WHA-01 → WHA-04 → Notion → resposta',
     const page = notion.pages.get(`site:${lead.protocol}`)!;
     expect(page).toMatchObject({ origem: 'Lisboa', destino: 'São Paulo', classe: 'Económica', bagagem: 'Somente item pessoal', vooDireto: false, aceitaEscalas: false, estado: 'Novo', dataVolta: '2027-02-24' });
     expect(JSON.parse(page.pedidoJson).collected).toMatchObject({ tipoViagem: 'ida_e_volta', preferenciaEscalas: 'sem_preferencia', vooDireto: null, aceitaEscalas: null });
+    expect(JSON.parse(page.pedidoJson).attribution).toMatchObject({
+      howHeard: 'Instagram', referralSource: 'none',
+      utm: { source: 'instagram', medium: 'paid', campaign: 'piloto-outubro', content: 'reel-a', term: 'brasil' },
+    });
 
     // Protocolo repetido (a pessoa manda a mensagem de novo): localiza, não cria outra página.
     const again = await whatsappMessage(messageOf(lead), '351912345678');
