@@ -1,0 +1,438 @@
+{
+  "_origem": "Fatos de rota-certa-motion-factory/guides/cancun-4-dias/guide.json (v0.1, fontes conferidas em 12/11/2026) e do guia.html do mesmo guia. Não acrescente fato que não esteja lá.",
+  "id": "7a4a7f49-4fd6-43ae-be67-0e5180cd3857",
+  "slug": "cancun-em-4-dias",
+  "regionId": "caribe",
+  "title": "Cancún em 4 dias: visto de US$ 10, Isla Mujeres e Chichén Itzá",
+  "titleHighlight": "visto de US$ 10",
+  "summary": "Roteiro de Cancún em 4 dias, da zona hoteleira a Isla Mujeres, Chichén Itzá ou Tulum e ao Museu Maia, com o visto eletrônico, a taxa estadual, valores em pesos e em reais e o guia em PDF para baixar de graça.",
+  "lede": "Brasileiro precisa de visto para o México, e o eletrônico custa US$ 10. O roteiro, a taxa estadual e os valores conferidos em novembro de 2026 vão no guia completo, no celular.",
+  "destination": "Cancún",
+  "coverUrl": "/assets/blog/cancun-4-dias.jpg",
+  "coverUrlSmall": "/assets/blog/cancun-4-dias-m.jpg",
+  "coverAlt": "Praia e hotéis brancos da zona hoteleira de Cancún, com mar turquesa e banhistas",
+  "body": [
+    {
+      "t": "pdf",
+      "href": "/guias/cancun-em-4-dias.pdf",
+      "note": "PDF de 16 páginas, feito para ler no celular. Grátis, sem cadastro."
+    },
+    {
+      "t": "p",
+      "text": "Zona hoteleira, Ilha das Mulheres, Chichén Itzá e o Museu Maia, com o visto eletrônico, a taxa estadual e valores em pesos e em reais."
+    },
+    {
+      "t": "tip",
+      "title": "Como usar este roteiro",
+      "items": [
+        "Resolva o visto e a taxa estadual (seção Antes de viajar).",
+        "Escolha entre Chichén Itzá e Tulum para o Dia 3.",
+        "Faça o Dia 4 de terça a domingo: o museu fecha às segundas."
+      ]
+    },
+    {
+      "t": "whatsapp"
+    },
+    {
+      "t": "afiliado"
+    },
+    {
+      "t": "h",
+      "text": "Visto, taxa e entrada",
+      "label": "Antes de viajar"
+    },
+    {
+      "t": "tip",
+      "title": "Visto eletrônico: US$ 10 por pedido",
+      "items": [
+        "Desde 5/2/2026, pelo portal visaelectronica.sre.gob.mx. Vale por 180 dias, para uma entrada, e só para quem chega por via aérea. Por terra ou mar, vale o visto consular (US$ 56, segundo o consulado em São Paulo)."
+      ]
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Quem não precisa do visto:** Quem tem visto válido dos Estados Unidos ou do Canadá está dispensado. O consulado cita também Schengen, Japão e Reino Unido. O visto precisa estar vigente em toda a viagem, e não garante a entrada.",
+        "**Taxa estadual de turista (Visitax):** Em Quintana Roo, todo turista estrangeiro paga uma taxa estadual, no site oficial do governo do estado (visitax.gob.mx) ou em empresas autorizadas. Valor: confirmar no site. Guarde o comprovante com o QR code.",
+        "**Passaporte e carimbo de entrada:** Leve o passaporte válido por toda a viagem. Segundo aviso da SRE (jan/2025), a FMM de papel deixou de ser necessária por avião: o carimbo comprova a estadia, e a FMM digital pode ser baixada em até 60 dias pelo QR code da imigração. Confirmar no site do INM."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "Seguro viagem: as páginas oficiais lidas não tratam do tema. Fontes na seção Valores e fontes."
+    },
+    {
+      "t": "h",
+      "text": "Chegada e transporte",
+      "label": "Na prática"
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Do aeroporto ao hotel:** Segundo o site oficial de turismo do Caribe Mexicano, o aeroporto fica a cerca de 20 minutos de carro da zona hoteleira e 25 do centro. Há transfers privados, ônibus para o centro e locadoras. Tarifas: confirmar.",
+        "**Zona hoteleira ou centro?:** A zona hoteleira fica entre o mar e a Lagoa Nichupté, com praias, hotéis e restaurantes. O centro tem o terminal de ônibus ADO, o Mercado 28 e lojas de artesanato. Para quem quer praia na porta, a zona hoteleira. Para gastar menos em refeições, o centro.",
+        "**Como se locomover:** Ônibus urbanos percorrem a zona hoteleira e táxis são comuns; combine o preço antes de entrar no táxi. Para Playa del Carmen, Tulum e o sul do estado, saem ônibus do terminal ADO no centro. O Trem Maya tem uma estação dentro do aeroporto e outra a oeste da cidade. Tarifas: confirmar."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Praias públicas, com ondas diferentes",
+      "items": [
+        "Todas as praias de Cancún são públicas. Las Perlas, Langosta, Tortugas, Caracol e Gaviota Azul têm ondas mais suaves. Chac Mool, Marlín, Ballenas e Delfines têm ondas mais fortes: respeite as bandeiras dos salva-vidas."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "Fonte: Caribe Mexicano (mexicancaribbean.travel), página de Cancún, conferida em 12/11/2026."
+    },
+    {
+      "t": "h",
+      "label": "Dia 1",
+      "text": "Zona hoteleira e praias"
+    },
+    {
+      "t": "p",
+      "text": "Chegue, deixe as malas e aproveite as praias públicas de ondas suaves da zona hoteleira."
+    },
+    {
+      "t": "img",
+      "src": "/assets/blog/cancun-zona-hoteleira.jpg",
+      "alt": "Praia da zona hoteleira de Cancún com guarda-sóis de palha, palmeiras e hotéis ao fundo",
+      "caption": "Praia da zona hoteleira de Cancún.",
+      "credit": "Foto: Margo Evardson / Pexels",
+      "w": 1000,
+      "h": 666
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Manhã ou chegada, Hotel e bagagem:** O trajeto do aeroporto à zona hoteleira leva cerca de 20 minutos de carro, segundo o site oficial de turismo. Se o quarto não estiver pronto, deixe a mala na recepção e vá à praia.",
+        "**Tarde, Praias de ondas suaves:** Tortugas, Caracol e Gaviota Azul ficam perto do início da zona hoteleira, com ondas mais calmas.",
+        "**Fim da tarde, Zona hoteleira:** Entre o mar e a lagoa: restaurantes, mercados de artesanato e vida noturna, citados pelo site oficial.",
+        "**Noite, Lagoa Nichupté:** O site oficial cita restaurantes sobre a lagoa e passeios de barco. Preço e horário do passeio: confirmar com a empresa."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Para planejar o Dia 1",
+      "items": [
+        "Principal: Praias Tortugas e Caracol",
+        "Grátis: Todas as praias de Cancún são públicas",
+        "Opcional: Passeio de barco pela Lagoa Nichupté",
+        "**Na praia:** cerca de 4 horas",
+        "**A pé:** pouco: dia de adaptação",
+        "**Esforço:** leve, mas com sol forte",
+        "Estimativas da Rota Certa, não dados oficiais.",
+        "**Dica da Rota Certa:** no primeiro dia, não marque passeio cedo. O voo e a imigração cansam, e a praia perto do hotel já vale o dia.",
+        "**Atenção:** passeios vendidos na calçada costumam custar mais. Compre com empresa registrada."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "[Abrir Playa Tortugas no Google Maps](https://www.google.com/maps/search/?api=1&query=Playa%20Tortugas%2C%20Canc%C3%BAn)"
+    },
+    {
+      "t": "passeio",
+      "busca": "Cancún passeio de barco lagoa Nichupté",
+      "title": "Passeios em Cancún"
+    },
+    {
+      "t": "h",
+      "label": "Dia 2",
+      "text": "Isla Mujeres"
+    },
+    {
+      "t": "p",
+      "text": "Barco até a Ilha das Mulheres, que sai de terminais de Cancún, e um dia de praia, carrinho de golfe e mar."
+    },
+    {
+      "t": "img",
+      "src": "/assets/blog/cancun-isla-mujeres.jpg",
+      "alt": "Vista aérea da Isla Mujeres, no Caribe mexicano, com águas turquesa ao redor",
+      "caption": "Vista aérea da Isla Mujeres.",
+      "credit": "Foto: carlos meza / Pexels",
+      "w": 1000,
+      "h": 666
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Cedo, Barco em Cancún:** De Puerto Juárez são cerca de 20 minutos; saídas da zona hoteleira levam mais, segundo o site oficial. Preços e saídas mudam sem aviso: confirmar tarifa e horário no site do operador.",
+        "**Manhã, Playa Norte:** Areia branca e águas rasas, geralmente calmas. Há carrinhos de golfe para alugar perto do terminal: a ilha tem cerca de 7 km e leva uns 30 minutos para cruzar.",
+        "**Tarde, Punta Sur:** O ponto mais a leste do México, com falésias e ruínas de um templo maia de Ixchel. Ingresso e horário: confirmar.",
+        "**Opcional, MUSA e Garrafón:** O MUSA tem mais de 500 esculturas submersas. O Garrafón tem snorkel e tirolesa. Preços: confirmar com os operadores."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "De onde sai o barco",
+      "items": [
+        "O vídeo cita dois terminais de Cancún: Puerto Juárez e Playa Tortugas (zona hoteleira, km 6,5). Em 12/11/2026 a página da Ultramar lista também Playa Caracol (km 9,5), e o site oficial de turismo fala em quatro terminais ao todo. A taxa de píer em Playa Caracol é paga no local. Tarifa e horário: confirmar."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Para planejar o Dia 2",
+      "items": [
+        "Principal: Playa Norte e passeio pela ilha",
+        "Grátis: Caminhar na orla e ver o pôr do sol",
+        "Opcional: Punta Sur, MUSA e Garrafón, pagos à parte",
+        "**Travessia:** cerca de 20 min por Puerto Juárez",
+        "**Na ilha:** cerca de 6 horas",
+        "**Esforço:** leve",
+        "Travessia: site oficial de turismo. Tempo na ilha: estimativa da Rota Certa.",
+        "Dica da Rota Certa: anote o horário do último barco de volta."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "[Abrir Puerto Juárez no Google Maps](https://www.google.com/maps/search/?api=1&query=Puerto%20Ju%C3%A1rez%20ferry%20terminal%2C%20Canc%C3%BAn)"
+    },
+    {
+      "t": "passeio",
+      "busca": "Isla Mujeres passeio saindo de Cancún",
+      "title": "Passeios a Isla Mujeres"
+    },
+    {
+      "t": "h",
+      "label": "Dia 3",
+      "text": "Chichén Itzá ou Tulum"
+    },
+    {
+      "t": "p",
+      "text": "Escolha um sítio arqueológico para o dia: Chichén Itzá, em Yucatán, ou Tulum, à beira do mar."
+    },
+    {
+      "t": "img",
+      "src": "/assets/blog/cancun-chichen-itza.jpg",
+      "alt": "Pirâmide de El Castillo, em Chichén Itzá, contra o céu azul",
+      "caption": "Pirâmide de El Castillo.",
+      "credit": "Foto: Ollie Craig / Pexels",
+      "w": 1000,
+      "h": 666
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Cedo, Saída de Cancún:** Chichén Itzá fica em Yucatán, a 115 km de Mérida. Desde Cancún a viagem é longa: costuma ser feita em excursão de dia inteiro ou de carro. Duração e preço: confirmar com o operador.",
+        "**Manhã, Zona Arqueológica de Chichén Itzá:** Aberta todos os dias, das 8h às 17h. O último acesso é às 16h e a saída começa às 16h30, segundo o INAH. Chegue na abertura: o sol pesa e as filas crescem.",
+        "**Opcional, Cenote Ik Kil:** A cerca de 3 km de Chichén. Abre das 9h às 17h, todos os dias, segundo o site do cenote. Ingresso: confirmar.",
+        "**Alternativa, Tulum, à beira do mar:** Das 8h às 17h, último acesso às 15h30. Ingresso de estrangeiro: MXN 265 (cerca de R$ 79), segundo o INAH, ficha de 10/8/2026."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Ingresso de Chichén Itzá: MXN 697",
+      "items": [
+        "Segundo o INAH (ficha atualizada em 6/10/2026), o ingresso geral é MXN 105 (cerca de R$ 31). O Governo de Yucatán cobra um adicional de MXN 592 de visitantes estrangeiros (cerca de R$ 177). Total para estrangeiro: MXN 697, cerca de R$ 208. Confirmar na bilheteria."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Para planejar o Dia 3",
+      "items": [
+        "Principal: Zona Arqueológica de Chichén Itzá",
+        "Grátis: Nada neste dia: estrangeiros pagam o ingresso",
+        "Opcional: Cenote Ik Kil, perto de Chichén",
+        "**No passeio:** dia inteiro, saída cedo",
+        "**A pé:** bastante, sem muita sombra",
+        "**Esforço:** moderado: sol e estrada",
+        "Estimativas da Rota Certa, não dados oficiais. Duração depende de agência ou carro.",
+        "**Dica da Rota Certa:** leve água, chapéu e protetor, e dinheiro em pesos para o ingresso e para o almoço."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "[Abrir Chichén Itzá no Google Maps](https://www.google.com/maps/search/?api=1&query=Chich%C3%A9n%20Itz%C3%A1%20archaeological%20zone)"
+    },
+    {
+      "t": "passeio",
+      "busca": "Chichén Itzá passeio saindo de Cancún",
+      "title": "Passeios a Chichén Itzá e Tulum"
+    },
+    {
+      "t": "h",
+      "label": "Dia 4",
+      "text": "Museu Maia e ruínas"
+    },
+    {
+      "t": "p",
+      "text": "O Museu Maia de Cancún, as ruínas de San Miguelito e de El Rey e uma última tarde de praia e compras."
+    },
+    {
+      "t": "img",
+      "src": "/assets/blog/cancun-iguana.jpg",
+      "alt": "Iguana descansando sobre uma pedra, com o mar turquesa de Cancún ao fundo",
+      "caption": "Iguana descansando sobre uma pedra.",
+      "credit": "Foto: Margo Evardson / Pexels",
+      "w": 1000,
+      "h": 666
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Manhã, Museu Maia e San Miguelito:** Fica no km 16,5 do Bulevar Kukulcán, na zona hoteleira. Duas páginas do INAH divergem no horário (9h às 18h e 9h às 16h30, com último acesso às 16h): confirmar antes de ir.",
+        "**Meio do dia, Zona Arqueológica El Rey:** No km 18 do mesmo bulevar. Aberta todos os dias, das 8h às 17h. Ingresso: MXN 145 (cerca de R$ 43) para estrangeiros, segundo o INAH, ficha de 7/1/2026.",
+        "**Tarde, Praias do sul da zona hoteleira:** Chac Mool, Marlín, Ballenas e Delfines têm ondas mais fortes e esportes aquáticos, segundo o site oficial. Entre no mar com cuidado e siga as bandeiras.",
+        "**Fim da tarde, Centro e Mercado 28:** Mercados de artesanato, como o Mercado 28, ficam no centro. Peça o preço antes e compare entre as lojas."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "O museu fecha às segundas",
+      "items": [
+        "Segundo o INAH, o Museu Maia abre de terça a domingo. O ingresso de estrangeiro custa MXN 210 (cerca de R$ 63) e inclui o acesso à zona arqueológica de San Miguelito. Aos domingos a entrada é livre para mexicanos e residentes, não para turistas."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Para planejar o Dia 4",
+      "items": [
+        "Principal: Museu Maia de Cancún e San Miguelito",
+        "Grátis: Praias públicas e passeio pelo Mercado 28",
+        "Opcional: Zona Arqueológica El Rey, no km 18",
+        "**Museu e ruínas:** cerca de 3 horas",
+        "**Praia e compras:** cerca de 3 horas",
+        "**Esforço:** leve: dia de despedida",
+        "Estimativas da Rota Certa, não dados oficiais.",
+        "**Dica da Rota Certa:** deixe este dia por último. Ele é o mais leve e combina com o voo de volta."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "[Abrir o Museu Maia no Google Maps](https://www.google.com/maps/search/?api=1&query=Museo%20Maya%20de%20Canc%C3%BAn)"
+    },
+    {
+      "t": "passeio",
+      "busca": "Cancún Museu Maia ruínas El Rey",
+      "title": "Passeios em Cancún: museu e ruínas"
+    },
+    {
+      "t": "h",
+      "text": "Orçamento com fonte",
+      "label": "Planejamento"
+    },
+    {
+      "t": "p",
+      "text": "Só entram os valores que têm fonte oficial. O resto é por sua conta."
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Visto eletrônico:** US$ 10 (R$ 55,61)",
+        "**Ruínas El Rey:** MXN 145 (R$ 43,30)",
+        "**Museu Maia + San Miguelito:** MXN 210 (R$ 62,71)",
+        "**Chichén Itzá (INAH 105 + Yucatán 592):** MXN 697 (R$ 208,12)",
+        "**Ou Tulum:** MXN 265 (R$ 79,13)",
+        "**Soma com Chichén Itzá:** R$ 369,73",
+        "**Soma com Tulum:** R$ 240,74"
+      ]
+    },
+    {
+      "t": "p",
+      "text": "Visto e ingressos de estrangeiro adulto. Não inclui Visitax, barco, passeios, transfer, hospedagem, comida nem passagem."
+    },
+    {
+      "t": "tip",
+      "title": "Ainda sem preço oficial",
+      "items": [
+        "Visitax, barco para Isla Mujeres, MUSA, Garrafón, Punta Sur, Ik Kil, transfer, ônibus e passeios de agência: confirmar nos sites oficiais ou com o operador."
+      ]
+    },
+    {
+      "t": "h",
+      "text": "Antes de embarcar",
+      "label": "Checklist"
+    },
+    {
+      "t": "tip",
+      "title": "Checklist",
+      "items": [
+        "Passaporte válido por toda a viagem.",
+        "Visto eletrônico aprovado (US$ 10) ou visto americano ou canadense vigente.",
+        "Visitax pago, com o comprovante e o QR code salvos.",
+        "Passagem de volta e reserva do hotel no celular.",
+        "Seguro viagem com o telefone de emergência anotado.",
+        "Pesos mexicanos em espécie para ingressos e pequenas compras.",
+        "Horário e terminal do barco para Isla Mujeres conferidos.",
+        "Escolha entre Chichén Itzá e Tulum, com o passeio reservado.",
+        "Museu Maia planejado para um dia de terça a domingo.",
+        "Protetor solar, chapéu, água e roupa de banho."
+      ]
+    },
+    {
+      "t": "tip",
+      "items": [
+        "**Dica da Rota Certa:** salve este guia no celular e tire print das confirmações de visto e de pagamento. Eles funcionam sem internet."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "Regras e preços mudam: confirme no consulado, no INM e nos sites oficiais antes de viajar."
+    },
+    {
+      "t": "pdf",
+      "href": "/guias/cancun-em-4-dias.pdf",
+      "note": "Leve o roteiro, as rotas e o orçamento no celular. Grátis, sem cadastro."
+    },
+    {
+      "t": "h",
+      "text": "Valores e fontes",
+      "label": "Transparência"
+    },
+    {
+      "t": "p",
+      "text": "Conferido em 12/11/2026. Câmbio: cotação de venda do boletim de fechamento do Banco Central de 11/11/2026 (último dia útil publicado): MXN 1 = R$ 0,2986 e US$ 1 = R$ 5,5606. Guia independente: os operadores citados não têm vínculo com a Rota Certa."
+    },
+    {
+      "t": "tip",
+      "title": "Fontes oficiais, conferidas em 12/11/2026",
+      "items": [
+        "Visto: [Consulado do México em São Paulo](https://consulmex.sre.gob.mx/saopaulo/index.php/visto-menu/visto-para-turista) e [SRE, comunicado 021/2026](https://www.gob.mx/sre/prensa/visa-electronica-para-nacionales-de-brasil?idiom=es-MX)",
+        "Taxa estadual: [visitax.gob.mx](https://visitax.gob.mx/sitio/) (valor: confirmar)",
+        "FMM digital: [SRE, aviso de 20/1/2025](https://embamex.sre.gob.mx/peru/index.php/avisos2016/73-forma-migratoria-multiple-digital) (confirmar no INM)",
+        "Cancún e Isla Mujeres: [Caribe Mexicano, Cancún](https://mexicancaribbean.travel/cancun.html) e [Isla Mujeres](https://mexicancaribbean.travel/isla-mujeres/things-to-do/places-to-visit.html) (páginas sem data)",
+        "Barco: [Ultramar](https://www.ultramarferry.com/en/fares) (sem data de vigência; tarifa: confirmar)",
+        "El Rey: [INAH](https://www.inah.gob.mx/zonas/zona-arqueologica-el-rey). Museu Maia: [INAH](https://www.inah.gob.mx/museos/museo-maya-de-cancun) e [INAH Lugares](https://lugares.inah.gob.mx/en/node/5387)",
+        "Tulum: [INAH](https://www.inah.gob.mx/zonas/99-zona-arqueologica-de-tulum). Chichén Itzá: [INAH](https://www.inah.gob.mx/zonas/146-zona-arqueologica-de-chichen-itza)",
+        "Ik Kil: [cenoteikkil.com](https://www.cenoteikkil.com/). MUSA: [musamexico.org](https://www.musamexico.org/) (preços sem data)",
+        "Câmbio: [Banco Central, fechamento de 11/11/2026](https://www4.bcb.gov.br/Download/fechamento/20261111.csv)"
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "O que este guia não informa",
+      "items": [
+        "Valor do Visitax (página oficial não mostra; fontes divergem)",
+        "Tarifa do barco para Isla Mujeres (página da Ultramar sem data de vigência): nenhuma tarifa no guia",
+        "Número de terminais de barco: o vídeo diz dois (Puerto Juárez e Playa Tortugas); a Ultramar lista também Playa Caracol e o site oficial de turismo cita quatro terminais ao todo. O guia informa isso e remete a confirmar",
+        "Página do INM sobre FMM e prazo de estadia (não lida): FMM descrita pelo aviso da SRE de 2025",
+        "Horário do Museu Maia (duas páginas do INAH divergem: 9h às 18h e 9h às 16h30)",
+        "Preços de ônibus ADO, táxi, transfer, Trem Maya e ônibus urbano; rota urbana R-1 não citada no guia",
+        "Ingressos de Punta Sur, Garrafón, MUSA e Cenote Ik Kil",
+        "Duração da viagem de Cancún a Chichén Itzá e a Tulum (sem fonte oficial; o guia diz só 'dia inteiro')",
+        "Seguro viagem: nenhuma página oficial lida trata do tema"
+      ]
+    },
+    {
+      "t": "p",
+      "text": "Preços, horários e regras mudam: confira nas fontes acima antes de ir. As estimativas de tempo e esforço e as dicas marcadas como da Rota Certa são recomendações nossas, não dados oficiais."
+    },
+    {
+      "t": "p",
+      "text": "Foto de capa: Ricky Esquivel / Pexels."
+    },
+    {
+      "t": "whatsapp"
+    },
+    {
+      "t": "p",
+      "text": "Quer montar o roteiro da viagem inteira? Use o [Planner grátis da Rota Certa](https://rotacertapassagens.com/#/planner)."
+    },
+    {
+      "t": "contato"
+    },
+    {
+      "t": "afiliado"
+    }
+  ]
+}

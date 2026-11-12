@@ -1,0 +1,429 @@
+{
+  "_origem": "Fatos de rota-certa-motion-factory/guides/amsterda-4-dias/guide.json (v0.1, fontes conferidas em 12/11/2026) e do guia.html do mesmo guia. Não acrescente fato que não esteja lá.",
+  "id": "19d46d19-b2ce-4f59-ba2f-dfd8ebfcd002",
+  "slug": "amsterda-em-4-dias",
+  "regionId": "europa",
+  "title": "Amsterdã em 4 dias: o ingresso da Casa de Anne Frank sai seis semanas antes",
+  "titleHighlight": "seis semanas antes",
+  "summary": "Roteiro de Amsterdã em 4 dias com canais, Casa de Anne Frank, Rijksmuseum, Museu Van Gogh e um bate-volta, os horários marcados, o cartão por aproximação no transporte, valores em euros e em reais e o guia em PDF para baixar de graça.",
+  "lede": "O ingresso da Casa de Anne Frank só é vendido online, para data e hora marcadas, e a venda abre seis semanas antes. O roteiro, os valores e o guia completo vão no celular.",
+  "destination": "Amsterdã",
+  "coverUrl": "/assets/blog/amsterda-4-dias.jpg",
+  "coverUrlSmall": "/assets/blog/amsterda-4-dias-m.jpg",
+  "coverAlt": "Ponte de pedra sobre um canal de Amsterdã, com bicicletas, flores e casas de tijolo ao fundo",
+  "body": [
+    {
+      "t": "pdf",
+      "href": "/guias/amsterda-em-4-dias.pdf",
+      "note": "PDF de 16 páginas, feito para ler no celular. Grátis, sem cadastro."
+    },
+    {
+      "t": "p",
+      "text": "Canais, museus com horário marcado e um bate-volta, com o ingresso da Casa de Anne Frank, o cartão por aproximação no bonde e valores em euros e em reais."
+    },
+    {
+      "t": "tip",
+      "title": "Como usar este roteiro",
+      "items": [
+        "Compre o ingresso da Casa de Anne Frank assim que souber as datas (veja o Dia 2).",
+        "Reserve o horário do Rijksmuseum e do Museu Van Gogh: os dois exigem."
+      ]
+    },
+    {
+      "t": "whatsapp"
+    },
+    {
+      "t": "afiliado"
+    },
+    {
+      "t": "h",
+      "text": "Entrada para brasileiros",
+      "label": "Antes de viajar"
+    },
+    {
+      "t": "tip",
+      "title": "Brasileiro não precisa de visto para a Holanda",
+      "items": [
+        "O site oficial do governo holandês para o Brasil diz que quem tem passaporte brasileiro não precisa de visto para visitar a Holanda (conferido em 12/11/2026)."
+      ]
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Passaporte e tempo de estadia:** Leve o passaporte. Validade mínima exigida na entrada: confirmar no site oficial. Estadia curta: até 90 dias em qualquer período de 180, segundo o governo holandês.",
+        "**Registro na fronteira (EES):** Segundo o governo holandês, quem vem de fora da União Europeia tem passaporte escaneado, foto e digitais registrados na fronteira, e o passaporte não recebe mais carimbo. Reserve um tempo a mais.",
+        "**ETIAS: ainda não vale:** Em 12/11/2026, a página do governo holandês diz que o ETIAS \"não está em operação\" e que não recebe pedidos. A UE avisa a data meses antes. Confirmar antes de comprar a passagem.",
+        "**Seguro viagem e comprovantes:** Exigência de seguro, passagem de volta ou comprovante de recursos: confirmar no site oficial. A Rota Certa recomenda levar seguro viagem e passagem de volta no celular."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "Regras de entrada mudam: confira nos sites oficiais antes de viajar."
+    },
+    {
+      "t": "h",
+      "text": "Chegada e transporte",
+      "label": "Na prática"
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Do aeroporto de Schiphol ao centro:** O trem da NS leva de Schiphol à Estação Central em 14 a 17 minutos e custa cerca de € 5,50 por pessoa (R$ 34), segundo o site oficial de turismo. O transporte é sem dinheiro: use o cartão."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Cartão por aproximação no bonde e no metrô",
+      "items": [
+        "A cidade aceita cartão Visa ou Mastercard por aproximação (ou celular com Apple Pay e Google Wallet), sem app e sem cadastro. **Encoste o cartão na entrada e na saída.** Vale em bonde, ônibus, metrô e trem. Veja com o seu banco se o cartão tem aproximação no exterior."
+      ]
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Teto diário nas linhas da GVB:** Com o OVpay, a GVB cobra no máximo cerca de € 10 por dia (R$ 62), só nas linhas dela. As páginas oficiais divergem (€ 10,00 e € 10,50): confirmar.",
+        "**Balsa grátis e trem:** As balsas atrás da Estação Central, para a margem norte do rio IJ, são gratuitas para pedestres e ciclistas. O trem da NS serve ao Dia 4.",
+        "**Bicicleta, com cuidado:** Segundo o site de turismo: pedale na faixa da direita, cruze os trilhos em ângulo fechado, use luzes ao escurecer, sinalize ao virar, pare para ver o celular e tranque a bicicleta em algo fixo. Evite 8h às 9h e 17h às 18h. Aluguel médio: € 10 por dia (R$ 62)."
+      ]
+    },
+    {
+      "t": "h",
+      "label": "Dia 1",
+      "text": "Centro e canais"
+    },
+    {
+      "t": "p",
+      "text": "Do aeroporto à Estação Central, a Praça Dam e uma volta a pé pelos canais."
+    },
+    {
+      "t": "img",
+      "src": "/assets/blog/amsterda-centraal.jpg",
+      "alt": "Estação Central de Amsterdã vista do outro lado do canal",
+      "caption": "Estação Central de Amsterdã vista do outro lado do canal.",
+      "credit": "Foto: Always Sunny Travels / Pexels",
+      "w": 1000,
+      "h": 577
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Manhã, De Schiphol ao hotel:** Pegue o trem na estação do aeroporto até a Estação Central (14 a 17 minutos). Encoste o cartão na entrada e na saída das catracas e deixe a mala no hotel.",
+        "**Meio da manhã, Praça Dam:** A praça central da cidade fica a poucos passos da Estação Central. Entre os canais e as ruas de lojas, ela é o ponto para se orientar.",
+        "**Tarde, Canais e Begijnhof:** Siga a pé pelos canais. O pátio do Begijnhof, do século 14, tem o portão aberto só durante o dia: confirmar o horário no local.",
+        "**Fim da tarde, Barco pelos canais (opcional):** Há passeios de barco de várias empresas. Preço e horário não têm fonte oficial neste guia: confirmar com a empresa antes de pagar."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Para planejar o Dia 1",
+      "items": [
+        "Principal: Passeio a pé pelos canais do centro",
+        "Grátis: Praça Dam, canais e o pátio do Begijnhof",
+        "Opcional: Passeio de barco pelos canais (preço: confirmar com a empresa)",
+        "**Nas atrações:** cerca de 4 horas",
+        "**A pé:** cerca de 4 km, tudo plano",
+        "**Esforço:** leve: é dia de chegada",
+        "Estimativas da Rota Certa, não dados oficiais.",
+        "**Dica da Rota Certa:** deixe a mala no hotel e comece pelo centro. Marque o horário do ingresso da Anne Frank antes de fechar o resto da viagem: ele não muda.",
+        "**Atenção:** as bicicletas passam rápido nas ciclovias, que ficam rente à calçada. Olhe para os dois lados antes de atravessar."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "[Abrir a rota do Dia 1 no Google Maps](https://www.google.com/maps/dir/?api=1&origin=Amsterdam%20Centraal&waypoints=Dam%20Square%2C%20Amsterdam&destination=Begijnhof%2C%20Amsterdam&travelmode=walking)"
+    },
+    {
+      "t": "passeio",
+      "busca": "Amsterdã passeio de barco pelos canais",
+      "title": "Passeios nos canais de Amsterdã"
+    },
+    {
+      "t": "h",
+      "label": "Dia 2",
+      "text": "Jordaan e Casa de Anne Frank"
+    },
+    {
+      "t": "p",
+      "text": "Um dia em volta do horário do ingresso: o bairro Jordaan e a visita à Casa de Anne Frank."
+    },
+    {
+      "t": "img",
+      "src": "/assets/blog/amsterda-westerkerk-rua.jpg",
+      "alt": "Rua de Amsterdã com a torre da igreja Westerkerk ao fundo, sob céu claro",
+      "caption": "Rua de Amsterdã.",
+      "credit": "Foto: Vinicius A. Nascimento / Pexels",
+      "w": 1000,
+      "h": 666
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Manhã, Jordaan:** Caminhe pelo bairro, de canal em canal, com café e pausa. Se o seu horário na Casa for de manhã, inverta e deixe o bairro para a tarde.",
+        "**No horário marcado, Casa de Anne Frank:** A entrada é pelo Westermarkt 20, a cerca de 20 minutos a pé da Estação Central. Segundo o museu, a casa abre todos os dias das 9h às 22h.",
+        "**Como chegar, Bonde: confirmar o trajeto:** O museu informa que, de 15/02/2025 até fevereiro de 2027, nenhum bonde para no Westermarkt. Os bondes vão até a Praça Dam, a 10 minutos a pé."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "O ingresso: regras do site oficial (12/11/2026)",
+      "items": [
+        "A venda abre toda terça-feira, às 10h da Holanda (CET), para uma visita seis semanas depois. É só online: na porta não vende. Adulto: € 16,50 em 2026 (R$ 102), com taxa de reserva de € 1; a página mostra € 17,00 (R$ 105) a partir de 2027. Não tem troca nem reembolso, e o ingresso só vale na data e na hora marcadas."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Para planejar o Dia 2",
+      "items": [
+        "Principal: Casa de Anne Frank (ingresso com horário)",
+        "Grátis: Bairro Jordaan e a Westerkerk, por fora",
+        "Opcional: Café e compras nas ruas do Jordaan",
+        "**Na Casa:** cerca de 1 hora, segundo o museu",
+        "**No bairro:** cerca de 3 horas",
+        "**Esforço:** moderado: a casa tem muitos degraus",
+        "Estimativas da Rota Certa. O tempo da visita é do site do museu.",
+        "**Dica da Rota Certa:** monte o dia em volta do horário do ingresso e comece a procurar a data pelo menos seis semanas antes da viagem."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "[Abrir o Dia 2 no Google Maps](https://www.google.com/maps/dir/?api=1&origin=Westerkerk%2C%20Amsterdam&destination=Anne%20Frank%20Huis%2C%20Amsterdam&travelmode=walking)"
+    },
+    {
+      "t": "passeio",
+      "busca": "Amsterdã Jordaan passeio a pé",
+      "title": "Passeios a pé em Amsterdã"
+    },
+    {
+      "t": "h",
+      "label": "Dia 3",
+      "text": "Museus e parques"
+    },
+    {
+      "t": "p",
+      "text": "Rijksmuseum e Museu Van Gogh, ambos com horário marcado, e a tarde no Vondelpark."
+    },
+    {
+      "t": "img",
+      "src": "/assets/blog/amsterda-rijksmuseum.jpg",
+      "alt": "Fachada do Rijksmuseum, em Amsterdã, com nuvens carregadas e canteiros de flores à frente",
+      "caption": "Fachada do Rijksmuseum.",
+      "credit": "Foto: Ömer Gülen / Pexels",
+      "w": 824,
+      "h": 549
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Manhã, Rijksmuseum:** Aberto todos os dias, das 9h às 17h. Adulto: € 25 em 2026 (R$ 154); a página oficial lista € 26,50 (R$ 164) a partir de 2027.",
+        "**Fim da manhã ou tarde, Museu Van Gogh:** Adulto a partir de € 25 (R$ 154), segundo o site de ingressos. Horário de funcionamento: confirmar no site oficial.",
+        "**Tarde, Vondelpark:** Os parques da cidade são abertos e gratuitos o ano todo, segundo o site de turismo. No verão, o teatro ao ar livre tem espetáculos grátis.",
+        "**Opcional, Concerto de almoço e mercado:** Concertos de almoço grátis às quartas no Concertgebouw: confirmar a programação. O mercado Albert Cuyp abre de segunda a sábado, das 9h30 às 17h."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Os dois museus exigem horário",
+      "items": [
+        "No Rijksmuseum, o site diz que todos os visitantes devem reservar um horário de início. No Museu Van Gogh, o ingresso só vale na data e no horário escolhidos. Menores de 18 anos entram sem pagar nos dois."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Para planejar o Dia 3",
+      "items": [
+        "Principal: Rijksmuseum e Museu Van Gogh",
+        "Grátis: Jardins do Rijksmuseum, Vondelpark e concerto de almoço (quartas, Concertgebouw)",
+        "Opcional: Mercado Albert Cuyp, de segunda a sábado",
+        "**Museus:** cerca de 5 horas no total",
+        "**A pé:** cerca de 3 km",
+        "**Esforço:** moderado: muito tempo em pé",
+        "Estimativas da Rota Certa, não dados oficiais.",
+        "Dica da Rota Certa: dois museus no mesmo dia cansam. Se pesar, fique com um só."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "[Abrir a rota do Dia 3 no Google Maps](https://www.google.com/maps/dir/?api=1&origin=Rijksmuseum%2C%20Amsterdam&waypoints=Van%20Gogh%20Museum%2C%20Amsterdam&destination=Vondelpark%2C%20Amsterdam&travelmode=walking)"
+    },
+    {
+      "t": "passeio",
+      "busca": "Amsterdã passeio de bicicleta Vondelpark",
+      "title": "Passeios de bicicleta em Amsterdã"
+    },
+    {
+      "t": "h",
+      "label": "Dia 4",
+      "text": "Bate-volta"
+    },
+    {
+      "t": "p",
+      "text": "Escolha um destino perto de Amsterdã: Zaanse Schans, Haarlem ou, só na temporada, Keukenhof."
+    },
+    {
+      "t": "img",
+      "src": "/assets/blog/amsterda-zaanse-schans.jpg",
+      "alt": "Moinhos de vento tradicionais holandeses à beira da água, em Zaanse Schans",
+      "caption": "Moinhos de vento tradicionais holandeses à beira da água.",
+      "credit": "Foto: Devansh Shah / Pexels",
+      "w": 1000,
+      "h": 666
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Opção A · Zaanse Schans, Vila dos moinhos:** A vila é gratuita e abre os 365 dias do ano; a maioria dos locais, das 9h às 17h. Moinhos e alguns museus cobram: confirmar. Vá de ônibus 800 ou 801 (a partir de Meerplus) ou de trem até a estação Zaanse Schans.",
+        "**Opção B · Haarlem, Grote Markt e museu:** Trens a cada 7 a 10 minutos, em menos de 20 minutos. O Museu Frans Hals abre de terça a domingo, das 11h às 17h: preço, confirmar.",
+        "**Opção C · Keukenhof, Só de 18/03 a 09/05/2027:** A página oficial mostra € 21 online e € 27 na bilheteria, sem dizer o ano: confirmar, e o transporte também.",
+        "**Fim do dia, Balsa grátis atrás da Estação Central:** Cruze o rio IJ de graça: a de Buiksloterweg é a mais usada, a de NDSM é a mais longa."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Keukenhof só abre na primavera",
+      "items": [
+        "O site oficial informa a temporada de 2027: de quinta, 18 de março, a domingo, 9 de maio, das 8h às 19h, com última entrada às 18h15. O ingresso vale para uma data e um horário de chegada. Fora dessas datas, escolha outro destino."
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "Para planejar o Dia 4",
+      "items": [
+        "Principal: Zaanse Schans, a vila dos moinhos",
+        "Grátis: Entrada da vila de Zaanse Schans e o centro de Haarlem a pé",
+        "Opcional: Keukenhof, de 18/03 a 09/05/2027",
+        "**Zaanse Schans:** cerca de 20 min de Amsterdã, segundo a vila",
+        "**Haarlem:** menos de 20 min de trem, segundo o turismo local",
+        "**Esforço:** leve",
+        "Estimativa da Rota Certa. Tempos de viagem são das páginas oficiais de cada destino.",
+        "Dica da Rota Certa: deixe o bate-volta por último, o dia mais leve, e volte cedo."
+      ]
+    },
+    {
+      "t": "p",
+      "text": "[Abrir Zaanse Schans no Google Maps](https://www.google.com/maps/search/?api=1&query=Zaanse%20Schans%2C%20Zaandam)"
+    },
+    {
+      "t": "passeio",
+      "busca": "Zaanse Schans passeio saindo de Amsterdã",
+      "title": "Passeios a Zaanse Schans"
+    },
+    {
+      "t": "h",
+      "text": "Quanto custa, com fonte",
+      "label": "Planejamento"
+    },
+    {
+      "t": "p",
+      "text": "Conferido em 12/11/2026. Reais pela cotação de venda do fechamento do Banco Central de 11/11/2026: € 1 = R$ 6,1706. Preços mudam: confirme antes de viajar."
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Trem Schiphol à Estação Central:** cerca de € 5,50 (R$ 34)",
+        "**Teto diário GVB (OVpay), as fontes divergem:** € 10,00 a 10,50 (R$ 62 a 65)",
+        "**Casa de Anne Frank, adulto, 2026:** € 16,50 (R$ 102)",
+        "**Casa de Anne Frank, adulto, a partir de 2027:** € 17,00 (R$ 105)",
+        "**Casa de Anne Frank, 10 a 17 anos:** € 7,00 (R$ 43)",
+        "**Rijksmuseum, adulto, 2026:** € 25,00 (R$ 154)",
+        "**Rijksmuseum, adulto, a partir de 2027:** € 26,50 (R$ 164)",
+        "**Museu Van Gogh, adulto:** a partir de € 25 (R$ 154)",
+        "**Aluguel de bicicleta, média por dia:** € 10 (R$ 62)",
+        "**Soma dos 3 ingressos principais, 1 adulto, 2026:** € 66,50 (R$ 410)"
+      ]
+    },
+    {
+      "t": "ul",
+      "items": [
+        "**Sem fonte oficial (confirmar):** passeio de barco pelos canais, ingressos de moinhos e museus de Zaanse Schans, Museu Frans Hals, Keukenhof, hospedagem e alimentação. Taxa turística da cidade: confirmar com o hotel."
+      ]
+    },
+    {
+      "t": "h",
+      "text": "Orçamento e checklist",
+      "label": "Planejamento"
+    },
+    {
+      "t": "tip",
+      "title": "Checklist antes de embarcar",
+      "items": [
+        "Passaporte válido (validade exigida: confirmar).",
+        "Ingresso da Casa de Anne Frank, com data e hora.",
+        "Horário reservado no Rijksmuseum e no Museu Van Gogh.",
+        "Cartão Visa ou Mastercard com aproximação.",
+        "Seguro viagem e passagem de volta no celular.",
+        "Conferir ETIAS e regras de entrada no site oficial.",
+        "Bolsa pequena, menor que uma folha A4."
+      ]
+    },
+    {
+      "t": "pdf",
+      "href": "/guias/amsterda-em-4-dias.pdf",
+      "note": "Leve o roteiro, as rotas e o orçamento no celular. Grátis, sem cadastro."
+    },
+    {
+      "t": "h",
+      "text": "Fontes",
+      "label": "Transparência"
+    },
+    {
+      "t": "p",
+      "text": "Todas abertas em 12/11/2026. Guia independente, sem ligação com museus, transporte ou governo. Itens marcados \"confirmar\" não têm fonte oficial atual."
+    },
+    {
+      "t": "tip",
+      "title": "Fontes oficiais, conferidas em 12/11/2026",
+      "items": [
+        "Casa de Anne Frank, ingressos: [annefrank.org/en/museum/tickets](https://www.annefrank.org/en/museum/tickets/)",
+        "Casa de Anne Frank, informações práticas: [annefrank.org/en/museum/practical-information](https://www.annefrank.org/en/museum/practical-information/)",
+        "Rijksmuseum: [horários e preços](https://www.rijksmuseum.nl/en/visit/practical-info/opening-hours-and-prices) (o preço de 2027 aparece como \"vanaf 2027\")",
+        "Museu Van Gogh: [tickets.vangoghmuseum.nl](https://tickets.vangoghmuseum.nl/en)",
+        "Pagamento no transporte: [iamsterdam.com, pay for public transport](https://www.iamsterdam.com/en/travel-stay/getting-around/public-transport/pay-for-public-transport) (teto de € 10,00) e [iamsterdam.com, public transport](https://www.iamsterdam.com/en/travel-stay/getting-around/public-transport) (teto de € 10,50)",
+        "Schiphol ao centro: [iamsterdam.com](https://www.iamsterdam.com/en/travel-stay/getting-around/arrival/from-schiphol-airport-to-amsterdam). Balsas: [iamsterdam.com, ferry](https://www.iamsterdam.com/en/travel-stay/getting-around/ferry)",
+        "Bicicleta: [iamsterdam.com, cycling](https://www.iamsterdam.com/en/travel-stay/getting-around/cycling-in-amsterdam). Grátis: [iamsterdam.com, free things to do](https://www.iamsterdam.com/en/see-and-do/attractions-and-sights/free-things-to-do-in-amsterdam)",
+        "Visto: [netherlandsworldwide.nl, Brasil](https://www.netherlandsworldwide.nl/visa-the-netherlands/schengen-visa/apply-brazil)",
+        "EES: [government.nl, EES](https://www.government.nl/topics/holidays-and-travels/ees). ETIAS: [government.nl, ETIAS](https://government.nl/topics/holidays-and-travels/etias)",
+        "Zaanse Schans: [zaanseschans.com](https://www.zaanseschans.com/en). Haarlem: [visithaarlem.com](https://www.visithaarlem.com/en/plan-your-stay/bereikbaarheid/) e [Museu Frans Hals](https://www.franshalsmuseum.nl/en/visit/practical-info/)",
+        "Keukenhof: [keukenhof.nl](https://www.keukenhof.nl/en/) e [ingressos](https://www.keukenhof.nl/en/visit/order-your-tickets). Mercado: [Albert Cuyp](https://albertcuyp-markt.amsterdam/openingstijden/?lang=en)",
+        "Câmbio: [Banco Central, fechamento de 11/11/2026](https://www4.bcb.gov.br/Download/fechamento/20261111.csv) (venda, EUR)"
+      ]
+    },
+    {
+      "t": "tip",
+      "title": "O que este guia não informa",
+      "items": [
+        "Validade mínima do passaporte exigida na entrada (texto 'confirmar')",
+        "Exigência de seguro viagem, passagem de volta e comprovante de recursos na entrada (texto 'confirmar')",
+        "Teto diário da GVB: duas páginas oficiais divergem (€ 10,00 e € 10,50)",
+        "Horário de funcionamento do Museu Van Gogh (página não renderizou)",
+        "Preço de moinhos e museus de Zaanse Schans, do Museu Frans Hals e do Keukenhof (ano do preço)",
+        "Preço e horário de passeio de barco pelos canais",
+        "Programação do concerto de almoço gratuito do Concertgebouw (quartas)",
+        "Horário de abertura do pátio do Begijnhof",
+        "Taxa turística da cidade (página da prefeitura bloqueou a consulta; há notícia de mudança para 2027, não confirmada)",
+        "Tipo de tomada e voltagem da Holanda (não incluído no guia)",
+        "Como chegar ao Keukenhof por transporte público"
+      ]
+    },
+    {
+      "t": "p",
+      "text": "Preços, horários e regras mudam: confira nas fontes acima antes de ir. As estimativas de tempo e esforço e as dicas marcadas como da Rota Certa são recomendações nossas, não dados oficiais."
+    },
+    {
+      "t": "p",
+      "text": "Foto de capa: Catarina Duarte / Pexels."
+    },
+    {
+      "t": "whatsapp"
+    },
+    {
+      "t": "p",
+      "text": "Quer montar o roteiro da viagem inteira? Use o [Planner grátis da Rota Certa](https://rotacertapassagens.com/#/planner)."
+    },
+    {
+      "t": "contato"
+    },
+    {
+      "t": "afiliado"
+    }
+  ]
+}

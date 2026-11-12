@@ -61,6 +61,10 @@ Primeiro guia que não é de destino fechado: ensina a montar a escala longa (pa
 
 Cinco guias de destino no molde de Madri, todos entrando como rascunho (migrations `0043` a `0047`, sem região nova: Cartagena e Atacama em `america-do-sul`, Miami em `americas`, Praga e Barcelona em `europa`). Conteúdo em `content/guias/<slug>.json` (fatos do `guide.json` v0.1, conferidos em 27/10/2026), PDFs em `public/guias/<slug>.pdf` (16 páginas; Atacama, 17) e fotos Pexels `<cidade>-*` em `public/assets/blog/`. Chaves curtas, que o ManyRota e os Reels usam e não podem mudar: `cartagena`, `praga`, `miami`, `atacama` e `barcelona` (`GUIAS_CURTOS`). Miami leva também o botão de carro (Everglades). Publicação: `publicar-guias-lote3.sh` (fora do repositório), na ordem deploy, migrations, publicar os 5 posts por SQL com `audit_events`, verificação.
 
+### Lote 4: Cancún, Amsterdã, Montevidéu, Dubai e Porto
+
+Cinco guias de destino no molde do Lote 3, todos entrando como rascunho (migrations `0048` a `0052`). Regiões: Cancún em `caribe`, Amsterdã em `europa`, Montevidéu em `america-do-sul`, Porto em `portugal` e Dubai na região nova `oriente-medio` ("Oriente Médio", ordem 7, criada pela `0051` com `INSERT OR IGNORE`). Conteúdo em `content/guias/<slug>.json` (texto vindo do `guia.html` e do `guide.json` v0.1, conferidos em 12/11/2026), PDFs em `public/guias/<slug>.pdf` (16 páginas, sem o `-v0.1` do nome de origem) e fotos Pexels `<cidade>-*` em `public/assets/blog/` (uma por dia, mais a capa em três tamanhos). Chaves curtas, que o ManyRota e os Reels usam e não podem mudar: `cancun`, `amsterda`, `montevideu`, `dubai` e `porto` (`GUIAS_CURTOS`). Sem botão de carro. Montevidéu e Porto têm 3 dias (3 passeios); os outros, 4. Publicação: `publicar-guias-lote4.sh` (fora do repositório), na ordem deploy, migrations, publicar os 5 posts por SQL com `audit_events`, verificação.
+
 ## Etapa 2 (futuro): gerar os guias a partir do `guide.json`
 
 `rota-certa-motion-factory/guides/<cidade>/guide.json` já tem título, versão, data, fontes com data de conferência, palavra-chave e CTA de contato. Falta o roteiro estruturado (hoje está só no `guia.html`). Plano:
