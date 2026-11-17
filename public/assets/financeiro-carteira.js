@@ -155,22 +155,21 @@ function programDetailHtml(program) {
 
 const lateClubIds = () => new Set(data.alerts.filter((a) => a.kind === 'club_credit_late').map((a) => a.clubId));
 
-const CLUB_ORDER = { payment_failed: 0, canceled: 1, active: 2, paused: 3 };
 /** Janela de um clube (programa): uma linha por pessoa, com situação, cartão, crédito e os botões de editar/pausar. */
 function clubProgramDetailHtml(program) {
   const lateIds = lateClubIds();
   const list = data.accounts.filter((a) => a.active && a.program === program).flatMap((a) => a.clubs.map((c) => ({ ...c, account: a })))
-    .sort((x, y) => ((CLUB_ORDER[x.status] ?? 9) - (CLUB_ORDER[y.status] ?? 9)) || x.account.holder.localeCompare(y.account.holder));
+    .sort((x, y) => (y.account.balance - x.account.balance) || x.account.holder.localeCompare(y.account.holder));
   const running = list.filter((c) => c.status === 'active' || c.status === 'payment_failed');
+  const balance = [...new Map(list.map((c) => [c.account.id, c.account])).values()].reduce((s, a) => s + a.balance, 0);
   const rows = list.map((c) => {
     const status = CLUB_STATUS[c.status] || CLUB_STATUS.active;
     const late = c.status === 'active' && lateIds.has(c.id);
-    const perMil = c.monthlyMiles ? perThousand(Math.round((c.monthlyCostCents * 1000) / c.monthlyMiles)) : '-';
-    return `<div class="mile-person"><div class="mile-person-head"><div><strong>${esc(c.account.holder)}</strong> <small class="muted">${esc(c.name)}</small><br><span class="tag ${late ? 'tag-warn' : status.tag}">${late ? 'Crédito atrasado' : status.label}</span></div><div class="mile-person-num"><strong>${money(c.monthlyCostCents, 'BRL')}<small> /mês</small></strong><small class="muted">${fmt(c.monthlyMiles)} milhas · ${perMil}</small></div></div>
+    return `<div class="mile-person"><div class="mile-person-head"><div><strong>${esc(c.account.holder)}</strong> <small class="muted">${esc(c.name)}</small><br><span class="tag ${late ? 'tag-warn' : status.tag}">${late ? 'Crédito atrasado' : status.label}</span></div><div class="mile-person-num"><strong>${fmt(c.account.balance)}</strong><small class="muted">milhas na carteira · clube ${money(c.monthlyCostCents, 'BRL')}/mês, ${fmt(c.monthlyMiles)} milhas/mês</small></div></div>
       <p class="mile-reported">Cartão: ${esc(c.cardLabel || 'não informado')} · credita todo dia ${c.creditDay || '-'} · último crédito ${c.lastCreditOn ? fmtDay(c.lastCreditOn) : '-'}${c.lastEvent ? `<br><small class="muted">${esc(c.lastEvent)} em ${fmtDay(c.lastEventOn)}</small>` : ''}</p>
       <div class="row-actions"><button type="button" class="small ghost" data-club-edit="${c.id}">Editar</button>${c.status !== 'active' ? `<button type="button" class="small" data-club-status="${c.id}|active">Marcar em dia</button>` : `<button type="button" class="small ghost" data-club-status="${c.id}|paused">Pausar</button>`}</div></div>`;
   }).join('');
-  return `<div class="section-head"><div><h2>Clube ${esc(program)}</h2><p class="muted">${list.length} pessoa${list.length === 1 ? '' : 's'} · ${money(running.reduce((s, c) => s + c.monthlyCostCents, 0), 'BRL')} por mês · ${fmt(running.reduce((s, c) => s + c.monthlyMiles, 0))} milhas por mês</p></div><button type="button" class="ghost" data-close>Fechar</button></div>
+  return `<div class="section-head"><div><h2>Clube ${esc(program)}</h2><p class="muted">${list.length} pessoa${list.length === 1 ? '' : 's'} · ${fmt(balance)} milhas na carteira · ${money(running.reduce((s, c) => s + c.monthlyCostCents, 0), 'BRL')} por mês · ${fmt(running.reduce((s, c) => s + c.monthlyMiles, 0))} milhas por mês</p></div><button type="button" class="ghost" data-close>Fechar</button></div>
     ${rows || '<p class="muted">Nenhum clube neste programa.</p>'}
     <div class="fin-dialog-actions"><button type="button" class="small ghost" data-new-club="${esc(program)}">Novo clube em ${esc(program)}</button></div>`;
 }
@@ -338,17 +337,18 @@ export async function loadClubes() {
     const cost = running.reduce((s, c) => s + c.monthlyCostCents, 0);
     const miles = running.reduce((s, c) => s + c.monthlyMiles, 0);
     const people = list.length === 1 ? list[0].account.holder : `${list.length} pessoas`;
+    const balance = [...new Map(list.map((c) => [c.account.id, c.account])).values()].reduce((s, a) => s + a.balance, 0);
     const tags = [
       bad ? `<span class="tag tag-void">${bad} com problema</span>` : '',
       lateN ? `<span class="tag tag-warn">${lateN} crédito${lateN > 1 ? 's' : ''} atrasado${lateN > 1 ? 's' : ''}</span>` : '',
       pausedN ? `<span class="tag tag-muted">${pausedN} pausado${pausedN > 1 ? 's' : ''}</span>` : '',
     ].join('');
-    return { bad, cost, html: `<button type="button" class="mile-card${bad ? ' bad' : lateN ? ' warn' : ''}" data-club-program="${esc(program)}">
+    return { bad, balance, html: `<button type="button" class="mile-card${bad ? ' bad' : lateN ? ' warn' : ''}" data-club-program="${esc(program)}">
       <span class="mile-name">Clube ${esc(program)}</span>
-      <strong class="mile-balance">${money(cost, 'BRL')}<small> /mês</small></strong>
-      <span class="mile-sub">${esc(people)} · ${fmt(miles)} milhas por mês</span>
+      <strong class="mile-balance">${fmt(balance)}<small> milhas</small></strong>
+      <span class="mile-sub">${esc(people)} · ${money(cost, 'BRL')}/mês · ${fmt(miles)} milhas/mês</span>
       ${tags || '<span class="tag tag-paid">Em dia</span>'}</button>` };
-  }).sort((a, b) => (b.bad - a.bad) || (b.cost - a.cost));
+  }).sort((a, b) => b.balance - a.balance);
   $('clubGroups').innerHTML = cards.length
     ? `<div class="mile-grid">${cards.map((c) => c.html).join('')}</div>`
     : '<section class="panel"><p class="muted">Nenhum clube cadastrado ainda. Use "Novo clube".</p></section>';
