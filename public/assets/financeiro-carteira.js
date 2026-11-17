@@ -29,7 +29,7 @@ const kpi = (label, value, sub = '', cls = '') => `<div class="kpi ${cls}"><smal
 
 let data = { accounts: [], alerts: [], totals: {}, unmatchedEvents: [] };
 let holderFilter = '';
-let detail = null; // { kind: 'program' | 'club', key }
+let detail = null; // { kind: 'program' | 'clubProgram', key }
 
 function flash(message, isError = false) {
   const element = document.createElement('div');
@@ -155,15 +155,23 @@ function programDetailHtml(program) {
 
 const lateClubIds = () => new Set(data.alerts.filter((a) => a.kind === 'club_credit_late').map((a) => a.clubId));
 
-function clubDetailHtml(club) {
-  const status = CLUB_STATUS[club.status] || CLUB_STATUS.active;
-  const late = lateClubIds().has(club.id) && club.status === 'active';
-  return `<div class="section-head"><div><h2>${esc(club.account.holder)} · ${esc(club.account.program)}</h2><p class="muted">${esc(club.name)}</p></div><button type="button" class="ghost" data-close>Fechar</button></div>
-    <p><span class="tag ${late ? 'tag-warn' : status.tag}">${late ? 'Crédito atrasado' : status.label}</span></p>
-    <dl class="club-dl"><div><dt>Mensalidade</dt><dd>${money(club.monthlyCostCents, 'BRL')}</dd></div><div><dt>Milhas por mês</dt><dd>${fmt(club.monthlyMiles)}</dd></div><div><dt>Custo por mil</dt><dd>${club.monthlyMiles ? perThousand(Math.round((club.monthlyCostCents * 1000) / club.monthlyMiles)) : '-'}</dd></div>
-    <div><dt>Cartão</dt><dd>${esc(club.cardLabel || 'não informado')}</dd></div><div><dt>Credita todo dia</dt><dd>${club.creditDay || '-'}</dd></div><div><dt>Último crédito</dt><dd>${club.lastCreditOn ? fmtDay(club.lastCreditOn) : '-'}</dd></div></dl>
-    ${club.lastEvent ? `<p class="muted"><small>${esc(club.lastEvent)} em ${fmtDay(club.lastEventOn)}</small></p>` : ''}
-    <div class="fin-dialog-actions"><button type="button" class="small ghost" data-club-edit="${club.id}">Editar</button>${club.status !== 'active' ? `<button type="button" class="small" data-club-status="${club.id}|active">Marcar em dia</button>` : `<button type="button" class="small ghost" data-club-status="${club.id}|paused">Pausar</button>`}</div>`;
+/** Janela de um clube (programa): uma linha por pessoa, com situação, cartão, crédito e os botões de editar/pausar. */
+function clubProgramDetailHtml(program) {
+  const lateIds = lateClubIds();
+  const list = data.accounts.filter((a) => a.active && a.program === program).flatMap((a) => a.clubs.map((c) => ({ ...c, account: a })))
+    .sort((x, y) => (y.account.balance - x.account.balance) || x.account.holder.localeCompare(y.account.holder));
+  const running = list.filter((c) => c.status === 'active' || c.status === 'payment_failed');
+  const balance = [...new Map(list.map((c) => [c.account.id, c.account])).values()].reduce((s, a) => s + a.balance, 0);
+  const rows = list.map((c) => {
+    const status = CLUB_STATUS[c.status] || CLUB_STATUS.active;
+    const late = c.status === 'active' && lateIds.has(c.id);
+    return `<div class="mile-person"><div class="mile-person-head"><div><strong>${esc(c.account.holder)}</strong> <small class="muted">${esc(c.name)}</small><br><span class="tag ${late ? 'tag-warn' : status.tag}">${late ? 'Crédito atrasado' : status.label}</span></div><div class="mile-person-num"><strong>${fmt(c.account.balance)}</strong><small class="muted">milhas na carteira · clube ${money(c.monthlyCostCents, 'BRL')}/mês, ${fmt(c.monthlyMiles)} milhas/mês</small></div></div>
+      <p class="mile-reported">Cartão: ${esc(c.cardLabel || 'não informado')} · credita todo dia ${c.creditDay || '-'} · último crédito ${c.lastCreditOn ? fmtDay(c.lastCreditOn) : '-'}${c.lastEvent ? `<br><small class="muted">${esc(c.lastEvent)} em ${fmtDay(c.lastEventOn)}</small>` : ''}</p>
+      <div class="row-actions"><button type="button" class="small ghost" data-club-edit="${c.id}">Editar</button>${c.status !== 'active' ? `<button type="button" class="small" data-club-status="${c.id}|active">Marcar em dia</button>` : `<button type="button" class="small ghost" data-club-status="${c.id}|paused">Pausar</button>`}</div></div>`;
+  }).join('');
+  return `<div class="section-head"><div><h2>Clube ${esc(program)}</h2><p class="muted">${list.length} pessoa${list.length === 1 ? '' : 's'} · ${fmt(balance)} milhas na carteira · ${money(running.reduce((s, c) => s + c.monthlyCostCents, 0), 'BRL')} por mês · ${fmt(running.reduce((s, c) => s + c.monthlyMiles, 0))} milhas por mês</p></div><button type="button" class="ghost" data-close>Fechar</button></div>
+    ${rows || '<p class="muted">Nenhum clube neste programa.</p>'}
+    <div class="fin-dialog-actions"><button type="button" class="small ghost" data-new-club="${esc(program)}">Novo clube em ${esc(program)}</button></div>`;
 }
 
 /** Abre (ou atualiza) a janela de detalhe. Depois de cada ação a lista recarrega e a janela se refaz sozinha. */
@@ -172,10 +180,7 @@ function renderDetail() {
   if (!detail) { dialog?.close(); return; }
   let html = '';
   if (detail.kind === 'program') html = programDetailHtml(detail.key);
-  else {
-    const club = data.accounts.flatMap((a) => a.clubs.map((c) => ({ ...c, account: a }))).find((c) => c.id === detail.key);
-    if (club) html = clubDetailHtml(club);
-  }
+  else if (detail.kind === 'clubProgram') html = clubProgramDetailHtml(detail.key);
   if (!html) { dialog?.close(); return; }
   if (!dialog) {
     dialog = document.createElement('dialog');
@@ -321,21 +326,32 @@ export async function loadClubes() {
     kpi('Com problema', String(problems.length), problems.length ? 'pagamento recusado ou cancelado' : 'tudo certo', problems.length ? 'accent' : ''),
     kpi('Crédito atrasado', String(late.length), late.length ? 'sem e-mail de crédito do mês' : 'nenhum'),
   ].join('');
-  const card = (c) => {
-    const status = CLUB_STATUS[c.status] || CLUB_STATUS.active;
-    const bad = c.status === 'payment_failed' || c.status === 'canceled';
-    const isLate = lateIds.has(c.id) && c.status === 'active';
-    return `<button type="button" class="mile-card${bad ? ' bad' : isLate ? ' warn' : ''}" data-club="${c.id}">
-      <span class="mile-name">${esc(c.account.holder)} · ${esc(c.account.program)}</span>
-      <strong class="mile-balance">${money(c.monthlyCostCents, 'BRL')}<small> /mês</small></strong>
-      <span class="mile-sub">${fmt(c.monthlyMiles)} milhas por mês</span>
-      <span class="tag ${isLate ? 'tag-warn' : status.tag}">${isLate ? 'Crédito atrasado' : status.label}</span></button>`;
-  };
-  const group = (title, list, hint = '') => (list.length ? `<section class="club-group"><h2>${title}</h2>${hint ? `<p class="muted">${hint}</p>` : ''}<div class="mile-grid">${list.map(card).join('')}</div></section>` : '');
-  $('clubGroups').innerHTML = group('Resolver agora', problems, 'O programa avisou que o pagamento falhou ou que o clube foi cancelado. Troque ou regularize o cartão no app do programa.')
-    + group('Crédito atrasado', late, 'Já passou do dia do crédito e ainda não chegou o e-mail do programa.')
-    + group('Em dia', fine) + group('Pausados', paused)
-    || '<section class="panel"><p class="muted">Nenhum clube cadastrado ainda. Use "Novo clube".</p></section>';
+  // Um cartão por clube (programa). As pessoas aparecem ao clicar no cartão.
+  const byProgram = new Map();
+  for (const c of clubs) { if (!byProgram.has(c.account.program)) byProgram.set(c.account.program, []); byProgram.get(c.account.program).push(c); }
+  const cards = [...byProgram.entries()].map(([program, list]) => {
+    const bad = list.filter((c) => c.status === 'payment_failed' || c.status === 'canceled').length;
+    const lateN = list.filter((c) => c.status === 'active' && lateIds.has(c.id)).length;
+    const pausedN = list.filter((c) => c.status === 'paused').length;
+    const running = list.filter((c) => c.status === 'active' || c.status === 'payment_failed');
+    const cost = running.reduce((s, c) => s + c.monthlyCostCents, 0);
+    const miles = running.reduce((s, c) => s + c.monthlyMiles, 0);
+    const people = list.length === 1 ? list[0].account.holder : `${list.length} pessoas`;
+    const balance = [...new Map(list.map((c) => [c.account.id, c.account])).values()].reduce((s, a) => s + a.balance, 0);
+    const tags = [
+      bad ? `<span class="tag tag-void">${bad} com problema</span>` : '',
+      lateN ? `<span class="tag tag-warn">${lateN} crédito${lateN > 1 ? 's' : ''} atrasado${lateN > 1 ? 's' : ''}</span>` : '',
+      pausedN ? `<span class="tag tag-muted">${pausedN} pausado${pausedN > 1 ? 's' : ''}</span>` : '',
+    ].join('');
+    return { bad, balance, html: `<button type="button" class="mile-card${bad ? ' bad' : lateN ? ' warn' : ''}" data-club-program="${esc(program)}">
+      <span class="mile-name">Clube ${esc(program)}</span>
+      <strong class="mile-balance">${fmt(balance)}<small> milhas</small></strong>
+      <span class="mile-sub">${esc(people)} · ${money(cost, 'BRL')}/mês · ${fmt(miles)} milhas/mês</span>
+      ${tags || '<span class="tag tag-paid">Em dia</span>'}</button>` };
+  }).sort((a, b) => b.balance - a.balance);
+  $('clubGroups').innerHTML = cards.length
+    ? `<div class="mile-grid">${cards.map((c) => c.html).join('')}</div>`
+    : '<section class="panel"><p class="muted">Nenhum clube cadastrado ainda. Use "Novo clube".</p></section>';
   renderDetail();
 }
 
@@ -346,11 +362,12 @@ const clubFields = (club = {}) => [
   { name: 'creditDay', label: 'Dia do mês em que credita', type: 'number', value: club.creditDay ?? '', hint: 'Usado para avisar crédito atrasado.' },
   { name: 'cardLabel', label: 'Cartão que paga', type: 'text', value: club.cardLabel || '', placeholder: 'ex.: Nubank 6203' },
 ];
-async function newClub() {
-  if (!data.accounts.length) { flash('Cadastre primeiro uma conta na Carteira de milhas.', true); return; }
+async function newClub(presetProgram) {
+  const accounts = data.accounts.filter((a) => a.active && (!presetProgram || a.program === presetProgram));
+  if (!accounts.length) { flash(presetProgram ? `Cadastre primeiro uma conta de ${presetProgram} na Carteira de milhas.` : 'Cadastre primeiro uma conta na Carteira de milhas.', true); return; }
   const values = await askForm({
-    title: 'Novo clube', submitLabel: 'Cadastrar clube',
-    fields: [{ name: 'accountId', label: 'Conta', type: 'select', required: true, wide: true, options: data.accounts.filter((a) => a.active).map((a) => ({ value: a.id, label: accountLabel(a) })) }, ...clubFields()],
+    title: presetProgram ? `Novo clube em ${presetProgram}` : 'Novo clube', submitLabel: 'Cadastrar clube',
+    fields: [{ name: 'accountId', label: 'Conta', type: 'select', required: true, wide: true, options: accounts.map((a) => ({ value: a.id, label: accountLabel(a) })) }, ...clubFields()],
   });
   if (!values) return;
   await guard(async () => { await api('/api/admin/finance/wallet/clubs', { method: 'POST', body: JSON.stringify({ ...values, creditDay: values.creditDay ?? null }) }); await loadClubes(); flash('Clube cadastrado.'); }, 'Não foi possível cadastrar o clube.');
@@ -408,15 +425,16 @@ export async function voidWalletUsage(movementId) {
 
 export function initCarteira() {
   $('walletNewAccount').addEventListener('click', () => newAccount());
-  $('walletNewClub').addEventListener('click', newClub);
+  $('walletNewClub').addEventListener('click', () => newClub());
   document.addEventListener('click', (event) => {
     const t = event.target.closest('button');
     if (!t) return;
     if (t.dataset.close !== undefined && t.closest('#walletDetail')) document.getElementById('walletDetail').close();
     else if (t.dataset.program) openDetail('program', t.dataset.program);
-    else if (t.dataset.club) openDetail('club', t.dataset.club);
+    else if (t.dataset.clubProgram) openDetail('clubProgram', t.dataset.clubProgram);
     else if (t.dataset.holder !== undefined && t.closest('#walletPeople')) { holderFilter = t.dataset.holder; renderWalletCards(); }
     else if (t.dataset.newAccount) newAccount(t.dataset.newAccount);
+    else if (t.dataset.newClub) newClub(t.dataset.newClub);
     else if (t.dataset.move) newMovement(t.dataset.move);
     else if (t.dataset.reconcile) reconcile(t.dataset.reconcile);
     else if (t.dataset.history) history(t.dataset.history);
