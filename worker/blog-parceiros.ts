@@ -49,4 +49,9 @@ export const GUIAS_CURTOS: Record<string, string> = {
   montevideu: 'montevideu-em-3-dias',
   dubai: 'dubai-em-4-dias',
   porto: 'porto-em-3-dias',
+  sintra: 'sintra-em-4-dias',
+  evora: 'evora-em-3-dias',
+  aveiro: 'aveiro-em-3-dias',
+  faro: 'faro-em-3-dias',
+  fatima: 'fatima-em-3-dias',
 };

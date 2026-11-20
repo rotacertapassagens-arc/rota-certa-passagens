@@ -179,6 +179,21 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
       expect(pdfLote4.status).toBe(200);
       expect(pdfLote4.headers.get('content-type')).toContain('pdf');
     }
+    // guias do Lote 5 (migrations 0053 a 0057, todos em portugal): rascunhos invisíveis, com atalho /guia/<chave> e PDF no ar
+    for (const [chave, slug, titulo] of [
+      ['sintra', 'sintra-em-4-dias', 'Sintra em 4 dias'], ['evora', 'evora-em-3-dias', 'Évora em 3 dias'],
+      ['aveiro', 'aveiro-em-3-dias', 'Aveiro em 3 dias'], ['faro', 'faro-em-3-dias', 'Faro em 3 dias'],
+      ['fatima', 'fatima-em-3-dias', 'Fátima em 3 dias'],
+    ] as const) {
+      expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
+      expect(indiceHtml).not.toContain(titulo);
+      const curto = await worker.fetch(`/guia/${chave}?utm_source=instagram&utm_campaign=lote5`, { redirect: 'manual' });
+      expect(curto.status).toBe(302);
+      expect(curto.headers.get('location')).toBe(`/blog/${slug}?utm_source=instagram&utm_campaign=lote5`);
+      const pdfLote5 = await worker.fetch(`/guias/${slug}.pdf`);
+      expect(pdfLote5.status).toBe(200);
+      expect(pdfLote5.headers.get('content-type')).toContain('pdf');
+    }
     const pdf = await worker.fetch('/guias/roma-em-3-dias.pdf');
     expect(pdf.status).toBe(200);
     expect(pdf.headers.get('content-type')).toContain('pdf');
@@ -233,7 +248,7 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     const lista = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } });
     expect(lista.status).toBe(200);
     const listaJson = await lista.json() as { posts: unknown[]; regions: Array<{ id: string }> };
-    expect(listaJson.posts).toHaveLength(33); // 6 publicados + os rascunhos dos 22 guias (0024, 0026 a 0035, Escala em Istambul 0042, Lote 3 0043 a 0047 e Lote 4 0048 a 0052) + 5 artigos de "Dicas de viagem" (0037)
+    expect(listaJson.posts).toHaveLength(38); // 6 publicados + os rascunhos dos 27 guias (0024, 0026 a 0035, Escala em Istambul 0042, Lote 3 0043 a 0047, Lote 4 0048 a 0052 e Lote 5 0053 a 0057) + 5 artigos de "Dicas de viagem" (0037)
     // regiões novas das migrations dos guias (América do Sul 4, Américas 5, Caribe 6, Oriente Médio 7 no Dubai); "Dicas de viagem" (0036) vai para o fim na 0038
     expect(listaJson.regions.map((r) => r.id)).toEqual(['brasil', 'portugal', 'europa', 'america-do-sul', 'americas', 'caribe', 'oriente-medio', 'dicas-de-viagem']);
 
@@ -360,6 +375,6 @@ describe('Guias de viagem (blog) no painel: Worker + D1 local', () => {
     expect((await worker.fetch(`/blog/${slug}`)).status).toBe(404);
     expect((await worker.fetch(`/api/admin/blog/posts/${id}`, { method: 'DELETE', headers: jar.json() })).status).toBe(200);
     const depois = await worker.fetch('/api/admin/blog', { headers: { cookie: jar.cookieHeader() } }).then((r) => r.json()) as { posts: unknown[] };
-    expect(depois.posts).toHaveLength(33);
+    expect(depois.posts).toHaveLength(38);
   }, 120_000);
 });
