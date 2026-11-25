@@ -98,7 +98,19 @@
     .pm-footer{border-top:1px solid rgba(212,175,55,.2)}
     .pm-footer a{color:rgba(244,244,244,.85)}
     .pm-footer a:hover{color:var(--gold)}
+    .pm-examples{margin-top:26px}
+    .pm-examples h3{font-size:1.15rem;margin-bottom:6px}
+    .pm-examples>p{font-size:.85rem;color:#5d6978;margin-bottom:14px}
+    .pm-ex-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .pm-ex h4{font-size:1.05rem;margin:2px 0 4px}
+    .pm-ex .pm-ex-tag{color:#7a5f0c;font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:.68rem}
+    .pm-ex{background:#fff;border:1px solid rgba(13,27,42,.08);border-radius:12px;padding:16px}
+    .pm-ex small{display:block;color:#5d6978;font-size:.78rem;line-height:1.4}
+    .pm-ex .pm-ex-sales{font-weight:600;color:var(--navy);margin:6px 0 10px;font-size:.92rem}
+    .pm-ex strong{display:block;font-family:var(--font-display);font-size:1.5rem;color:#7a5f0c;line-height:1.1}
+    .pm-ex .pm-ex-calc{margin-top:8px;font-size:.74rem;color:#5d6978;line-height:1.45}
     @media(max-width:960px){
+      .pm-ex-grid{grid-template-columns:1fr}
       .pm-hero-grid,.pm-join{grid-template-columns:1fr}
       .pm-hero-photo{max-width:560px}
       .pm-hero-badge{left:12px;bottom:-18px}
@@ -291,6 +303,7 @@
         <div>
           <p class="prose">A mesma regra vale para todos os parceiros, independentemente do número de seguidores. O que conta é a quantidade de passageiros de vendas elegíveis efetivamente fechadas no mês.</p>
           <div id="partnerProgramRule" aria-live="polite"><p class="muted">Carregando a regra vigente do programa…</p></div>
+          <div id="partnerProgramExamples" class="pm-examples" hidden></div>
         </div>
         <!-- Foto: Pexels, licença gratuita Pexels (pexels.com/license), sem atribuição obrigatória -->
         <div class="split-photo">
