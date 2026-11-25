@@ -5,8 +5,12 @@ const PRIVACY_POLICY_VERSION='2026-09-24';
 
 const formatPercent=(bps)=>`${(Number(bps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2})}%`;
 // Exemplos ilustrativos de comissão no mês, calculados com a regra vigente (não são resultados reais).
-const EXAMPLE_TICKET=4000;
-const EXAMPLE_PASSENGERS=[5,30,60];
+const EXAMPLES=[
+  {tag:'Uma indicação',title:'Casal para Lisboa',detail:'2 passagens de ida e volta a R$ 4.800',passengers:2,ticket:4800},
+  {tag:'Férias em família',title:'4 pessoas para Orlando',detail:'4 passagens de ida e volta a R$ 5.500',passengers:4,ticket:5500},
+  {tag:'Um mês bom',title:'12 passageiros no mês',detail:'Viagens variadas, média de R$ 4.500 por passageiro',passengers:12,ticket:4500},
+  {tag:'Comunidade engajada',title:'25 passageiros no mês',detail:'Média de R$ 4.500. Passou de 20, a faixa sobe',passengers:25,ticket:4500},
+];
 const formatBRL=(value)=>value.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
 function commissionBands(settings){
   if(settings.mode==='flat')return[{from:1,to:Infinity,bps:settings.flatBps}];
@@ -21,19 +25,18 @@ function renderCommissionExamples(settings){
   const box=document.getElementById('partnerProgramExamples');
   if(!box)return;
   const bands=commissionBands(settings);
-  const cards=EXAMPLE_PASSENGERS.map((passengers)=>{
+  const cards=EXAMPLES.map((ex)=>{
     let total=0;
     const parts=[];
     bands.forEach((band)=>{
-      const count=Math.max(0,Math.min(passengers,band.to)-band.from+1);
+      const count=Math.max(0,Math.min(ex.passengers,band.to)-band.from+1);
       if(!count)return;
-      const value=count*EXAMPLE_TICKET*Number(band.bps||0)/10000;
-      total+=value;
-      parts.push(`${count} × ${formatBRL(EXAMPLE_TICKET)} × ${formatPercent(band.bps)}`);
+      total+=count*ex.ticket*Number(band.bps||0)/10000;
+      parts.push(`${count} × ${formatBRL(ex.ticket)} × ${formatPercent(band.bps)}`);
     });
-    return `<div class="pm-ex"><small>${passengers} passageiros no mês</small><p class="pm-ex-sales">${formatBRL(passengers*EXAMPLE_TICKET)} em vendas</p><strong>${formatBRL(total)}</strong><small>de comissão</small><p class="pm-ex-calc">${parts.join(' + ')}</p></div>`;
+    return `<div class="pm-ex"><small class="pm-ex-tag">${ex.tag}</small><h4>${ex.title}</h4><p class="pm-ex-sales">${ex.detail}<br>${formatBRL(ex.passengers*ex.ticket)} em vendas</p><strong>${formatBRL(total)}</strong><small>no seu Pix</small><p class="pm-ex-calc">${parts.join(' + ')}</p></div>`;
   }).join('');
-  box.innerHTML=`<h3>Exemplos com números</h3><p>Simulação com passagem média de ${formatBRL(EXAMPLE_TICKET)} por passageiro, usando a regra vigente acima. Valores ilustrativos, não são resultados reais.</p><div class="pm-ex-grid">${cards}</div>`;
+  box.innerHTML=`<h3>Quanto dá na prática?</h3><p>Simulações com preços comuns de passagem, calculadas com a regra vigente acima. Valores ilustrativos, não são resultados reais nem garantia de ganho.</p><div class="pm-ex-grid">${cards}</div>`;
   box.hidden=false;
 }
 
