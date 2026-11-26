@@ -987,6 +987,12 @@ async function partnerApplicationCreate(req:Request,env:Env){
     await env.DB.prepare("INSERT INTO partner_applications(id,display_name,email,instagram,whatsapp,privacy_consent,privacy_policy_version,privacy_consent_at) VALUES(?,?,?,?,?,1,?,CURRENT_TIMESTAMP)").bind(id,displayName,email,instagram,whatsapp,PARTNER_PRIVACY_POLICY_VERSION).run();
   }catch(error){return reply({error:'partner_application_already_pending'},409);}
   await audit(env,null,'public.partner_application_created','partner_application',id);
+  // Avisa a equipe (mesmo grupo das propostas de voo). Falha de e-mail não derruba a candidatura.
+  const masters=await env.DB.prepare("SELECT u.id,u.email FROM users u JOIN user_roles r ON r.user_id=u.id WHERE r.role='master' AND u.status='active' AND u.email_verified_at IS NOT NULL").all<Row>();
+  const adminUrl=`${env.APP_ORIGIN.replace(/\/$/,'')}/admin.html`;
+  const masterHtml=`<p>Nova solicitação de parceria recebida.</p><p><strong>${html(displayName)}</strong></p><p>Instagram: ${html(instagram)}<br>E-mail: ${html(email)}<br>WhatsApp: ${html(whatsapp)}</p><p><a href="${html(adminUrl)}">Abrir Solicitações de parceria no admin</a></p>`;
+  const masterText=`Nova solicitação de parceria: ${displayName} (${instagram}). E-mail: ${email}. WhatsApp: ${whatsapp}. Admin: ${adminUrl}`;
+  await Promise.allSettled(masters.results.map(m=>sendEmail(env,String(m.id),String(m.email),'partner_application_master',`Nova solicitação de parceria: ${displayName}`,masterHtml,masterText,`partner_application:${id}:${m.id}`)));
   return reply({ok:true},201);
 }
 
