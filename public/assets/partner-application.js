@@ -6,10 +6,10 @@ const PRIVACY_POLICY_VERSION='2026-09-24';
 const formatPercent=(bps)=>`${(Number(bps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2})}%`;
 // Exemplos ilustrativos de comissão no mês, calculados com a regra vigente (não são resultados reais).
 const EXAMPLES=[
-  {tag:'Uma indicação',title:'Casal para Lisboa',detail:'2 passagens de ida e volta a R$ 4.800',passengers:2,ticket:4800},
-  {tag:'Férias em família',title:'4 pessoas para Orlando',detail:'4 passagens de ida e volta a R$ 5.500',passengers:4,ticket:5500},
-  {tag:'Um mês bom',title:'12 passageiros no mês',detail:'Viagens variadas, média de R$ 4.500 por passageiro',passengers:12,ticket:4500},
-  {tag:'Comunidade engajada',title:'25 passageiros no mês',detail:'Média de R$ 4.500. Passou de 20, a faixa sobe',passengers:25,ticket:4500},
+  {tag:'Uma indicação',title:'Casal para Lisboa',detail:'2 passagens de ida e volta a R$ 4.800',passengers:2,ticket:4800},
+  {tag:'Férias em família',title:'4 pessoas para Orlando',detail:'4 passagens de ida e volta a R$ 5.500',passengers:4,ticket:5500},
+  {tag:'Um mês bom',title:'12 passageiros no mês',detail:'Viagens variadas, média de R$ 4.500 por passageiro',passengers:12,ticket:4500},
+  {tag:'Comunidade engajada',title:'25 passageiros no mês',detail:'Média de R$ 4.500. Passou de 20, a faixa sobe',passengers:25,ticket:4500},
 ];
 const formatBRL=(value)=>value.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
 function commissionBands(settings){
@@ -48,7 +48,7 @@ fetch('/api/partner-program/settings').then((response)=>{
   if(!target||!settings)return;
   target.innerHTML=settings.mode==='flat'
     ?`<p><strong>Percentual único vigente:</strong> ${formatPercent(settings.flatBps)} sobre o valor elegível de cada venda confirmada.</p>`
-    :`<ul><li>Passageiros 1–${settings.tier1MaxPassengers}: <strong>${formatPercent(settings.tier1Bps)}</strong></li><li>Passageiros ${settings.tier1MaxPassengers+1}–${settings.tier2MaxPassengers}: <strong>${formatPercent(settings.tier2Bps)}</strong></li><li>Passageiros ${settings.tier2MaxPassengers+1}–${settings.tier3MaxPassengers}: <strong>${formatPercent(settings.tier3Bps)}</strong></li><li>A partir do passageiro ${settings.tier3MaxPassengers+1}: <strong>${formatPercent(settings.tier4Bps)}</strong></li></ul>`;
+    :`<ul><li>Passageiros 1–${settings.tier1MaxPassengers} <strong>${formatPercent(settings.tier1Bps)}</strong></li><li>Passageiros ${settings.tier1MaxPassengers+1}–${settings.tier2MaxPassengers} <strong>${formatPercent(settings.tier2Bps)}</strong></li><li>Passageiros ${settings.tier2MaxPassengers+1}–${settings.tier3MaxPassengers} <strong>${formatPercent(settings.tier3Bps)}</strong></li><li>A partir do passageiro ${settings.tier3MaxPassengers+1} <strong>${formatPercent(settings.tier4Bps)}</strong></li></ul>`;
   renderCommissionExamples(settings);
 }).catch(()=>{
   const target=document.getElementById('partnerProgramRule');
