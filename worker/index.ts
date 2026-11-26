@@ -92,6 +92,11 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   if (p.startsWith('/api/admin/blog')) { const blog = await blogAdmin(req, env, url, blogDeps); if (blog) return blog; }
   if (p.startsWith('/api/admin/finance/')) { const wallet = await financeWallet(req, env, url, walletDeps); if (wallet) return wallet; }
   if (p.startsWith('/api/admin/finance/')) { const finance = await financeExtras(req, env, url, financeExtrasDeps); if (finance) return finance; }
+  // Conta só de parceiro (sem customer nem master) não usa o planner, nem chamando a API direto.
+  if (p === '/api/planner' || p.startsWith('/api/planner/')) {
+    const who = await getAuth(req, env);
+    if (who && who.roles.includes('partner') && !who.roles.includes('customer') && !who.roles.includes('master')) return reply({ error: 'planner_not_allowed' }, 403);
+  }
   if (p.startsWith('/api/planner/') || p.startsWith('/api/admin/leads/') || p === '/api/admin/subscriptions/grant') { const extra = await plannerExtras(req, env, url, extrasDeps); if (extra) return extra; }
   if (req.method === 'POST' && p === '/api/partner-applications') return partnerApplicationCreate(req, env);
   if (req.method === 'GET' && p === '/api/admin/partner-applications') return adminPartnerApplications(req, env);
