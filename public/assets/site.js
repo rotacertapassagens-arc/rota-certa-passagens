@@ -713,6 +713,10 @@ function startCheckout() {
 }
 function showClient() {
   if (!session) return;
+  const isPartner = Boolean(session.user.roles?.includes('partner'));
+  // Vindo da ativação do parceiro (/#/cliente?next=parceiro): depois do login, vai direto ao painel do parceiro.
+  if (isPartner && hashParams().get('next') === 'parceiro') { location.href = '/painel-parceiro'; return; }
+  document.getElementById('partnerPanelLink')?.classList.toggle('hidden', !isPartner);
   const firstName = String(session.user.name || '').trim().split(/\s+/)[0];
   document.getElementById('clientApp').dataset.state = 'logado';
   document.getElementById('clientTitle').textContent = firstName ? `Olá, ${firstName}` : 'O seu espaço Rota Certa';
