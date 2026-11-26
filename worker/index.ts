@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 import { timingSafeEqual } from 'node:crypto';
 import { parseCommissionPaidPayload, parseWeeklySummaryPayload } from '../shared/notificationPayloads.js';
 import { d1Timestamp } from '../shared/d1Timestamp.js';
+import { emailLayout } from '../shared/emailLayout.js';
 import { calculateProgramCommission, lisbonMonthStartUtc, nextProgressiveTier, PARTNER_PRIVACY_POLICY_VERSION, type PartnerCommissionPolicy } from '../shared/partnerCommission.js';
 import { isValidSubscriptionTransition, nextChargeDate, subscriptionChargeIdempotencyKey, type SubscriptionPeriodicity } from '../shared/subscriptionSchedule.js';
 import { calculateSaleProfit, isValidIssuanceTransition, sumIssuanceDirectCostCents } from '../shared/salesProfit.js';
@@ -417,6 +418,13 @@ async function canCreateActiveTrip(auth:Auth,env:Env,access?:Entitlement){const 
 }
 async function requirePlannerAccess(auth:Auth,env:Env){const access=await entitlement(auth,env);return access.accessActive?access:null;}
 
+// Layout de marca aplicado a TODOS os e-mails num ponto só (shared/emailLayout.ts): cada chamada de
+// sendEmail() continua passando só o conteúdo da mensagem. O título é o assunto sem o sufixo
+// " - Rota Certa Passagens" (o nome já está no cabeçalho) e a prévia vem da versão em texto.
+function brandedEmailHtml(env: Env, subject: string, htmlBody: string, textBody?: string) {
+  return emailLayout(htmlBody, { origin: env.APP_ORIGIN, title: subject.replace(/\s+-\s+Rota Certa Passagens$/, ''), preheader: textBody });
+}
+
 // Mirrors src/email.ts's EMAIL_MODE contract exactly: 'capture' (the default, used locally and
 // in every automated test — including the Worker/D1 smoke test) never makes network I/O and just
 // records the event in email_events with provider='local-capture'; 'resend' is the real
@@ -438,7 +446,7 @@ async function sendEmail(env: Env, userId: string | null, to: string, template: 
   // Idempotency-Key header so a genuine duplicate send (lost outbox lock / caller-level retry) is
   // deduplicated by the provider — "at least once, provider-deduplicated", never "exactly once".
   if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
-  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers, body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html: htmlBody, text: textBody }) });
+  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers, body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html: brandedEmailHtml(env, subject, htmlBody, textBody), text: textBody }) });
   let reference: string | null = null; try { reference = String(((await response.json()) as Row).id || '') || null; } catch {}
   await env.DB.prepare('INSERT INTO email_events(id,user_id,template,recipient_hash,provider,provider_reference,status,error_code) VALUES(?,?,?,?,?,?,?,?)').bind(id,userId,template,recipientHash,'resend',reference,response.ok?'sent':'failed',response.ok?null:`http_${response.status}`).run();
   if (!response.ok) throw new Error('email_delivery_failed');
@@ -463,7 +471,7 @@ async function signup(req: Request, env: Env) {
       env.DB.prepare("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND purpose='email_verification' AND used_at IS NULL").bind(user.id),
       env.DB.prepare("INSERT INTO account_tokens(id,user_id,purpose,token_hash,expires_at) VALUES(?,?,'email_verification',?,?)").bind(crypto.randomUUID(),user.id,tokenHash,isoAfter(600)),
     ]);
-    await sendEmail(env,String(user.id),email,'verify_email','Confirme seu e-mail - Rota Certa Passagens',`<p>Seu código de confirmação é <strong>${code}</strong>.</p><p>Ele expira em 10 minutos e só pode ser usado uma vez.</p>`);
+    await sendEmail(env,String(user.id),email,'verify_email','Confirme seu e-mail - Rota Certa Passagens',`<p>Seu código de confirmação é <strong data-code>${code}</strong>.</p><p>Ele expira em 10 minutos e só pode ser usado uma vez.</p>`);
   }
   return reply({ok:true},202);
 }
@@ -513,7 +521,7 @@ async function resetRequest(req: Request, env: Env) {
   const b=await body(req);const email=emailOf(b?.email);if(!email)return reply({ok:true},202);
   if(!(await rateLimit(req,env,'reset-request',email,4,1800))) return reply({ok:true},202);
   const user=await env.DB.prepare("SELECT id FROM users WHERE email=? AND status='active'").bind(email).first<Row>();
-  if(user){const raw=randomToken();await env.DB.batch([env.DB.prepare("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND purpose='password_reset' AND used_at IS NULL").bind(user.id),env.DB.prepare("INSERT INTO account_tokens(id,user_id,purpose,token_hash,expires_at) VALUES(?,?,'password_reset',?,?)").bind(crypto.randomUUID(),user.id,await digest(raw,env),isoAfter(2700))]);await sendEmail(env,String(user.id),email,'password_reset','Redefina sua senha - Rota Certa Passagens',`<p><a href="${env.APP_ORIGIN}/reset-password.html?token=${encodeURIComponent(raw)}">Redefinir senha</a></p><p>O link expira em 45 minutos.</p>`);}
+  if(user){const raw=randomToken();await env.DB.batch([env.DB.prepare("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND purpose='password_reset' AND used_at IS NULL").bind(user.id),env.DB.prepare("INSERT INTO account_tokens(id,user_id,purpose,token_hash,expires_at) VALUES(?,?,'password_reset',?,?)").bind(crypto.randomUUID(),user.id,await digest(raw,env),isoAfter(2700))]);await sendEmail(env,String(user.id),email,'password_reset','Redefina sua senha - Rota Certa Passagens',`<p><a data-cta href="${env.APP_ORIGIN}/reset-password.html?token=${encodeURIComponent(raw)}">Redefinir senha</a></p><p>O link expira em 45 minutos.</p>`);}
   return reply({ok:true},202);
 }
 async function resetConfirm(req: Request, env: Env) {
@@ -532,7 +540,7 @@ async function createMasterInvite(req: Request, env: Env, actor: string|null) {
   let user=await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first<Row>();
   if(!user){const id=crypto.randomUUID();await env.DB.batch([env.DB.prepare("INSERT INTO users(id,email,status) VALUES(?,?,'pending')").bind(id,email),env.DB.prepare('INSERT INTO profiles(user_id,display_name) VALUES(?,?)').bind(id,name)]);user={id};}
   const code=code6();await env.DB.batch([env.DB.prepare("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND purpose='master_invite' AND used_at IS NULL").bind(user.id),env.DB.prepare("INSERT INTO account_tokens(id,user_id,purpose,token_hash,expires_at) VALUES(?,?,'master_invite',?,?)").bind(crypto.randomUUID(),user.id,await digest(code,env),isoAfter(900))]);
-  await sendEmail(env,String(user.id),email,'master_invite','Código de ativação master - Rota Certa Passagens',`<p>Seu código de ativação master é:</p><p><strong>${code}</strong></p><p>Digite-o em <a href="${env.APP_ORIGIN}/master-invite.html">${env.APP_ORIGIN}/master-invite.html</a>. Ele expira em 15 minutos.</p>`);
+  await sendEmail(env,String(user.id),email,'master_invite','Código de ativação master - Rota Certa Passagens',`<p>Seu código de ativação master é:</p><p><strong data-code>${code}</strong></p><p>Digite-o em <a href="${env.APP_ORIGIN}/master-invite.html">${env.APP_ORIGIN}/master-invite.html</a>. Ele expira em 15 minutos.</p>`);
   await audit(env,actor,'admin.master_invite_created','user',String(user.id));return reply({ok:true},201);
 }
 async function bootstrapMaster(req: Request, env: Env) {
@@ -790,9 +798,9 @@ async function flightQuoteLead(req:Request,env:Env){
   const masters=await env.DB.prepare("SELECT u.id,u.email FROM users u JOIN user_roles r ON r.user_id=u.id WHERE r.role='master' AND u.status='active' AND u.email_verified_at IS NOT NULL").all<Row>();
   const route=`${origin} → ${destination}`,adminUrl=`${env.APP_ORIGIN.replace(/\/$/,'')}/admin.html`;
   const whatsappUrl=whatsappHandoffUrl(protocol);
-  const customerHtml=`<p>Olá, ${html(name)}.</p><p>Recebemos sua solicitação de proposta para <strong>${html(route)}</strong>.</p><p>Protocolo: <strong>${protocol}</strong></p><p>O atendimento continua pelo WhatsApp. Se ainda não enviou a mensagem com o seu protocolo, é só tocar aqui: <a href="${html(whatsappUrl)}">Continuar atendimento pelo WhatsApp</a>.</p><p>Rota Certa Passagens</p>`;
+  const customerHtml=`<p>Olá, ${html(name)}.</p><p>Recebemos sua solicitação de proposta para <strong>${html(route)}</strong>.</p><p>Protocolo: <strong>${protocol}</strong></p><p>O atendimento continua pelo WhatsApp. Se ainda não enviou a mensagem com o seu protocolo, é só tocar aqui: <a data-cta href="${html(whatsappUrl)}">Continuar atendimento pelo WhatsApp</a>.</p><p>Rota Certa Passagens</p>`;
   const customerText=`Olá, ${name}. Recebemos sua solicitação para ${route}. Protocolo: ${protocol}. O atendimento continua pelo WhatsApp: ${whatsappUrl}`;
-  const masterHtml=`<p>Nova proposta de voo recebida.</p><p><strong>${protocol}</strong> — ${html(route)}</p><p>Cliente: ${html(name)} (${html(email)})</p><p>Prazo: ${html(deadline)}</p><p><a href="${html(adminUrl)}">Abrir Central de Propostas</a></p>`;
+  const masterHtml=`<p>Nova proposta de voo recebida.</p><p><strong>${protocol}</strong> — ${html(route)}</p><p>Cliente: ${html(name)} (${html(email)})</p><p>Prazo: ${html(deadline)}</p><p><a data-cta href="${html(adminUrl)}">Abrir Central de Propostas</a></p>`;
   const masterText=`Nova proposta ${protocol}: ${route}. Cliente: ${name} (${email}). Prazo: ${deadline}. Painel: ${adminUrl}`;
   const customer=await Promise.allSettled([sendEmail(env,null,email,'flight_quote_customer',`Recebemos sua solicitação ${protocol}`,customerHtml,customerText)]);
   const masterResults=await Promise.allSettled(masters.results.map(m=>sendEmail(env,String(m.id),String(m.email),'flight_quote_master',`Nova proposta de voo ${protocol}`,masterHtml,masterText)));
@@ -1135,7 +1143,7 @@ async function adminPartnerInvite(req:Request,env:Env,id:string){
     env.DB.prepare("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND purpose='partner_invite' AND used_at IS NULL").bind(userId),
     env.DB.prepare("INSERT INTO account_tokens(id,user_id,purpose,token_hash,expires_at) VALUES(?,?,'partner_invite',?,?)").bind(crypto.randomUUID(),userId,await digest(code,env),isoAfter(900)),
   ]);
-  await sendEmail(env,userId,String(partner.email),'partner_invite','Convite para o painel de parceiros - Rota Certa Passagens',`<p>Você foi convidado(a) para acompanhar suas indicações no painel de parceiros da Rota Certa Passagens.</p><p>Seu código de ativação é: <strong>${code}</strong></p><p><a href="${env.APP_ORIGIN}/parceiro-convite.html">Finalizar cadastro do parceiro</a></p><p>Use o mesmo e-mail que recebeu este convite. O código expira em 15 minutos e só pode ser usado uma vez.</p>`,`Você foi convidado(a) para o painel de parceiros da Rota Certa Passagens. Código de ativação: ${code}. Finalize em ${env.APP_ORIGIN}/parceiro-convite.html. O código expira em 15 minutos e só pode ser usado uma vez.`);
+  await sendEmail(env,userId,String(partner.email),'partner_invite','Convite para o painel de parceiros - Rota Certa Passagens',`<p>Você foi convidado(a) para acompanhar suas indicações no painel de parceiros da Rota Certa Passagens.</p><p>Seu código de ativação é: <strong data-code>${code}</strong></p><p><a data-cta href="${env.APP_ORIGIN}/parceiro-convite.html">Finalizar cadastro do parceiro</a></p><p>Use o mesmo e-mail que recebeu este convite. O código expira em 15 minutos e só pode ser usado uma vez.</p>`,`Você foi convidado(a) para o painel de parceiros da Rota Certa Passagens. Código de ativação: ${code}. Finalize em ${env.APP_ORIGIN}/parceiro-convite.html. O código expira em 15 minutos e só pode ser usado uma vez.`);
   await audit(env,auth.userId,'admin.partner_invite_created','partner',id);
   return reply({ok:true},201);
 }
