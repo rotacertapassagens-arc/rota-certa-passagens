@@ -713,9 +713,12 @@ function startCheckout() {
 }
 function showClient() {
   if (!session) return;
-  const isPartner = Boolean(session.user.roles?.includes('partner'));
-  // Vindo da ativação do parceiro (/#/cliente?next=parceiro): depois do login, vai direto ao painel do parceiro.
-  if (isPartner && hashParams().get('next') === 'parceiro') { location.href = '/painel-parceiro'; return; }
+  const roles = session.user.roles || [];
+  const isPartner = roles.includes('partner');
+  // Divisão por papel: conta só de parceiro (sem 'customer' nem 'master') não vê o planner; vai direto ao painel do parceiro.
+  // Quem é cliente e parceiro ao mesmo tempo vê o planner e o cartão do painel do parceiro.
+  const partnerOnly = isPartner && !roles.includes('customer') && !roles.includes('master');
+  if (partnerOnly || (isPartner && hashParams().get('next') === 'parceiro')) { location.replace('/painel-parceiro'); return; }
   document.getElementById('partnerPanelLink')?.classList.toggle('hidden', !isPartner);
   const firstName = String(session.user.name || '').trim().split(/\s+/)[0];
   document.getElementById('clientApp').dataset.state = 'logado';
