@@ -55,6 +55,8 @@ try {
   const [overview,users,plans,payments]=await Promise.all([api('/api/admin/overview'),api('/api/admin/users'),api('/api/admin/plans'),api('/api/admin/payments')]);
   document.getElementById('accessMessage').classList.add('hidden');
   document.getElementById('adminContent').classList.remove('hidden');
+  // Atalhos do Painel de comando (ex.: /admin#parceiros) só funcionam depois que o conteúdo aparece.
+  if(location.hash.length>1)requestAnimationFrame(()=>document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({block:'start'}));
   document.getElementById('metrics').innerHTML=`<div class="metric"><small>Propostas novas</small><strong>${overview.new_leads}</strong></div><div class="metric ${overview.overdue_leads?'warning':''}"><small>Prazo vencido</small><strong>${overview.overdue_leads}</strong></div><div class="metric"><small>Usuários</small><strong>${overview.users}</strong></div><div class="metric"><small>Acessos ativos</small><strong>${overview.active_access}</strong></div>`;
   document.getElementById('users').innerHTML=users.users.map((u)=>`<tr><td>${escapeHtml(u.display_name)}</td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.status)}</td><td>${escapeHtml((u.roles||[]).join(', '))}</td><td>${fmtDate(u.created_at)}</td></tr>`).join('');
   // Só os planos ativos, na mesma ordem da página inicial: Free (10 dias), Premium e Personalizado.

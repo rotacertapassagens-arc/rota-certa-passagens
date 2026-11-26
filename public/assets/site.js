@@ -731,7 +731,7 @@ function showClient() {
 async function loadMasterStats() {
   const box = document.getElementById('masterStats');
   if (!box) return;
-  const [overview, alerts] = await Promise.allSettled([api('/api/admin/overview'), api('/api/admin/finance/dashboard/alerts')]);
+  const [overview, alerts, applications, partners] = await Promise.allSettled([api('/api/admin/overview'), api('/api/admin/finance/dashboard/alerts'), api('/api/admin/partner-applications'), api('/api/admin/partners')]);
   const tiles = [];
   if (overview.status === 'fulfilled') {
     const o = overview.value;
@@ -740,6 +740,14 @@ async function loadMasterStats() {
   if (alerts.status === 'fulfilled') {
     const a = alerts.value;
     tiles.push([(a.overdueObligations?.length || 0) + (a.overdueReceivables?.length || 0), 'Contas vencidas', '/financeiro#/pagar', true], [a.upcomingObligations7d?.length || 0, 'Contas a vencer em 7 dias', '/financeiro#/pagar', false], [a.mileageLotsExpiringSoon?.length || 0, 'Milhas vencendo em breve', '/financeiro#/milhas', true]);
+  }
+  if (applications.status === 'fulfilled') {
+    const pending = (applications.value.applications || []).filter((item) => item.status === 'pending').length;
+    tiles.push([pending, 'Candidaturas de parceiro', '/admin#solicitacoes-parceria', true]);
+  }
+  if (partners.status === 'fulfilled') {
+    const approved = (partners.value.partners || []).reduce((sum, p) => sum + Number(p.commissionApprovedCents || 0), 0);
+    tiles.push([Math.round(approved / 100), 'Comissões a pagar (R$)', '/admin#parceiros', false]);
   }
   const html = tiles.filter(([count]) => Number.isFinite(Number(count))).map(([count, label, href, urgent]) => { const n = Number(count); const tone = urgent ? (n > 0 ? ' is-alert' : ' is-ok') : ''; return `<a href="${href}" class="${tone.trim()}"><strong>${n}</strong><small>${label}</small></a>`; }).join('');
   box.innerHTML = html;
