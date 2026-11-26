@@ -6,6 +6,11 @@ const sections = tocLinks
 if (tocLinks.length && sections.length && 'IntersectionObserver' in window) {
   const setActive = (id) => {
     tocLinks.forEach((link) => link.classList.toggle('active', link.getAttribute('href') === `#${id}`));
+    const active = tocLinks.find((link) => link.getAttribute('href') === `#${id}`);
+    const bar = active && active.parentElement;
+    if (bar && bar.scrollWidth > bar.clientWidth) {
+      bar.scrollTo({ left: active.offsetLeft - bar.clientWidth / 2 + active.offsetWidth / 2, behavior: 'smooth' });
+    }
   };
   const observer = new IntersectionObserver(
     (entries) => {
