@@ -187,7 +187,7 @@ async function leadFlightToPlanner(req: Request, env: Env, leadId: string, deps:
     const tripId = await applyFlight(env, String(user.id), f);
     await deps.audit(env, a.userId, 'planner.flight_sent', 'trip', tripId);
     await deps.sendEmail(env, String(user.id), email, 'planner_flight_added', 'Seu voo já está no seu Planner',
-      `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu voo <strong>${rota}</strong> já está no roteiro do seu Planner, com as datas e o código da reserva.</p><p>Como cliente Rota Certa, o Planner fica liberado para você até a sua volta: é você quem organiza o roteiro, os lugares e os gastos. Se preferir que a nossa equipe monte tudo, conheça o plano Personalizado.</p><p>Anexe o cartão de embarque quando fizer o check-in: ele abre até sem internet.</p><p><a href="${env.APP_ORIGIN}/#/planner/itinerario">Abrir o meu roteiro</a></p><p>Rota Certa Passagens</p>`,
+      `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu voo <strong>${rota}</strong> já está no roteiro do seu Planner, com as datas e o código da reserva.</p><p>Como cliente Rota Certa, o Planner fica liberado para você até a sua volta: é você quem organiza o roteiro, os lugares e os gastos. Se preferir que a nossa equipe monte tudo, conheça o plano Personalizado.</p><p>Anexe o cartão de embarque quando fizer o check-in: ele abre até sem internet.</p><p><a data-cta href="${env.APP_ORIGIN}/#/planner/itinerario">Abrir o meu roteiro</a></p><p>Rota Certa Passagens</p>`,
       `O seu voo ${f.origin} para ${f.destination} já está no seu Planner: ${env.APP_ORIGIN}/#/planner/itinerario`, `planner-flight-${tripId}`);
     return deps.reply({ ok: true, applied: true, tripId });
   }
@@ -195,7 +195,7 @@ async function leadFlightToPlanner(req: Request, env: Env, leadId: string, deps:
   await env.DB.prepare('INSERT INTO planner_flight_imports(id,email,lead_id,payload,created_by) VALUES(?,?,?,?,?)').bind(id, email, leadId, JSON.stringify(f), a.userId).run();
   await deps.audit(env, a.userId, 'planner.flight_pending', 'lead', leadId);
   await deps.sendEmail(env, null, email, 'planner_flight_pending', 'Seu voo está pronto para o Planner da Rota Certa',
-    `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu voo <strong>${rota}</strong> está pronto para entrar no seu roteiro.</p><p>Crie a sua conta grátis com este e-mail e ele aparece sozinho no Planner, com as datas e o código da reserva.</p><p><a href="${env.APP_ORIGIN}/#/cliente?plan=gratis">Criar minha conta</a></p><p>Rota Certa Passagens</p>`,
+    `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu voo <strong>${rota}</strong> está pronto para entrar no seu roteiro.</p><p>Crie a sua conta grátis com este e-mail e ele aparece sozinho no Planner, com as datas e o código da reserva.</p><p><a data-cta href="${env.APP_ORIGIN}/#/cliente?plan=gratis">Criar minha conta</a></p><p>Rota Certa Passagens</p>`,
     `Crie a sua conta grátis com este e-mail e o voo ${f.origin} para ${f.destination} aparece no Planner: ${env.APP_ORIGIN}/#/cliente?plan=gratis`, `planner-flight-pending-${id}`);
   return deps.reply({ ok: true, applied: false });
 }
@@ -229,7 +229,7 @@ export async function checkinReminders(env: Env, deps: ExtrasDeps, now = Date.no
     if (!claim.meta.changes) continue;
     const first = esc(String(r.name || '').trim().split(/\s+/)[0] || '');
     await deps.sendEmail(env, String(r.user_id), String(r.email), 'checkin_reminder', 'Seu voo está chegando: faça o check-in online',
-      `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu voo <strong>${esc(r.title)}</strong> está marcado para <strong>${esc(fmtDate(day))} às ${esc(time)}</strong>.</p><p>O check-in online costuma abrir de 24 a 48 horas antes. Faça pelo site ou app da companhia aérea e anexe o cartão de embarque no seu Planner: ele abre até sem internet.</p>${r.booking_code ? `<p>Código da reserva: <strong>${esc(r.booking_code)}</strong></p>` : ''}<p><a href="${env.APP_ORIGIN}/#/planner/itinerario">Abrir o meu roteiro</a></p><p>Boa viagem!<br>Rota Certa Passagens</p>`,
+      `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu voo <strong>${esc(r.title)}</strong> está marcado para <strong>${esc(fmtDate(day))} às ${esc(time)}</strong>.</p><p>O check-in online costuma abrir de 24 a 48 horas antes. Faça pelo site ou app da companhia aérea e anexe o cartão de embarque no seu Planner: ele abre até sem internet.</p>${r.booking_code ? `<p>Código da reserva: <strong>${esc(r.booking_code)}</strong></p>` : ''}<p><a data-cta href="${env.APP_ORIGIN}/#/planner/itinerario">Abrir o meu roteiro</a></p><p>Boa viagem!<br>Rota Certa Passagens</p>`,
       `O seu voo ${String(r.title)} é ${fmtDate(day)} às ${time}. Faça o check-in online e anexe o cartão de embarque no Planner: ${env.APP_ORIGIN}/#/planner/itinerario`, `checkin-${String(r.id)}`)
       .catch(() => undefined);
     sent += 1;
@@ -257,7 +257,7 @@ async function grantPremium(req: Request, env: Env, deps: ExtrasDeps) {
   const first = esc(String(user.name || '').trim().split(/\s+/)[0] || '');
   const ate = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(new Date(ends.replace(' ', 'T') + 'Z'));
   await deps.sendEmail(env, String(user.id), email, 'premium_granted', 'Seu Premium do Planner está ativo',
-    `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu <strong>Premium do Planner</strong> está ativo até <strong>${ate}</strong>: viagens ilimitadas, bilhetes anexados, divisão de custos e tudo no celular, até sem internet.</p><p><a href="${env.APP_ORIGIN}/#/planner">Abrir o Planner</a></p><p>Boa viagem!<br>Rota Certa Passagens</p>`,
+    `<p>Olá${first ? `, ${first}` : ''}.</p><p>O seu <strong>Premium do Planner</strong> está ativo até <strong>${ate}</strong>: viagens ilimitadas, bilhetes anexados, divisão de custos e tudo no celular, até sem internet.</p><p><a data-cta href="${env.APP_ORIGIN}/#/planner">Abrir o Planner</a></p><p>Boa viagem!<br>Rota Certa Passagens</p>`,
     `O seu Premium do Planner está ativo até ${ate}: ${env.APP_ORIGIN}/#/planner`).catch(() => undefined);
   return deps.reply({ ok: true, endsAt: ends });
 }
@@ -277,7 +277,7 @@ export async function reactivationReminders(env: Env, deps: ExtrasDeps, now = Da
     const first = esc(String(r.name || '').trim().split(/\s+/)[0] || '');
     const texto = encodeURIComponent(`Olá! Quero assinar o Premium do Planner (9,99 € por 30 dias). Meu e-mail de cadastro é ${String(r.email)}.`);
     await deps.sendEmail(env, String(r.user_id), String(r.email), 'planner_reactivation', 'Sua viagem começa em 7 dias',
-      `<p>Olá${first ? `, ${first}` : ''}.</p><p>A sua viagem <strong>${esc(r.name)}</strong> começa em 7 dias, e tudo o que você organizou continua guardado no Planner.</p><p>Assine o Premium por <strong>9,99 € (30 dias)</strong> e leve roteiro, reservas e cartão de embarque no celular, até sem internet. O pagamento é por Pix ou cartão, pelo WhatsApp.</p><p><a href="https://wa.me/351925307391?text=${texto}">Assinar pelo WhatsApp</a></p><p>Rota Certa Passagens</p>`,
+      `<p>Olá${first ? `, ${first}` : ''}.</p><p>A sua viagem <strong>${esc(r.name)}</strong> começa em 7 dias, e tudo o que você organizou continua guardado no Planner.</p><p>Assine o Premium por <strong>9,99 € (30 dias)</strong> e leve roteiro, reservas e cartão de embarque no celular, até sem internet. O pagamento é por Pix ou cartão, pelo WhatsApp.</p><p><a data-cta href="https://wa.me/351925307391?text=${texto}">Assinar pelo WhatsApp</a></p><p>Rota Certa Passagens</p>`,
       `A sua viagem ${String(r.name)} começa em 7 dias. Assine o Premium por 9,99 € e leve tudo no celular: https://wa.me/351925307391?text=${texto}`, `reactivation-${String(r.id)}`)
       .catch(() => undefined);
     sent += 1;
