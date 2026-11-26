@@ -92,6 +92,7 @@ form?.addEventListener('submit',async(event)=>{
     }else{
       status.classList.add('alert-success');
       status.textContent='Solicitação recebida. Se a parceria for aprovada, você receberá o convite por e-mail.';
+      if(typeof window.fbq==='function')window.fbq('track','Lead',{content_name:'parceiros'});
       form.reset();
     }
   }catch(error){

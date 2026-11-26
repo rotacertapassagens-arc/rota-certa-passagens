@@ -53,7 +53,7 @@ export async function buildApp({ db, config, emailSender = new RuntimeEmailSende
     reply.header('referrer-policy', 'strict-origin-when-cross-origin');
     reply.header('permissions-policy', 'camera=(), microphone=(), geolocation=()');
     reply.header('x-frame-options', 'DENY');
-    reply.header('content-security-policy', "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' blob:; frame-src https://www.google.com; connect-src 'self'");
+    reply.header('content-security-policy', "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://connect.facebook.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://www.facebook.com; media-src 'self' blob:; frame-src https://www.google.com; connect-src 'self' https://www.facebook.com https://connect.facebook.net https://cloudflareinsights.com");
     if (config.NODE_ENV === 'production') reply.header('strict-transport-security', 'max-age=31536000; includeSubDomains');
     return payload;
   });
