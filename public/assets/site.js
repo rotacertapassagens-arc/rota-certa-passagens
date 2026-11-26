@@ -713,6 +713,13 @@ function startCheckout() {
 }
 function showClient() {
   if (!session) return;
+  const roles = session.user.roles || [];
+  const isPartner = roles.includes('partner');
+  // Divisão por papel: conta só de parceiro (sem 'customer' nem 'master') não vê o planner; vai direto ao painel do parceiro.
+  // Quem é cliente e parceiro ao mesmo tempo vê o planner e o cartão do painel do parceiro.
+  const partnerOnly = isPartner && !roles.includes('customer') && !roles.includes('master');
+  if (partnerOnly || (isPartner && hashParams().get('next') === 'parceiro')) { location.replace('/painel-parceiro'); return; }
+  document.getElementById('partnerPanelLink')?.classList.toggle('hidden', !isPartner);
   const firstName = String(session.user.name || '').trim().split(/\s+/)[0];
   document.getElementById('clientApp').dataset.state = 'logado';
   document.getElementById('clientTitle').textContent = firstName ? `Olá, ${firstName}` : 'O seu espaço Rota Certa';
