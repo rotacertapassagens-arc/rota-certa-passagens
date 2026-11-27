@@ -25,7 +25,7 @@ type Post = {
 };
 
 const WHATSAPP = `https://wa.me/${BLOG_PARCEIROS.contato.whatsapp}`;
-const CSP = "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self' blob:; frame-src https://www.google.com; connect-src 'self'; upgrade-insecure-requests";
+const CSP = "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self' https://connect.facebook.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://www.facebook.com; media-src 'self' blob:; frame-src https://www.google.com; connect-src 'self' https://www.facebook.com https://connect.facebook.net https://cloudflareinsights.com; upgrade-insecure-requests";
 const MEDIA_URL = /^\/media\/blog\/[0-9a-f-]{36}\/(g|m)$/;
 const ASSET_URL = /^\/assets\/blog\/[a-z0-9-]+\.(jpg|jpeg|png|webp)$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
